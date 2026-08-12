@@ -1,1 +1,15 @@
-# 预设差异与迁移\n\n用于 SillyTavern OpenAI 预设的三方可视化对比、编辑与迁移。\n\n将整个 preset-diff-migrator 文件夹放入 public/scripts/extensions/third-party/，刷新 SillyTavern，在扩展菜单打开。推荐顺序：基准版 V3.61.json、我的适配版 小冰块 V3.61 适配悠然.json、新版目标 小冰块V3.7.json。工具用 identifier 匹配条目；结果以新版目标为底稿，迁移后导出新 JSON。
+# 预设双版本对比与迁移
+
+用于 SillyTavern OpenAI 预设的旧版/新版可视化对比、编辑和条目迁移。全部数据仅在浏览器本地处理。
+
+## 安装
+
+仓库根目录需直接包含 manifest.json、index.js、style.css。在 SillyTavern 的扩展安装界面输入 Git 仓库地址。
+
+## 使用
+
+1. 导入旧版本与新版本。
+2. 查看内容已修改、旧版独有、新版新增、内容相同分类。
+3. 点击任一条目，并排查看两版所有字段和完整正文。
+4. 对旧版独有条目可批量选择并迁移；对任意现存条目可采用旧版或新版后编辑。
+5. 导出以新版为底稿的迁移结果。
