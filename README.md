@@ -1,0 +1,1 @@
+# 预设差异与迁移\n\n用于 SillyTavern OpenAI 预设的三方可视化对比、编辑与迁移。\n\n将整个 preset-diff-migrator 文件夹放入 public/scripts/extensions/third-party/，刷新 SillyTavern，在扩展菜单打开。推荐顺序：基准版 V3.61.json、我的适配版 小冰块 V3.61 适配悠然.json、新版目标 小冰块V3.7.json。工具用 identifier 匹配条目；结果以新版目标为底稿，迁移后导出新 JSON。
