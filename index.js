@@ -1,157 +1,39 @@
-const APP_ID = 'preset-diff-migrator';
-const state = { oldPreset: null, newPreset: null, result: null, oldName: '', newName: '', activeId: null, filter: 'all', query: '', selected: new Set() };
-const labels = { added: '新版新增', removed: '旧版独有', changed: '内容已修改', same: '内容相同' };
-const fields = ['name','role','enabled','injection_position','injection_depth','injection_order','system_prompt','marker','forbid_overrides','injection_trigger','content'];
-const clone = value => structuredClone(value);
-const byId = preset => new Map((preset && preset.prompts || []).map(prompt => [prompt.identifier, prompt]));
-const equal = (left, right) => JSON.stringify(left) === JSON.stringify(right);
-function validatePreset(data) {
-    if (!data || !Array.isArray(data.prompts)) throw new Error('不是有效的 SillyTavern OpenAI 预设：缺少 prompts 数组。');
-    const ids = new Set();
-    data.prompts.forEach(prompt => {
-        if (!prompt || typeof prompt.identifier !== 'string' || !prompt.identifier) throw new Error('存在没有 identifier 的条目。');
-        if (ids.has(prompt.identifier)) throw new Error('条目 ID 重复：' + prompt.identifier);
-        ids.add(prompt.identifier);
-    });
-    return data;
-}
-function compareRows() {
-    const oldMap = byId(state.oldPreset), newMap = byId(state.newPreset);
-    const ids = new Set([...oldMap.keys(), ...newMap.keys()]);
-    return [...ids].map(id => {
-        const oldPrompt = oldMap.get(id), newPrompt = newMap.get(id);
-        let status = 'same';
-        if (oldPrompt && !newPrompt) status = 'removed';
-        else if (!oldPrompt && newPrompt) status = 'added';
-        else if (!equal(oldPrompt, newPrompt)) status = 'changed';
-        return { id, oldPrompt, newPrompt, status, prompt: newPrompt || oldPrompt };
-    });
-}
-function filteredRows() {
-    const query = state.query.trim().toLocaleLowerCase();
-    const rank = { changed: 0, removed: 1, added: 2, same: 3 };
-    return compareRows().filter(row => {
-        if (state.filter !== 'all' && row.status !== state.filter) return false;
-        if (!query) return true;
-        const text = [row.id, row.prompt && row.prompt.name, row.oldPrompt && row.oldPrompt.content, row.newPrompt && row.newPrompt.content].join('\n').toLocaleLowerCase();
-        return text.includes(query);
-    }).sort((a,b) => rank[a.status] - rank[b.status] || String(a.prompt.name || a.id).localeCompare(String(b.prompt.name || b.id), 'zh-CN'));
-}
-function el(tag, className, text) {
-    const node = document.createElement(tag);
-    if (className) node.className = className;
-    if (text !== undefined) node.textContent = String(text);
-    return node;
-}
-function button(text, action, className) {
-    const node = el('button', 'menu_button ' + (className || ''), text);
-    node.type = 'button'; node.dataset.action = action; return node;
-}
-function shell() {
-    let dialog = document.getElementById(APP_ID + '-dialog');
-    if (dialog) return dialog;
-    dialog = el('dialog', 'pdm-dialog'); dialog.id = APP_ID + '-dialog';
-    const app = el('div','pdm-app'); dialog.append(app);
-    const header = el('header','pdm-header');
-    const title = el('div'); title.append(el('h2','', '预设差异与迁移'), el('p','', '旧版与新版逐条对比，编辑后导出')); header.append(title, button('导出结果','export','pdm-primary'), button('×','close','pdm-close')); app.append(header);
-    const imports = el('section','pdm-imports'); imports.append(fileBox('old','旧版本'), fileBox('new','新版本')); app.append(imports);
-    const toolbar = el('section','pdm-toolbar');
-    const search = el('input'); search.type='search'; search.placeholder='搜索名称、ID 或正文'; search.dataset.action='search';
-    const filter = el('select'); filter.dataset.action='filter'; [['all','全部'],['changed','内容已修改'],['removed','旧版独有'],['added','新版新增'],['same','内容相同']].forEach(item => { const o=el('option','',item[1]);o.value=item[0];filter.append(o); });
-    toolbar.append(search,filter,button('选择旧版独有','select-removed'),button('迁移所选旧条目','migrate','pdm-primary')); app.append(toolbar);
-    app.append(el('section','pdm-summary','请导入旧版本和新版本。'));
-    const main=el('main','pdm-main'); main.append(el('section','pdm-list'),el('section','pdm-detail','选择一个条目查看内容')); app.append(main);
-    dialog.addEventListener('click', onClick); dialog.addEventListener('change', onChange); dialog.addEventListener('input', onInput); document.body.append(dialog); return dialog;
-}
-function fileBox(key,title) {
-    const label=el('label','pdm-file'); label.append(el('span','',title)); const name=el('strong','pdm-file-name','选择 JSON');name.dataset.name=key;label.append(name);
-    const input=el('input');input.type='file';input.accept='.json,application/json';input.dataset.file=key;label.append(input);return label;
-}
-async function loadPreset(key,file) {
-    try {
-        const data=validatePreset(JSON.parse(await file.text()));
-        if(key==='old'){state.oldPreset=data;state.oldName=file.name;}else{state.newPreset=data;state.newName=file.name;state.result=clone(data);}
-        document.querySelector('[data-name="'+key+'"]').textContent=file.name+' · '+data.prompts.length+' 条'; render();
-    } catch(error) { if(window.toastr) toastr.error(error.message,'导入失败'); else alert(error.message); }
-}
-function render() {
-    if(!state.oldPreset||!state.newPreset)return;
-    const all=compareRows(), count=status=>all.filter(row=>row.status===status).length;
-    document.querySelector('.pdm-summary').textContent='共 '+all.length+' 个唯一条目 · 修改 '+count('changed')+' · 旧版独有 '+count('removed')+' · 新版新增 '+count('added')+' · 相同 '+count('same')+' · 已选 '+state.selected.size;
-    const list=document.querySelector('.pdm-list'); list.replaceChildren();
-    filteredRows().forEach(row=>{
-        const item=el('article','pdm-row'+(row.id===state.activeId?' active':''));
-        const check=el('input');check.type='checkbox';check.checked=state.selected.has(row.id);check.dataset.select=row.id;check.setAttribute('aria-label','选择 '+(row.prompt.name||row.id));
-        const open=el('button','pdm-open');open.type='button';open.dataset.open=row.id;open.append(el('span','pdm-name',row.prompt.name||'(未命名)'),el('code','',row.id));
-        item.append(check,open,el('span','pdm-badge pdm-'+row.status,labels[row.status]));list.append(item);
-    });
-    if(state.activeId) renderDetail(state.activeId);
-}
-function displayValue(value) {
-    if(value===undefined)return '此版本没有该条目';
-    if(typeof value==='string')return value;
-    return JSON.stringify(value,null,2);
-}
-function renderDetail(id) {
-    const row=compareRows().find(item=>item.id===id), detail=document.querySelector('.pdm-detail'); detail.replaceChildren();
-    if(!row)return;
-    const head=el('div','pdm-detail-head'); const info=el('div');info.append(el('span','pdm-badge pdm-'+row.status,labels[row.status]),el('h3','',row.prompt.name||'(未命名)'),el('code','',row.id));
-    const actions=el('div','pdm-detail-actions');
-    if(row.oldPrompt)actions.append(button('采用旧版并编辑','use-old'));
-    if(row.newPrompt)actions.append(button('采用新版并编辑','use-new'));
-    head.append(info,actions);detail.append(head);
-    const changed=fields.filter(field=>!equal(row.oldPrompt&&row.oldPrompt[field],row.newPrompt&&row.newPrompt[field]));
-    fields.forEach(field=>{
-        const section=el('section','pdm-field'+(changed.includes(field)?' is-different':''));section.append(el('h4','',field+(changed.includes(field)?' · 有差异':'')));
-        const grid=el('div','pdm-field-grid');grid.append(valuePanel('旧版本',row.oldPrompt&&row.oldPrompt[field],field==='content'),valuePanel('新版本',row.newPrompt&&row.newPrompt[field],field==='content'));section.append(grid);detail.append(section);
-    });
-}
-function valuePanel(title,value,large) {
-    const panel=el('div','pdm-value');panel.append(el('small','',title));
-    if(large){const area=el('textarea');area.readOnly=true;area.value=displayValue(value);panel.append(area);}else panel.append(el('pre','',displayValue(value)));return panel;
-}
-function editPrompt(prompt) {
-    document.querySelector('.pdm-editor')?.remove(); const detail=document.querySelector('.pdm-detail'), form=el('form','pdm-editor');
-    form.append(el('h3','', '编辑迁移结果'));
-    [['name','名称','text'],['role','角色','text'],['injection_position','注入位置','number'],['injection_depth','注入深度','number']].forEach(spec=>{const label=el('label','',spec[1]);const input=el('input');input.name=spec[0];input.type=spec[2];input.value=prompt[spec[0]]??'';label.append(input);form.append(label);});
-    const enabled=el('label','pdm-enabled','启用');const check=el('input');check.type='checkbox';check.name='enabled';check.checked=prompt.enabled!==false;enabled.prepend(check);form.append(enabled);
-    const contentLabel=el('label','pdm-content-label','正文');const content=el('textarea');content.name='content';content.value=prompt.content||'';contentLabel.append(content);form.append(contentLabel);
-    const save=button('保存到结果','save-edit','pdm-primary');save.type='submit';form.append(save);form.dataset.id=prompt.identifier;form.addEventListener('submit',saveEdit);detail.append(form);form.scrollIntoView({behavior:'smooth',block:'end'});
-}
-function syncOrder(id,enabled) {
-    if(!Array.isArray(state.result.prompt_order))state.result.prompt_order=[{character_id:100001,order:[]}];
-    if(!state.result.prompt_order[0])state.result.prompt_order[0]={character_id:100001,order:[]};
-    const order=state.result.prompt_order[0].order||(state.result.prompt_order[0].order=[]), item=order.find(entry=>entry.identifier===id);
-    if(item)item.enabled=enabled;else order.push({identifier:id,enabled});
-}
-function putResult(prompt) {
-    const copy=clone(prompt), index=state.result.prompts.findIndex(item=>item.identifier===copy.identifier);
-    if(index<0)state.result.prompts.push(copy);else state.result.prompts[index]=copy;syncOrder(copy.identifier,copy.enabled!==false);
-}
-function saveEdit(event) {
-    event.preventDefault(); const form=event.currentTarget,data=new FormData(form),current=byId(state.result).get(form.dataset.id)||byId(state.oldPreset).get(form.dataset.id)||byId(state.newPreset).get(form.dataset.id),prompt=clone(current);
-    prompt.name=String(data.get('name'));prompt.role=String(data.get('role'));prompt.content=String(data.get('content'));prompt.enabled=data.get('enabled')==='on';prompt.injection_position=Number(data.get('injection_position'));prompt.injection_depth=Number(data.get('injection_depth'));putResult(prompt);form.remove();if(window.toastr)toastr.success('已保存到导出结果');
-}
-function exportResult() {
-    if(!state.result)return;const blob=new Blob([JSON.stringify(state.result,null,2)],{type:'application/json;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(state.newName||'new-preset').replace(/\.json$/i,'')+'-已迁移.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-}
-function onChange(event) {
-    if(event.target.dataset.file&&event.target.files[0])loadPreset(event.target.dataset.file,event.target.files[0]);
-    if(event.target.dataset.action==='filter'){state.filter=event.target.value;render();}
-    if(event.target.dataset.select){event.target.checked?state.selected.add(event.target.dataset.select):state.selected.delete(event.target.dataset.select);render();}
-}
+const APP_ID='preset-visual-editor';
+const state={old:null,new:null,oldName:'',newName:'',tab:'old',active:{old:null,new:null},query:'',enabled:'all',dirty:{old:false,new:false}};
+const clone=value=>structuredClone(value);
+const byId=preset=>new Map((preset?.prompts||[]).map(prompt=>[prompt.identifier,prompt]));
+function el(tag,className,text){const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=String(text);return node;}
+function button(text,action,className){const node=el('button','menu_button '+(className||''),text);node.type='button';node.dataset.action=action;return node;}
+function validate(data){if(!data||!Array.isArray(data.prompts))throw new Error('不是有效的 SillyTavern OpenAI 预设：缺少 prompts 数组。');const ids=new Set();for(const p of data.prompts){if(!p||typeof p.identifier!=='string'||!p.identifier)throw new Error('存在没有 identifier 的条目。');if(ids.has(p.identifier))throw new Error('条目 ID 重复：'+p.identifier);ids.add(p.identifier);}return data;}
+function currentPreset(){return state[state.tab];}
+function currentName(){return state[state.tab+'Name'];}
+function orderedPrompts(preset){if(!preset)return[];const prompts=byId(preset),seen=new Set(),result=[];for(const group of preset.prompt_order||[]){for(const item of group.order||[]){const prompt=prompts.get(item.identifier);if(prompt&&!seen.has(item.identifier)){result.push(prompt);seen.add(item.identifier);}}}for(const prompt of preset.prompts){if(!seen.has(prompt.identifier))result.push(prompt);}return result;}
+function filteredPrompts(){const query=state.query.trim().toLocaleLowerCase();return orderedPrompts(currentPreset()).filter(prompt=>{if(state.enabled==='enabled'&&prompt.enabled===false)return false;if(state.enabled==='disabled'&&prompt.enabled!==false)return false;if(!query)return true;return [prompt.name,prompt.identifier,prompt.role,prompt.content].join('\n').toLocaleLowerCase().includes(query);});}
+function createShell(){let dialog=document.getElementById(APP_ID+'-dialog');if(dialog)return dialog;dialog=el('dialog','pve-dialog');dialog.id=APP_ID+'-dialog';const app=el('div','pve-app');dialog.append(app);
+const header=el('header','pve-header');const title=el('div');title.append(el('h2','', '预设条目编辑器'),el('p','', '旧版与新版分别浏览、编辑和导出'));header.append(title,button('导出当前预设','export','pve-primary'),button('×','close','pve-close'));app.append(header);
+const imports=el('section','pve-imports');imports.append(fileBox('old','旧版预设'),fileBox('new','新版预设'));app.append(imports);
+const tabs=el('nav','pve-tabs');tabs.append(tabButton('old','旧版条目'),tabButton('new','新版条目'));app.append(tabs);
+const toolbar=el('section','pve-toolbar');const search=el('input');search.type='search';search.placeholder='搜索名称、ID、角色或正文';search.dataset.action='search';const enabled=el('select');enabled.dataset.action='enabled';[['all','全部状态'],['enabled','仅启用'],['disabled','仅禁用']].forEach(pair=>{const option=el('option','',pair[1]);option.value=pair[0];enabled.append(option);});toolbar.append(search,enabled,button('新建条目','new-entry'));app.append(toolbar);
+app.append(el('section','pve-summary','请分别导入需要查看的预设。'));const main=el('main','pve-main');main.append(el('section','pve-list'),el('section','pve-detail'));app.append(main);dialog.addEventListener('click',onClick);dialog.addEventListener('change',onChange);dialog.addEventListener('input',onInput);document.body.append(dialog);return dialog;}
+function fileBox(key,title){const label=el('label','pve-file');label.append(el('span','',title));const name=el('strong','', '选择 JSON');name.dataset.fileName=key;label.append(name);const input=el('input');input.type='file';input.accept='.json,application/json';input.dataset.file=key;label.append(input);return label;}
+function tabButton(key,title){const node=button(title,'tab','pve-tab');node.dataset.tab=key;return node;}
+async function loadFile(key,file){try{state[key]=validate(JSON.parse(await file.text()));state[key+'Name']=file.name;state.dirty[key]=false;state.active[key]=state[key].prompts[0]?.identifier||null;document.querySelector('[data-file-name="'+key+'"]').textContent=file.name+' · '+state[key].prompts.length+' 条';state.tab=key;render();}catch(error){window.toastr?toastr.error(error.message,'导入失败'):alert(error.message);}}
+function render(){document.querySelectorAll('.pve-tab').forEach(tab=>tab.classList.toggle('active',tab.dataset.tab===state.tab));const preset=currentPreset(),list=document.querySelector('.pve-list'),detail=document.querySelector('.pve-detail');list.replaceChildren();detail.replaceChildren();if(!preset){document.querySelector('.pve-summary').textContent=(state.tab==='old'?'旧版':'新版')+'预设尚未导入。';detail.append(el('div','pve-empty','导入当前标签对应的预设后即可查看和编辑条目。'));return;}const prompts=filteredPrompts();document.querySelector('.pve-summary').textContent=(state.tab==='old'?'旧版':'新版')+' · '+preset.prompts.length+' 条 · 当前显示 '+prompts.length+' 条'+(state.dirty[state.tab]?' · 有未导出的修改':'');for(const prompt of prompts)list.append(promptRow(prompt));const id=state.active[state.tab];if(id&&byId(preset).has(id))renderEditor(id);else detail.append(el('div','pve-empty','从左侧选择一个条目查看和编辑。'));}
+function promptRow(prompt){const row=el('article','pve-row'+(state.active[state.tab]===prompt.identifier?' active':''));const open=el('button','pve-open');open.type='button';open.dataset.open=prompt.identifier;open.append(el('span','pve-name',prompt.name||'(未命名)'),el('code','',prompt.identifier));row.append(open,el('span','pve-role',prompt.role||'system'),el('span','pve-status '+(prompt.enabled===false?'off':'on'),prompt.enabled===false?'禁用':'启用'));return row;}
+function makeInput(labelText,name,value,type='text'){const label=el('label','pve-control');label.append(el('span','',labelText));const input=el('input');input.name=name;input.type=type;if(type==='checkbox')input.checked=value!==false;else input.value=value??'';label.append(input);return label;}
+function makeJsonField(labelText,name,value){const label=el('label','pve-control pve-wide');label.append(el('span','',labelText));const area=el('textarea','pve-json');area.name=name;area.value=value===undefined?'':JSON.stringify(value,null,2);label.append(area);return label;}
+function renderEditor(id){const prompt=byId(currentPreset()).get(id),detail=document.querySelector('.pve-detail'),form=el('form','pve-editor');form.dataset.id=id;const head=el('div','pve-editor-head');const info=el('div');info.append(el('h3','',prompt.name||'(未命名)'),el('code','',prompt.identifier));head.append(info,button('删除条目','delete','pve-danger'));form.append(head);
+const grid=el('div','pve-grid');grid.append(makeInput('名称','name',prompt.name),makeInput('角色','role',prompt.role),makeInput('启用','enabled',prompt.enabled,'checkbox'),makeInput('注入位置','injection_position',prompt.injection_position,'number'),makeInput('注入深度','injection_depth',prompt.injection_depth,'number'),makeInput('注入顺序','injection_order',prompt.injection_order,'number'),makeInput('系统提示','system_prompt',prompt.system_prompt,'checkbox'),makeInput('标记条目','marker',prompt.marker,'checkbox'),makeInput('禁止覆盖','forbid_overrides',prompt.forbid_overrides,'checkbox'));
+const trigger=prompt.injection_trigger;grid.append(makeJsonField('注入触发条件（JSON）','injection_trigger',trigger));form.append(grid);const contentLabel=el('label','pve-control pve-content');contentLabel.append(el('span','', '条目正文'));const content=el('textarea','pve-content-area');content.name='content';content.value=prompt.content||'';contentLabel.append(content);form.append(contentLabel);
+const extra=el('details','pve-extra');extra.append(el('summary','', '查看完整条目 JSON'));const json=el('textarea','pve-full-json');json.name='full_json';json.value=JSON.stringify(prompt,null,2);extra.append(json);form.append(extra);const actions=el('div','pve-editor-actions');const save=button('保存条目','save','pve-primary');save.type='submit';actions.append(save);form.append(actions);form.addEventListener('submit',savePrompt);detail.append(form);}
+function parseOptionalJson(text,field){if(!text.trim())return undefined;try{return JSON.parse(text);}catch{throw new Error(field+' 不是有效 JSON。');}}
+function savePrompt(event){event.preventDefault();const form=event.currentTarget,data=new FormData(form),preset=currentPreset(),index=preset.prompts.findIndex(item=>item.identifier===form.dataset.id);try{let prompt=parseOptionalJson(String(data.get('full_json')),'完整条目 JSON');if(!prompt||typeof prompt!=='object')throw new Error('完整条目 JSON 必须是对象。');prompt.identifier=form.dataset.id;prompt.name=String(data.get('name')||'');prompt.role=String(data.get('role')||'system');prompt.enabled=data.get('enabled')==='on';prompt.system_prompt=data.get('system_prompt')==='on';prompt.marker=data.get('marker')==='on';prompt.forbid_overrides=data.get('forbid_overrides')==='on';prompt.content=String(data.get('content')||'');['injection_position','injection_depth','injection_order'].forEach(field=>{const value=String(data.get(field)||'');if(value==='')delete prompt[field];else prompt[field]=Number(value);});const trigger=parseOptionalJson(String(data.get('injection_trigger')||''),'注入触发条件');if(trigger===undefined)delete prompt.injection_trigger;else prompt.injection_trigger=trigger;preset.prompts[index]=prompt;syncOrder(prompt.identifier,prompt.enabled);state.dirty[state.tab]=true;render();window.toastr&&toastr.success('条目已保存');}catch(error){window.toastr?toastr.error(error.message,'保存失败'):alert(error.message);}}
+function syncOrder(id,enabled){const preset=currentPreset();if(!Array.isArray(preset.prompt_order))preset.prompt_order=[{character_id:100001,order:[]}];if(!preset.prompt_order[0])preset.prompt_order[0]={character_id:100001,order:[]};const order=preset.prompt_order[0].order||(preset.prompt_order[0].order=[]),item=order.find(entry=>entry.identifier===id);if(item)item.enabled=enabled;else order.push({identifier:id,enabled});}
+function newEntry(){const preset=currentPreset();if(!preset)return;let id='custom-'+Date.now();while(byId(preset).has(id))id+='-1';const prompt={identifier:id,name:'新条目',enabled:true,injection_position:0,injection_depth:4,injection_order:100,role:'system',content:'',system_prompt:false,marker:false,forbid_overrides:false,injection_trigger:[]};preset.prompts.push(prompt);syncOrder(id,true);state.active[state.tab]=id;state.dirty[state.tab]=true;render();}
+function deleteEntry(){const preset=currentPreset(),id=state.active[state.tab];if(!preset||!id||!confirm('确定删除当前条目吗？'))return;preset.prompts=preset.prompts.filter(prompt=>prompt.identifier!==id);for(const group of preset.prompt_order||[])group.order=(group.order||[]).filter(item=>item.identifier!==id);state.active[state.tab]=preset.prompts[0]?.identifier||null;state.dirty[state.tab]=true;render();}
+function exportPreset(){const preset=currentPreset();if(!preset)return;const blob=new Blob([JSON.stringify(preset,null,2)],{type:'application/json;charset=utf-8'}),link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=(currentName()||state.tab+'-preset').replace(/\.json$/i,'')+'-已编辑.json';link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);state.dirty[state.tab]=false;render();}
+function onClick(event){const target=event.target.closest('button');if(!target)return;const action=target.dataset.action;if(action==='close')event.currentTarget.close();if(action==='export')exportPreset();if(action==='new-entry')newEntry();if(action==='delete')deleteEntry();if(action==='tab'){state.tab=target.dataset.tab;state.query='';const search=document.querySelector('[data-action=search]');if(search)search.value='';render();}if(target.dataset.open){state.active[state.tab]=target.dataset.open;render();}}
+function onChange(event){if(event.target.dataset.file&&event.target.files[0])loadFile(event.target.dataset.file,event.target.files[0]);if(event.target.dataset.action==='enabled'){state.enabled=event.target.value;render();}}
 function onInput(event){if(event.target.dataset.action==='search'){state.query=event.target.value;render();}}
-function onClick(event) {
-    const target=event.target.closest('button');if(!target)return;const action=target.dataset.action;
-    if(action==='close')event.currentTarget.close();
-    if(action==='export')exportResult();
-    if(action==='select-removed'){compareRows().filter(row=>row.status==='removed').forEach(row=>state.selected.add(row.id));render();}
-    if(action==='migrate'){state.selected.forEach(id=>{const prompt=byId(state.oldPreset).get(id);if(prompt)putResult(prompt);});if(window.toastr)toastr.success('所选旧版条目已合入新版结果');render();}
-    if(target.dataset.open){state.activeId=target.dataset.open;render();}
-    if(action==='use-old'||action==='use-new'){const row=compareRows().find(item=>item.id===state.activeId),prompt=action==='use-old'?row.oldPrompt:row.newPrompt;if(prompt){putResult(prompt);editPrompt(prompt);}}
-}
-function addMenuButton() {
-    const menu=document.getElementById('extensionsMenu');if(!menu||document.getElementById(APP_ID+'-button'))return false;
-    const entry=el('div','list-group-item flex-container flexGap5 interactable');entry.id=APP_ID+'-button';entry.tabIndex=0;entry.append(el('span','fa-solid fa-code-compare'),el('span','', '预设差异与迁移'));entry.addEventListener('click',()=>shell().showModal());menu.append(entry);return true;
-}
-jQuery(()=>{if(!addMenuButton()){const observer=new MutationObserver(()=>{if(addMenuButton())observer.disconnect();});observer.observe(document.body,{childList:true,subtree:true});}});
+function addMenu(){const menu=document.getElementById('extensionsMenu');if(!menu||document.getElementById(APP_ID+'-button'))return false;const entry=el('div','list-group-item flex-container flexGap5 interactable');entry.id=APP_ID+'-button';entry.tabIndex=0;entry.append(el('span','fa-solid fa-pen-to-square'),el('span','', '预设条目编辑器'));entry.addEventListener('click',()=>createShell().showModal());menu.append(entry);return true;}
+jQuery(()=>{if(!addMenu()){const observer=new MutationObserver(()=>{if(addMenu())observer.disconnect();});observer.observe(document.body,{childList:true,subtree:true});}});

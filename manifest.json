@@ -1,11 +1,11 @@
 {
-  "display_name": "预设双版本对比与迁移",
+  "display_name": "预设条目编辑器",
   "loading_order": 110,
   "requires": [],
   "optional": [],
   "js": "index.js",
   "css": "style.css",
   "author": "Codex",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "auto_update": false
 }
