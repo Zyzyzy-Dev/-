@@ -36,3 +36,9 @@
   .pcm-compare{max-height:none!important;overflow:visible!important}
 }
 @media(max-width:520px){.pcm-pane{height:44dvh!important;min-height:280px!important}.pcm-pane-head{padding-top:8px!important}.pcm-actions{max-width:62vw!important}.pcm-actions .menu_button,.pcm-import{font-size:10px!important;padding-inline:6px!important}}
+
+@media(max-width:900px){
+  .pcm-pane{overscroll-behavior:contain!important}
+  .pcm-pane::after{content:"";display:block;min-height:1px}
+  .pcm-list{overscroll-behavior-y:auto!important}
+}
