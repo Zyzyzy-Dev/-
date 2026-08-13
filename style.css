@@ -43,3 +43,4 @@
   .pcm-list{overscroll-behavior-y:auto!important}
 }
 .pcm-op-enabled{color:#55c98e;cursor:pointer}.pcm-op-disabled{color:#999;opacity:.8;cursor:pointer}
+.pcm-uninjected{border-color:#d8a44a}.pcm-uninjected>.pcm-group-head{color:#e6b85f}.pcm-free-select{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border:1px solid var(--SmartThemeBorderColor);font-size:11px;white-space:nowrap}.pcm-free-select input{margin:0}
