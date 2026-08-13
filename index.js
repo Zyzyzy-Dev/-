@@ -1,4 +1,4 @@
-const APP_ID='preset-compare-migrator';
+const APP_ID='preset-compare-migrator';const APP_TITLE='预设更新编辑器';
 let tavernPresetPickerSide='old';
 let tavernPresetPickerData=new Map();
 document.addEventListener('click',event=>{const target=event.target.closest?.('button');if(!target)return;if(target.dataset.action==='pull-tavern'){tavernPresetPickerSide=target.dataset.side||'old';return;}if(target.dataset.action==='choose-tavern'&&tavernPresetPickerSide==='new'){const preset=tavernPresetPickerData.get(target.dataset.presetName);if(!preset)return;state.new=validate(clone(preset));state.newName=target.dataset.presetName+'.json';state.dirty.new=false;state.activeId=null;state.activeSide=null;document.querySelector('[data-tavern-picker]')?.classList.remove('open');hideCompare();rebuildCache();renderAll();event.stopImmediatePropagation();}},true);
