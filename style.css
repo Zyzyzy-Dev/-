@@ -19,3 +19,20 @@
 
 @media(max-width:900px){.pcm-pane-head{position:relative!important;padding-top:11px!important}.pcm-pane-head::before{content:"";position:absolute;top:4px;left:50%;width:34px;height:3px;transform:translateX(-50%);border-radius:2px;background:color-mix(in srgb,var(--SmartThemeBodyColor) 24%,transparent);pointer-events:none}.pcm-dialog{scroll-behavior:auto!important}.pcm-app{padding-bottom:0!important}}
 @media(max-width:900px){.pcm-dialog{padding-bottom:0!important}.pcm-app{padding-bottom:0!important}}
+
+/* Mobile preset browsing: keep both version headers in the viewport and let
+   each list own its scroll position. The dialog itself remains the page
+   scroll surface for the comparison editor below the lists. */
+@media(max-width:900px){
+  .pcm-dialog{inset:0;width:100vw;height:100dvh;max-height:100dvh;margin:0;overflow-y:auto;overflow-x:hidden;padding:0;-webkit-overflow-scrolling:touch}
+  .pcm-app{display:flex!important;flex-direction:column!important;min-height:100%;height:auto!important;overflow:visible!important}
+  .pcm-header{position:sticky!important;top:0;z-index:30;flex:0 0 auto;background:var(--SmartThemeBlurTintColor)}
+  .pcm-lists{display:flex!important;flex-direction:column!important;width:100%!important;min-width:0!important;overflow:visible!important}
+  .pcm-pane{display:grid!important;grid-template-rows:auto auto auto minmax(0,1fr)!important;width:100%!important;min-width:0!important;height:min(46dvh,520px)!important;min-height:300px!important;overflow:hidden!important;border-right:0!important;border-bottom:2px solid var(--SmartThemeBorderColor)!important}
+  .pcm-pane-head,.pcm-tools,.pcm-summary{flex-shrink:0!important}
+  .pcm-pane-head{position:sticky!important;top:0;z-index:10;background:var(--SmartThemeBlurTintColor)}
+  .pcm-list{min-height:0!important;height:auto!important;max-height:none!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior-y:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch}
+  .pcm-group-body{overflow:visible!important}
+  .pcm-compare{max-height:none!important;overflow:visible!important}
+}
+@media(max-width:520px){.pcm-pane{height:44dvh!important;min-height:280px!important}.pcm-pane-head{padding-top:8px!important}.pcm-actions{max-width:62vw!important}.pcm-actions .menu_button,.pcm-import{font-size:10px!important;padding-inline:6px!important}}
