@@ -96,3 +96,9 @@
 .pcm-switch.pcm-op-disabled .pcm-switch-track{background:color-mix(in srgb,var(--SmartThemeBodyColor) 20%,transparent)}
 /* Live diff: the backdrop only paints highlights; theme text tricks must not leak through. */
 .pcm-diff-backdrop,.pcm-diff-backdrop *{color:transparent!important;-webkit-text-fill-color:transparent!important;text-shadow:none!important}
+
+/* Live diff: paint the highlight layer above the textarea, so an opaque
+   textarea background from a beautification theme can no longer hide the
+   diff colors. The layer is text-transparent and pointer-events:none, so
+   editing, selection and the caret are unaffected. */
+.pcm-editwrap.live>.pcm-diff-backdrop{z-index:2;background:transparent!important}
