@@ -217,3 +217,109 @@
 .pcm-list::-webkit-scrollbar-thumb,.pcm-compare::-webkit-scrollbar-thumb,.pcm-picker-panel::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--SmartThemeBodyColor) 22%,transparent);border-radius:999px;border:2px solid transparent;background-clip:padding-box}
 .pcm-list::-webkit-scrollbar-thumb:hover,.pcm-compare::-webkit-scrollbar-thumb:hover,.pcm-picker-panel::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,var(--SmartThemeBodyColor) 38%,transparent);border:2px solid transparent;background-clip:padding-box}
 .pcm-list::-webkit-scrollbar-track,.pcm-compare::-webkit-scrollbar-track,.pcm-picker-panel::-webkit-scrollbar-track{background:transparent}
+
+/* ============================================================
+   配色切换层（v1.6.0）：自适应 / 日间 / 夜间(Gruvbox Dark)。
+   技巧：在 .pcm-dialog 根上重定义 --SmartTheme* 变量，
+   全部既有规则无需修改即随主题联动；再对少量硬编码色做覆盖。
+   切换按钮由 index.js 注入（[data-theme-toggle]），选择存 localStorage。
+   ============================================================ */
+
+/* ---------- 切换按钮 ---------- */
+.pcm-dialog .pcm-theme-toggle{flex:0 0 auto;font-weight:600}
+
+/* ---------- 夜间：Gruvbox Dark ---------- */
+.pcm-dialog.pcm-theme-night{
+  --SmartThemeBorderColor:#45403d;
+  --SmartThemeBlurTintColor:#282828;
+  --SmartThemeBodyColor:#ebdbb2;
+  --pcm-accent:#8ec07c;--pcm-accent-deep:#689d6a;--pcm-accent-dark:#427b58;
+  --pcm-warn:#fabd2f;--pcm-bad:#fb4934;--pcm-info:#83a598;--pcm-good:#b8bb26;
+  --pcm-muted:#a89984;--pcm-input-bg:#1d2021;--pcm-input-bd:#504945;
+}
+.pcm-dialog.pcm-theme-night ::selection{background:#83a59840}
+.pcm-dialog.pcm-theme-night .pcm-header{background:linear-gradient(180deg,#8ec07c14,transparent 70%)}
+.pcm-dialog.pcm-theme-night .pcm-header h2{background:linear-gradient(90deg,#ebdbb2 30%,#b8bb26dd);-webkit-background-clip:text;background-clip:text}
+.pcm-dialog.pcm-theme-night .pcm-close:hover{background:#fb49341f;color:#fb4934;box-shadow:0 0 0 3px #fb493426}
+.pcm-dialog.pcm-theme-night .pcm-primary{background:linear-gradient(135deg,#689d6a,#427b58)!important;border-color:#8ec07c66!important;box-shadow:0 2px 10px #8ec07c33}
+.pcm-dialog.pcm-theme-night .pcm-primary:hover{box-shadow:0 4px 16px #8ec07c59}
+.pcm-dialog.pcm-theme-night input,.pcm-dialog.pcm-theme-night select,.pcm-dialog.pcm-theme-night textarea{background:var(--pcm-input-bg);border-color:var(--pcm-input-bd);color:#ebdbb2}
+.pcm-dialog.pcm-theme-night .pcm-tools input:focus,.pcm-dialog.pcm-theme-night .pcm-tools select:focus,.pcm-dialog.pcm-theme-night .pcm-project-bar input:focus,.pcm-dialog.pcm-theme-night .pcm-project-bar select:focus{border-color:#83a59899;box-shadow:0 0 0 3px #83a59840}
+.pcm-dialog.pcm-theme-night .menu_button:focus-visible,.pcm-dialog.pcm-theme-night .pcm-row-action:focus-visible,.pcm-dialog.pcm-theme-night .pcm-switch:focus-visible{outline-color:#83a598}
+.pcm-dialog.pcm-theme-night .pcm-pane:first-child .pcm-pane-head h3::before{background:#fabd2f;box-shadow:0 0 8px #fabd2f66}
+.pcm-dialog.pcm-theme-night .pcm-pane:last-child .pcm-pane-head h3::before{background:#b8bb26;box-shadow:0 0 8px #b8bb2666}
+.pcm-dialog.pcm-theme-night .pcm-row:hover{background:#8ec07c12}
+.pcm-dialog.pcm-theme-night .pcm-row.active{background:#8ec07c1f;box-shadow:inset 3px 0 0 #8ec07c}
+.pcm-dialog.pcm-theme-night .pcm-changed{color:#fabd2f;background:#fabd2f21;border-color:#fabd2f52}
+.pcm-dialog.pcm-theme-night .pcm-removed{color:#fb4934;background:#fb493424;border-color:#fb493452}
+.pcm-dialog.pcm-theme-night .pcm-added{color:#83a598;background:#83a59824;border-color:#83a59852}
+.pcm-dialog.pcm-theme-night .pcm-same{color:#a89984;background:#a8998421;border-color:#a8998445}
+.pcm-dialog.pcm-theme-night .pcm-compare{border-top-color:#83a598}
+.pcm-dialog.pcm-theme-night .pcm-field.changed h4{color:#fabd2f}
+.pcm-dialog.pcm-theme-night .pcm-field.changed .pcm-value{border-color:#fabd2f59}
+.pcm-dialog.pcm-theme-night .pcm-value{background:#ffffff0a}
+.pcm-dialog.pcm-theme-night .pcm-toast-success{border-color:#b8bb26;color:#b8bb26}
+.pcm-dialog.pcm-theme-night .pcm-toast-warning{border-color:#fabd2f;color:#fabd2f}
+.pcm-dialog.pcm-theme-night .pcm-toast-error{border-color:#fb4934;color:#fb4934}
+.pcm-dialog.pcm-theme-night .pcm-switch.pcm-op-enabled{border-color:#8ec07c80}
+.pcm-dialog.pcm-theme-night .pcm-switch.pcm-op-enabled .pcm-switch-track{background:#689d6a}
+.pcm-dialog.pcm-theme-night .pcm-switch.pcm-op-enabled .pcm-switch-knob{left:11px;background:#ebdbb2}
+.pcm-dialog.pcm-theme-night .pcm-op-enabled{color:#b8bb26}
+.pcm-dialog.pcm-theme-night .pcm-uninjected{border-color:#fabd2f59}.pcm-dialog.pcm-theme-night .pcm-uninjected>.pcm-group-head{color:#fabd2f}
+.pcm-dialog.pcm-theme-night .pcm-uninjected-toggle:hover{background:#fabd2f1a}
+.pcm-dialog.pcm-theme-night .pcm-free-selected{outline-color:#fabd2f;background:#fabd2f1f!important}
+.pcm-dialog.pcm-theme-night .pcm-group-selected{outline-color:#b8bb26;background:#b8bb261a!important}
+.pcm-dialog.pcm-theme-night .pcm-group-finish{color:#b8bb26!important}
+.pcm-dialog.pcm-theme-night .pcm-editwrap.live>.pcm-diff-backdrop .add{background:#b8bb2640}
+.pcm-dialog.pcm-theme-night .pcm-editwrap.live>.pcm-diff-backdrop .del{background:#fb49343d}
+.pcm-dialog.pcm-theme-night .pcm-editwrap.live>.pcm-diff-backdrop .add .a{background:#b8bb2673}
+.pcm-dialog.pcm-theme-night .pcm-editwrap.live>.pcm-diff-backdrop .del .d{background:#fb493466}
+.pcm-dialog.pcm-theme-night .pcm-row-disabled .pcm-name{color:#a89984}
+
+/* ---------- 日间：Gruvbox Light ---------- */
+.pcm-dialog.pcm-theme-day{
+  --SmartThemeBorderColor:#d5c4a1;
+  --SmartThemeBlurTintColor:#fbf1c7;
+  --SmartThemeBodyColor:#3c3836;
+  --pcm-accent:#427b58;--pcm-accent-deep:#689d6a;--pcm-accent-dark:#427b58;
+  --pcm-warn:#b57614;--pcm-bad:#9d0006;--pcm-info:#076678;--pcm-good:#79740e;
+  --pcm-muted:#7c6f64;--pcm-input-bg:#fffdf6;--pcm-input-bd:#d5c4a1;
+}
+.pcm-dialog.pcm-theme-day ::selection{background:#427b5833}
+.pcm-dialog.pcm-theme-day .pcm-header{background:linear-gradient(180deg,#427b580d,transparent 70%)}
+.pcm-dialog.pcm-theme-day .pcm-header h2{background:linear-gradient(90deg,#3c3836 30%,#79740edd);-webkit-background-clip:text;background-clip:text}
+.pcm-dialog.pcm-theme-day .pcm-close:hover{background:#9d000614;color:#9d0006;box-shadow:0 0 0 3px #9d000621}
+.pcm-dialog.pcm-theme-day .pcm-primary{background:linear-gradient(135deg,#689d6a,#427b58)!important;border-color:#427b58!important;box-shadow:0 2px 10px #427b5833}
+.pcm-dialog.pcm-theme-day .pcm-primary:hover{box-shadow:0 4px 16px #427b5859}
+.pcm-dialog.pcm-theme-day input,.pcm-dialog.pcm-theme-day select,.pcm-dialog.pcm-theme-day textarea{background:var(--pcm-input-bg);border-color:var(--pcm-input-bd);color:#3c3836}
+.pcm-dialog.pcm-theme-day .pcm-tools input:focus,.pcm-dialog.pcm-theme-day .pcm-tools select:focus,.pcm-dialog.pcm-theme-day .pcm-project-bar input:focus,.pcm-dialog.pcm-theme-day .pcm-project-bar select:focus{border-color:#427b5899;box-shadow:0 0 0 3px #427b5840}
+.pcm-dialog.pcm-theme-day .menu_button:focus-visible,.pcm-dialog.pcm-theme-day .pcm-row-action:focus-visible,.pcm-dialog.pcm-theme-day .pcm-switch:focus-visible{outline-color:#427b58}
+.pcm-dialog.pcm-theme-day .pcm-pane:first-child .pcm-pane-head h3::before{background:#b57614;box-shadow:0 0 8px #b5761466}
+.pcm-dialog.pcm-theme-day .pcm-pane:last-child .pcm-pane-head h3::before{background:#427b58;box-shadow:0 0 8px #427b5866}
+.pcm-dialog.pcm-theme-day .pcm-row:hover{background:#427b580f}
+.pcm-dialog.pcm-theme-day .pcm-row.active{background:#427b581c;box-shadow:inset 3px 0 0 #427b58}
+.pcm-dialog.pcm-theme-day .pcm-changed{color:#b57614;background:#b576141f;border-color:#b5761445}
+.pcm-dialog.pcm-theme-day .pcm-removed{color:#9d0006;background:#9d00061a;border-color:#9d000640}
+.pcm-dialog.pcm-theme-day .pcm-added{color:#076678;background:#07667814;border-color:#0766783d}
+.pcm-dialog.pcm-theme-day .pcm-same{color:#7c6f64;background:#7c6f6417;border-color:#7c6f6438}
+.pcm-dialog.pcm-theme-day .pcm-compare{border-top-color:#427b58}
+.pcm-dialog.pcm-theme-day .pcm-field.changed h4{color:#b57614}
+.pcm-dialog.pcm-theme-day .pcm-field.changed .pcm-value{border-color:#b5761459}
+.pcm-dialog.pcm-theme-day .pcm-value{background:#3c38360d}
+.pcm-dialog.pcm-theme-day .pcm-toast-success{border-color:#79740e;color:#79740e}
+.pcm-dialog.pcm-theme-day .pcm-toast-warning{border-color:#b57614;color:#b57614}
+.pcm-dialog.pcm-theme-day .pcm-toast-error{border-color:#9d0006;color:#9d0006}
+.pcm-dialog.pcm-theme-day .pcm-switch.pcm-op-enabled{border-color:#427b5880}
+.pcm-dialog.pcm-theme-day .pcm-switch.pcm-op-enabled .pcm-switch-track{background:#689d6a}
+.pcm-dialog.pcm-theme-day .pcm-switch.pcm-op-enabled .pcm-switch-knob{left:11px;background:#fbf1c7}
+.pcm-dialog.pcm-theme-day .pcm-op-enabled{color:#79740e}
+.pcm-dialog.pcm-theme-day .pcm-uninjected{border-color:#b5761480}.pcm-dialog.pcm-theme-day .pcm-uninjected>.pcm-group-head{color:#b57614}
+.pcm-dialog.pcm-theme-day .pcm-uninjected-toggle:hover{background:#b5761414}
+.pcm-dialog.pcm-theme-day .pcm-free-selected{outline-color:#b57614;background:#b576141f!important}
+.pcm-dialog.pcm-theme-day .pcm-group-selected{outline-color:#79740e;background:#79740e1a!important}
+.pcm-dialog.pcm-theme-day .pcm-group-finish{color:#79740e!important}
+.pcm-dialog.pcm-theme-day .pcm-editwrap.live>.pcm-diff-backdrop .add{background:#79740e33}
+.pcm-dialog.pcm-theme-day .pcm-editwrap.live>.pcm-diff-backdrop .del{background:#9d00062e}
+.pcm-dialog.pcm-theme-day .pcm-editwrap.live>.pcm-diff-backdrop .add .a{background:#79740e59}
+.pcm-dialog.pcm-theme-day .pcm-editwrap.live>.pcm-diff-backdrop .del .d{background:#9d00064d}
+.pcm-dialog.pcm-theme-day .pcm-row-disabled .pcm-name{color:#a89984}
