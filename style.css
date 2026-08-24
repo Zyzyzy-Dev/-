@@ -146,3 +146,74 @@
 }
 /* 桌面指针拖拽中显示抓取光标（v1.4.6） */
 .pcm-touch-dragging .pcm-row{cursor:grabbing}
+
+/* ============================================================
+   UI 美化层（v1.5.1）：仅追加视觉规则，不改布局尺寸与拖拽/滚动逻辑。
+   颜色基于酒馆主题变量 + color-mix，自动适配亮/暗主题。
+   ============================================================ */
+
+/* ---------- 对话框：圆角 + 分层阴影 ---------- */
+.pcm-dialog{border-radius:14px;border-color:color-mix(in srgb,var(--SmartThemeBorderColor) 80%,transparent);box-shadow:0 24px 80px #000a,0 4px 18px #0006}
+.pcm-app{border-radius:inherit}
+@media(max-width:900px){.pcm-dialog{border-radius:0!important;box-shadow:none!important}}
+
+/* ---------- 头部：渐变底色 + 标题渐变字 ---------- */
+.pcm-header{background:linear-gradient(180deg,color-mix(in srgb,#36b47d 8%,transparent),transparent 70%)}
+.pcm-header h2{font-weight:700;background:linear-gradient(90deg,var(--SmartThemeBodyColor) 30%,color-mix(in srgb,#36b47d 60%,var(--SmartThemeBodyColor)));-webkit-background-clip:text;background-clip:text}
+.pcm-close{border-radius:8px;transition:background .15s,color .15s,box-shadow .15s}
+.pcm-close:hover{background:#ff89891f;color:#ff8989;box-shadow:0 0 0 3px #ff898922}
+
+/* ---------- 按钮：圆角、悬停浮起、主按钮发光 ---------- */
+.pcm-dialog .menu_button{border-radius:8px;transition:transform .12s ease,box-shadow .12s ease,border-color .15s ease,background .15s ease,filter .12s ease}
+.pcm-dialog .menu_button:hover{transform:translateY(-1px)}
+.pcm-dialog .menu_button:active{transform:translateY(0);transition-duration:.05s}
+.pcm-dialog .pcm-primary{background:linear-gradient(135deg,#1d8a60,#18734f)!important;border-color:#36b47d!important;box-shadow:0 2px 10px #36b47d40}
+.pcm-dialog .pcm-primary:hover{box-shadow:0 4px 16px #36b47d66;filter:brightness(1.07)}
+
+/* ---------- 输入框/下拉：聚焦光环 ---------- */
+.pcm-tools input,.pcm-tools select,.pcm-project-bar input,.pcm-project-bar select{border-radius:8px;transition:border-color .15s,box-shadow .15s}
+.pcm-tools input:focus,.pcm-tools select:focus,.pcm-project-bar input:focus,.pcm-project-bar select:focus{outline:none;border-color:#36b47db3;box-shadow:0 0 0 3px #36b47d26}
+
+/* ---------- 键盘焦点可见性 ---------- */
+.pcm-dialog .menu_button:focus-visible,.pcm-row-action:focus-visible,.pcm-switch:focus-visible{outline:2px solid #36b47d;outline-offset:2px}
+
+/* ---------- 双栏识别：旧版=琥珀点，新版=翡翠点 ---------- */
+.pcm-pane-head h3{display:flex;align-items:center;gap:7px}
+.pcm-pane-head h3::before{content:"";width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+.pcm-pane:first-child .pcm-pane-head h3::before{background:#e6b85f;box-shadow:0 0 8px #e6b85f66}
+.pcm-pane:last-child .pcm-pane-head h3::before{background:#36b47d;box-shadow:0 0 8px #36b47d66}
+
+/* ---------- 列表行：悬停高亮 + 选中左侧强调条 ---------- */
+.pcm-row{transition:background .13s ease}
+.pcm-row:hover{background:color-mix(in srgb,#36b47d 6%,transparent)}
+.pcm-row.active{background:color-mix(in srgb,#36b47d 11%,transparent);box-shadow:inset 3px 0 0 #36b47d}
+.pcm-name{font-weight:600}
+
+/* ---------- 徽章：胶囊化 + 半透明配色（亮暗通用） ---------- */
+.pcm-badge{border-radius:999px;font-weight:600;padding:2px 8px}
+.pcm-changed{color:#c77b21;background:#c77b2126;border-color:#c77b2159}
+.pcm-removed{color:#e05d5d;background:#e05d5d26;border-color:#e05d5d59}
+.pcm-added{color:#4aa8e0;background:#4aa8e026;border-color:#4aa8e059}
+.pcm-same{color:color-mix(in srgb,var(--SmartThemeBodyColor) 72%,transparent);background:color-mix(in srgb,var(--SmartThemeBodyColor) 12%,transparent);border-color:color-mix(in srgb,var(--SmartThemeBodyColor) 22%,transparent)}
+
+/* ---------- 对比面板：入场动画 + 圆角取值框 ---------- */
+.pcm-compare{animation:pcm-slide-up .22s ease}
+@keyframes pcm-slide-up{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.pcm-compare{animation:none}.pcm-dialog .menu_button,.pcm-row,.pcm-close{transition:none}}
+.pcm-value{border-radius:8px;transition:border-color .15s}
+.pcm-field.changed .pcm-value{border-color:color-mix(in srgb,#ffb45d 45%,var(--SmartThemeBorderColor))}
+
+/* ---------- 分组与选择器弹窗 ---------- */
+.pcm-group-head{transition:background .13s ease}
+.pcm-group-head:hover{background:color-mix(in srgb,var(--SmartThemeBodyColor) 5%,transparent)}
+.pcm-picker-panel{border-radius:14px;box-shadow:0 18px 60px #0008,0 4px 16px #0005}
+.pcm-picker.open .pcm-picker-panel{animation:pcm-slide-up .18s ease}
+
+/* ---------- 提示气泡：毛玻璃 ---------- */
+.pcm-toast{backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-radius:10px}
+
+/* ---------- 滚动条：细圆角，悬停加深 ---------- */
+.pcm-list::-webkit-scrollbar,.pcm-compare::-webkit-scrollbar,.pcm-picker-panel::-webkit-scrollbar{width:10px;height:10px}
+.pcm-list::-webkit-scrollbar-thumb,.pcm-compare::-webkit-scrollbar-thumb,.pcm-picker-panel::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--SmartThemeBodyColor) 22%,transparent);border-radius:999px;border:2px solid transparent;background-clip:padding-box}
+.pcm-list::-webkit-scrollbar-thumb:hover,.pcm-compare::-webkit-scrollbar-thumb:hover,.pcm-picker-panel::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,var(--SmartThemeBodyColor) 38%,transparent);border:2px solid transparent;background-clip:padding-box}
+.pcm-list::-webkit-scrollbar-track,.pcm-compare::-webkit-scrollbar-track,.pcm-picker-panel::-webkit-scrollbar-track{background:transparent}
