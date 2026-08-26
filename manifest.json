@@ -6,6 +6,6 @@
   "js": "index.js",
   "css": "style.css",
   "author": "Codex",
-  "version": "1.8.3",
+    "version": "1.8.4",
   "auto_update": false
 }

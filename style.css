@@ -43,7 +43,14 @@
 @media(max-width:900px){
   .pcm-pane{overscroll-behavior:contain!important}
   .pcm-pane::after{content:"";display:block;min-height:1px}
-  .pcm-list{overscroll-behavior-y:auto!important}
+  .pcm-list{overscroll-behavior-y:contain!important}
+}
+
+/* v1.8.4: tablet panes capped at 520px can otherwise leave the outer dialog
+   shorter than one viewport. Reserve one viewport for the stacked pane area so
+   the global header can scroll away until the old-preset header reaches top. */
+@media(min-width:521px) and (max-width:900px){
+  .pcm-lists{min-height:100dvh!important}
 }
 .pcm-op-enabled{color:#55c98e;cursor:pointer}.pcm-op-disabled{color:#999;opacity:.8;cursor:pointer}
 .pcm-uninjected{border-color:#d8a44a}.pcm-uninjected>.pcm-group-head{color:#e6b85f}.pcm-free-select{display:inline-flex;align-items:center;gap:7px;padding:5px 10px;border:1px solid var(--SmartThemeBorderColor);border-radius:999px;font-size:11px;white-space:nowrap;cursor:pointer;user-select:none;-webkit-user-select:none;transition:background .15s,border-color .15s,color .15s}
