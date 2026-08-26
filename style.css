@@ -414,14 +414,15 @@
 .pcm-vars-table th{text-align:left;font-size:10px;opacity:.55;padding:2px 6px;border-bottom:1px solid var(--SmartThemeBorderColor);white-space:nowrap}
 .pcm-vars-table td{padding:3px 4px;border-bottom:1px solid color-mix(in srgb,var(--SmartThemeBorderColor) 40%,transparent)}
 .pcm-vars-table input{width:100%;min-width:0;padding:4px 6px;font-size:11px}
+.pcm-vars-table textarea{width:100%;min-width:0;padding:4px 6px;font-size:11px;line-height:1.4;resize:vertical;font-family:inherit}
 .pcm-vars-table td:nth-child(3),.pcm-vars-table th:nth-child(3){white-space:nowrap;opacity:.6;width:64px;text-align:right}
 .pcm-vars-table td:nth-child(4),.pcm-vars-table th:nth-child(4){width:36px;text-align:center}
 .pcm-vars-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
-.pcm-vars-other summary{font-size:10px;opacity:.5;cursor:pointer}
-.pcm-vars-other pre{margin:6px 0 0;padding:8px;border:1px solid color-mix(in srgb,var(--SmartThemeBorderColor) 50%,transparent);border-radius:6px;font-size:10px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:180px;overflow:auto}
+.pcm-vars-raw h4{margin:0 0 5px;font-size:11px;opacity:.75}
+.pcm-vars-raw textarea{width:100%;min-height:120px;max-height:260px;padding:8px;border:1px solid color-mix(in srgb,var(--SmartThemeBorderColor) 60%,transparent);border-radius:6px;font-size:10px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;resize:vertical;font-family:var(--monoFontFamily,monospace)}
 .pcm-dialog.pcm-theme-night .pcm-vars-missing{border-color:#fabd2f59}.pcm-dialog.pcm-theme-night .pcm-vars-missing h4{color:#fabd2f}
 .pcm-dialog.pcm-theme-day .pcm-vars-missing{border-color:#b5761480}.pcm-dialog.pcm-theme-day .pcm-vars-missing h4{color:#b57614}
-@media(max-width:640px){.pcm-vars-panel{width:96vw}.pcm-vars-bar select{min-width:0;width:100%}.pcm-vars-table th:nth-child(3){width:44px}.pcm-vars-table input{font-size:10px;padding:3px 4px}}
+@media(max-width:640px){.pcm-vars-panel{width:96vw}.pcm-vars-bar select{min-width:0;width:100%}.pcm-vars-table th:nth-child(3){width:44px}.pcm-vars-table input,.pcm-vars-table textarea{font-size:10px;padding:3px 4px}}
 
 /* ---------- 获取变量/引用变量 面板补充（v1.7.1） ---------- */
 .pcm-vars-toggle{white-space:nowrap;font-size:11px}
@@ -538,9 +539,9 @@
 
 @media(max-width:520px){
   .pcm-pane-head{gap:4px!important;padding-inline:8px!important}
-  .pcm-pane-head>div:first-child{flex-wrap:nowrap!important;gap:4px!important;overflow:hidden!important}
-  .pcm-pane-head h3{flex:0 0 auto!important;margin:0!important;font-size:13px!important;font-weight:700!important;line-height:1.15!important;writing-mode:horizontal-tb!important;white-space:nowrap!important}
-  .pcm-pane-head [data-file-name]{flex:1 1 auto!important;min-width:0!important;max-width:22vw!important;font-size:9px!important}
+  .pcm-pane-head>div:first-child{flex-wrap:wrap!important;gap:2px 4px!important;overflow:hidden!important}
+  .pcm-pane-head h3{flex:0 1 auto!important;margin:0!important;font-size:13px!important;font-weight:700!important;line-height:1.15!important;writing-mode:horizontal-tb!important;white-space:nowrap!important}
+  .pcm-pane-head [data-file-name]{flex:0 0 100%!important;min-width:0!important;max-width:100%!important;margin-top:0!important;font-size:9px!important}
   .pcm-pane-head .pcm-icon-btn{width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important}
   .pcm-actions{gap:4px!important;min-width:0!important;max-width:58vw!important;flex:0 1 auto!important}
   .pcm-actions .menu_button,.pcm-import{min-width:0!important;flex:0 1 auto!important;padding-inline:4px!important;font-size:9px!important}
