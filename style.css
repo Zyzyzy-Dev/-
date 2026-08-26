@@ -422,6 +422,55 @@
 .pcm-vars-chips{display:flex;flex-wrap:wrap;gap:4px}
 .pcm-vars-chips code{padding:2px 6px;border:1px solid color-mix(in srgb,var(--SmartThemeBorderColor) 60%,transparent);border-radius:6px;font-size:10px;opacity:.75}
 [data-ref-content]{width:100%;min-height:220px;resize:vertical;font-family:var(--monoFontFamily,monospace);font-size:11px}
+
+/* ============================================================
+   UI 紧凑化重构（v1.8.0）：胶囊开关 / 图标按钮 / 项目下拉 / 头部布局
+   ============================================================ */
+
+/* ---------- 开关胶囊化：无方块勾选框，选中高亮 ---------- */
+.pcm-free-select{padding:5px 11px;border:1px solid color-mix(in srgb,var(--SmartThemeBorderColor) 80%,transparent);border-radius:999px;background:color-mix(in srgb,var(--SmartThemeBodyColor) 4%,transparent);cursor:pointer;user-select:none;transition:background .15s,border-color .15s}
+.pcm-free-select:hover{border-color:color-mix(in srgb,var(--SmartThemeBodyColor) 45%,transparent)}
+.pcm-free-select input{display:none}
+.pcm-free-select:has(input:checked){background:color-mix(in srgb,#55c98e 20%,transparent);border-color:#55c98e;font-weight:600}
+.pcm-dialog.pcm-theme-night .pcm-free-select:has(input:checked){background:#8ec07c26;border-color:#8ec07c}
+.pcm-dialog.pcm-theme-day .pcm-free-select:has(input:checked){background:#427b5820;border-color:#427b58}
+
+/* ---------- 图标按钮 ---------- */
+.pcm-icon-btn{width:30px;height:30px;min-width:30px;min-height:30px;padding:0!important;display:inline-flex!important;align-items:center;justify-content:center}
+.pcm-icon-btn svg{pointer-events:none}
+.pcm-icon-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ---------- 头部布局：标题占位，主题+关闭成组靠右 ---------- */
+.pcm-header{flex-wrap:wrap;row-gap:7px}
+.pcm-header>div:first-child{flex:1 1 auto;min-width:150px}
+.pcm-close{width:30px;min-width:30px;height:30px;font-size:15px;padding:0;display:inline-flex;align-items:center;justify-content:center}
+
+/* ---------- 旧版标题旁撤回按钮 ---------- */
+.pcm-pane-head>div:first-child{display:flex;align-items:center;gap:6px;min-width:0}
+.pcm-pane-head .pcm-icon-btn{flex:0 0 auto;width:26px;height:26px;min-width:26px;min-height:26px}
+
+/* ---------- 项目栏：输入框 + 内嵌下拉 + 图标按钮 ---------- */
+.pcm-project-bar{flex-wrap:nowrap}
+.pcm-proj-drop{position:relative;flex:1 1 130px;min-width:110px;max-width:240px}
+.pcm-proj-drop input{width:100%;min-width:0}
+.pcm-proj-list{display:none;position:absolute;top:calc(100% + 4px);left:0;width:max(100%,190px);max-height:220px;overflow:auto;z-index:80;background:var(--SmartThemeBlurTintColor);border:1px solid var(--SmartThemeBorderColor);border-radius:8px;box-shadow:0 12px 34px #0008;padding:4px}
+.pcm-proj-drop.open .pcm-proj-list{display:flex;flex-direction:column;gap:2px}
+.pcm-proj-item{text-align:left;padding:6px 9px;border:0;background:none;color:inherit;cursor:pointer;border-radius:6px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pcm-proj-item:hover{background:color-mix(in srgb,var(--SmartThemeBodyColor) 10%,transparent)}
+.pcm-proj-empty{font-size:11px;opacity:.6;padding:6px 9px;white-space:nowrap}
+
+/* ---------- 移动端（≤900px）：三行头部布局 ---------- */
+@media(max-width:900px){
+  .pcm-header{flex-wrap:wrap!important;row-gap:6px}
+  .pcm-header>div:first-child{flex:1 1 auto!important;min-width:0!important}
+  .pcm-theme-toggle{order:1}
+  .pcm-close{order:2;display:inline-flex!important;align-items:center;justify-content:center;width:30px!important;min-width:30px!important;height:30px!important;font-size:15px!important}
+  .pcm-header .pcm-free-select{order:3;padding:4px 8px;font-size:10px}
+  .pcm-project-bar{order:4;display:flex!important;visibility:visible!important;width:100%!important;max-width:100%!important;flex-wrap:nowrap!important;overflow:visible!important;padding:2px 0 4px}
+  .pcm-proj-drop{flex:1 1 auto!important;min-width:0!important;max-width:none!important}
+  .pcm-project-bar .pcm-icon-btn{width:32px!important;min-width:32px!important;height:32px!important;min-height:32px!important;padding:0!important;font-size:12px!important}
+  .pcm-pane-head>div:first-child{min-width:0!important;flex:1 1 auto!important}
+}
 .pcm-dialog.pcm-theme-day .pcm-free-select{background:rgba(0,0,0,0.025);border-color:#ddd3bf;color:#3c3836}
 .pcm-dialog.pcm-theme-day .pcm-free-select:hover{background:rgba(0,0,0,0.05);border-color:#cabfa4}
 .pcm-dialog.pcm-theme-day .pcm-free-select input[type="checkbox"]{border-color:#bdae93;background:#fffefa}
