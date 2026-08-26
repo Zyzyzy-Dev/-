@@ -87,7 +87,7 @@
 
 /* Row action buttons (copy / delete), multi-device: hover-reveal on desktop, always visible on touch, larger on small screens. */
 .pcm-row-actions{display:inline-flex;gap:2px;flex:0 0 auto}
-.pcm-row-action{padding:2px 5px;border:0;background:none;opacity:0;cursor:pointer;font-size:11px;line-height:1;color:var(--SmartThemeBodyColor);transition:opacity .15s}
+.pcm-row-action{padding:2px 5px;border:0;background:none;opacity:.6;cursor:pointer;font-size:11px;line-height:1;color:var(--SmartThemeBodyColor);transition:opacity .15s}
 .pcm-row:not(.pcm-row-disabled) .pcm-row-action{opacity:.65}.pcm-row.pcm-row-disabled:hover .pcm-row-action,.pcm-row.pcm-row-disabled.active .pcm-row-action{opacity:.55}
 .pcm-row-action:hover{opacity:1}
 .pcm-row-action.pcm-row-del:hover{color:#ff8989}
@@ -414,6 +414,14 @@
 .pcm-dialog.pcm-theme-night .pcm-vars-missing{border-color:#fabd2f59}.pcm-dialog.pcm-theme-night .pcm-vars-missing h4{color:#fabd2f}
 .pcm-dialog.pcm-theme-day .pcm-vars-missing{border-color:#b5761480}.pcm-dialog.pcm-theme-day .pcm-vars-missing h4{color:#b57614}
 @media(max-width:640px){.pcm-vars-panel{width:96vw}.pcm-vars-bar select{min-width:0;width:100%}.pcm-vars-table th:nth-child(3){width:44px}.pcm-vars-table input{font-size:10px;padding:3px 4px}}
+
+/* ---------- 获取变量/引用变量 面板补充（v1.7.1） ---------- */
+.pcm-vars-toggle{white-space:nowrap;font-size:11px}
+.pcm-vars-table .pcm-row-action{opacity:.85}
+.pcm-vars-actions .menu_button:disabled{opacity:.4;cursor:not-allowed;filter:grayscale(.4)}
+.pcm-vars-chips{display:flex;flex-wrap:wrap;gap:4px}
+.pcm-vars-chips code{padding:2px 6px;border:1px solid color-mix(in srgb,var(--SmartThemeBorderColor) 60%,transparent);border-radius:6px;font-size:10px;opacity:.75}
+[data-ref-content]{width:100%;min-height:220px;resize:vertical;font-family:var(--monoFontFamily,monospace);font-size:11px}
 .pcm-dialog.pcm-theme-day .pcm-free-select{background:rgba(0,0,0,0.025);border-color:#ddd3bf;color:#3c3836}
 .pcm-dialog.pcm-theme-day .pcm-free-select:hover{background:rgba(0,0,0,0.05);border-color:#cabfa4}
 .pcm-dialog.pcm-theme-day .pcm-free-select input[type="checkbox"]{border-color:#bdae93;background:#fffefa}
