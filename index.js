@@ -57,7 +57,8 @@ function onFreeSelectClick(event){if(!state.freeSelect.enabled)return;const butt
 function setMultiSelect(enabled){state.multiSelect.enabled=enabled;state.multiSelect.selected.old.clear();state.multiSelect.selected.new.clear();renderAll();pcmToastr.info(enabled?'多选已开启：点击条目选中/取消，选中多条后可整批拖拽到另一版本或分组':'多选已关闭');}
 function toggleMultiSelect(side,id){if(!state.multiSelect.enabled||!side||!id)return;const set=state.multiSelect.selected[side];if(!set)return;if(set.has(id))set.delete(id);else set.add(id);renderList(side);}
 function dragIdsFor(row){if(!row||!state.multiSelect.enabled)return null;const side=row.dataset.dragSide,id=row.dataset.dragId;if(!side||!id||!state.multiSelect.selected[side]?.has(id))return null;const orderedIds=ordered(side).map(p=>p.identifier).filter(x=>state.multiSelect.selected[side].has(x));return orderedIds.length>1?{ids:orderedIds,side}:null;}
-function movePrompts(sourceSide,targetSide,ids,beforeId){let moved=0;for(const id of ids){if(byId(sourceSide).get(id)||byId(targetSide).get(id)){movePrompt(sourceSide,targetSide,id,beforeId,true);moved++;}}if(moved)pcmToastr.success('已批量放置 '+moved+' 个条目');}
+function moveSnapshot(side){const preset=state[side];return{type:'move',side,promptOrder:preset.prompts.map(p=>p.identifier),prompts:new Map(preset.prompts.map(p=>[p.identifier,p])),promptOrderData:clone(preset.prompt_order),extensionsBefore:clone(preset.extensions),draggedBefore:[...state.dragged[side]]};}
+function movePrompts(sourceSide,targetSide,ids,beforeId){const validIds=ids.filter(id=>byId(sourceSide).get(id)||byId(targetSide).get(id));if(!state[targetSide]||!validIds.length)return;pushUndo(moveSnapshot(targetSide));for(const id of validIds)movePrompt(sourceSide,targetSide,id,beforeId,true,true);pcmToastr.success('已批量放置 '+validIds.length+' 个条目');}
 function setFreeSelect(enabled){state.freeSelect={enabled,oldId:null,newId:null};state.activeId=null;saveUiPrefs();hideCompare();renderAll();pcmToastr.info(enabled?'请先选择旧版条目，再选择新版条目':'已关闭自由选择');}
 function setIgnoreWhitespace(enabled){state.ignoreWhitespace=enabled;saveUiPrefs();rebuildCache();renderAll();pcmToastr.info(enabled?'已忽略仅空白（空格/换行/缩进）不同的差异':'已恢复逐字精确比对');}
 function setShowSimilarity(enabled){state.showSimilarity=enabled;saveUiPrefs();renderAll();pcmToastr.info(enabled?'已显示同名条目正文差异百分比':'已隐藏差异百分比');}
@@ -187,8 +188,8 @@ function rowById(list,id){if(!list)return null;return[...list.querySelectorAll('
 function updateRowOperationTags(row,side,id){if(!row)return;let tags=row.querySelector('.pcm-operation-tags');if(!tags){tags=el('span','pcm-operation-tags');row.querySelector('.pcm-row-title')?.append(tags);}tags.querySelectorAll('.pcm-op-tag').forEach(t=>t.remove());if(state.dragged[side].has(id))tags.append(el('span','pcm-op-tag pcm-op-dragged','已拖拽'));if(state.modified[side].has(id))tags.append(el('span','pcm-op-tag pcm-op-modified','已修改'));}
 function updateRowBadge(row,id,side){if(!row)return;const status=statusOf(id),badge=row.querySelector('.pcm-badge');if(badge){badge.className='pcm-badge pcm-'+status;badge.textContent=badgeText(id,side);}}
 function getBaiBaiGroupState(preset){const value=preset?.extensions?.baibaiToolkit?.presetPromptGroups;return value&&typeof value==='object'?value:null;}function ensureBaiBaiGroupState(preset){preset.extensions=preset.extensions&&typeof preset.extensions==='object'?preset.extensions:{};preset.extensions.baibaiToolkit=preset.extensions.baibaiToolkit&&typeof preset.extensions.baibaiToolkit==='object'?preset.extensions.baibaiToolkit:{};let value=preset.extensions.baibaiToolkit.presetPromptGroups;if(!value||typeof value!=='object')value=preset.extensions.baibaiToolkit.presetPromptGroups={groups:[],prompts:{}};if(!Array.isArray(value.groups))value.groups=[];if(!value.prompts||typeof value.prompts!=='object')value.prompts={};return value;}function syncBaiBaiGroupAfterMove(sourceSide,targetSide,id,beforeId){if(sourceSide===targetSide)return;const sourceGroup=getBaiBaiGroupState(state[sourceSide]),targetGroup=getBaiBaiGroupState(state[targetSide]);if(!sourceGroup&&!targetGroup)return;const groupState=ensureBaiBaiGroupState(state[targetSide]),orderedIds=state.cache.ordered[targetSide].map(p=>p.identifier),index=beforeId?orderedIds.indexOf(beforeId):orderedIds.length,nextId=index>=0&&index<orderedIds.length?orderedIds[index]:null,prevId=index>0?orderedIds[index-1]:null;const nextGroup=nextId?groupState.prompts?.[nextId]?.groupId:null,prevGroup=prevId?groupState.prompts?.[prevId]?.groupId:null,sourceId=sourceGroup?.prompts?.[id]?.groupId,validGroups=new Set((groupState.groups||[]).map(g=>String(g.id)));const candidate=[nextGroup,prevGroup,sourceId].find(groupId=>groupId&&validGroups.has(String(groupId)));if(candidate)groupState.prompts[id]={groupId:String(candidate)};else delete groupState.prompts[id];}
-function movePrompt(sourceSide,targetSide,id,beforeId,quiet){const source=state[sourceSide],target=state[targetSide],prompt=byId(sourceSide).get(id);if(target){pushUndo({type:'move',side:targetSide,promptOrder:target.prompts.map(p=>p.identifier),prompts:new Map(target.prompts.map(p=>[p.identifier,p])),promptOrderData:clone(target.prompt_order),extensionsBefore:clone(target.extensions),draggedBefore:[...state.dragged[targetSide]]});}if(!source||!target||!prompt)return;const targetOrdered=state.cache.ordered[targetSide];const existing=targetOrdered.findIndex(p=>p.identifier===id);let index=beforeId?targetOrdered.findIndex(p=>p.identifier===beforeId):targetOrdered.length;if(existing>=0){if(index>existing)index--;targetOrdered.splice(existing,1);}if(index<0||index>targetOrdered.length)index=targetOrdered.length;const copy=sourceSide===targetSide?prompt:clone(prompt);targetOrdered.splice(index,0,copy);target.prompts=targetOrdered.slice();state.cache.maps[targetSide].set(id,copy);const rawOrder=orderArray(target),entryHost=promptOrderEntry(target),xidOf=x=>typeof x==='string'?x:x?.identifier,clean=rawOrder.filter(x=>xidOf(x)!==id);let oi=beforeId?clean.findIndex(x=>xidOf(x)===beforeId):clean.length;if(oi<0&&beforeId===id){const self=rawOrder.findIndex(x=>xidOf(x)===id);if(self>=0)oi=self;}if(oi<0)oi=clean.length;clean.splice(oi,0,{identifier:id,enabled:copy.enabled!==false});(entryHost||target.prompt_order[0]).order=clean;syncBaiBaiGroupAfterMove(sourceSide,targetSide,id,beforeId);updateStatusFor(id);if(sourceSide!==targetSide)state.dragged[targetSide].add(id);state.dirty[targetSide]=true;state.activeId=null;state.activeSide=null;hideCompare();rebuildCache();renderList(sourceSide);if(targetSide!==sourceSide)renderList(targetSide);if(!quiet)pcmToastr.success('条目已放置到目标位置');}
-let outerScrollTouch=null;function isOuterScrollSurface(target){if(!target||typeof target.closest!=='function')return false;if(target.closest('button,input,select,textarea,label,a,.pcm-row,.pcm-group'))return false;return Boolean(target.closest('.pcm-dialog,.pcm-app,.pcm-header,.pcm-lists,.pcm-pane,.pcm-pane-head,.pcm-tools,.pcm-summary,.pcm-list'));}function onOuterScrollTouchStart(event){if(!isOuterScrollSurface(event.target)||event.touches.length!==1)return;const point=event.touches[0],dialog=document.getElementById(APP_ID+'-dialog');outerScrollTouch={dialog,lastY:point.clientY,startY:point.clientY,moved:false};}function onOuterScrollTouchMove(event){if(!outerScrollTouch||event.touches.length!==1)return;const point=event.touches[0],delta=outerScrollTouch.lastY-point.clientY;if(!outerScrollTouch.moved&&Math.abs(point.clientY-outerScrollTouch.startY)<4)return;outerScrollTouch.moved=true;outerScrollTouch.lastY=point.clientY;event.preventDefault();event.stopPropagation();outerScrollTouch.dialog.scrollTop+=delta;}function onOuterScrollTouchEnd(){outerScrollTouch=null;}
+function movePrompt(sourceSide,targetSide,id,beforeId,quiet,skipUndo){const source=state[sourceSide],target=state[targetSide],prompt=byId(sourceSide).get(id);if(target&&!skipUndo)pushUndo(moveSnapshot(targetSide));if(!source||!target||!prompt)return;const targetOrdered=state.cache.ordered[targetSide];const existing=targetOrdered.findIndex(p=>p.identifier===id);let index=beforeId?targetOrdered.findIndex(p=>p.identifier===beforeId):targetOrdered.length;if(existing>=0){if(index>existing)index--;targetOrdered.splice(existing,1);}if(index<0||index>targetOrdered.length)index=targetOrdered.length;const copy=sourceSide===targetSide?prompt:clone(prompt);targetOrdered.splice(index,0,copy);target.prompts=targetOrdered.slice();state.cache.maps[targetSide].set(id,copy);const rawOrder=orderArray(target),entryHost=promptOrderEntry(target),xidOf=x=>typeof x==='string'?x:x?.identifier,clean=rawOrder.filter(x=>xidOf(x)!==id);let oi=beforeId?clean.findIndex(x=>xidOf(x)===beforeId):clean.length;if(oi<0&&beforeId===id){const self=rawOrder.findIndex(x=>xidOf(x)===id);if(self>=0)oi=self;}if(oi<0)oi=clean.length;clean.splice(oi,0,{identifier:id,enabled:copy.enabled!==false});(entryHost||target.prompt_order[0]).order=clean;syncBaiBaiGroupAfterMove(sourceSide,targetSide,id,beforeId);updateStatusFor(id);if(sourceSide!==targetSide)state.dragged[targetSide].add(id);state.dirty[targetSide]=true;state.activeId=null;state.activeSide=null;hideCompare();rebuildCache();renderList(sourceSide);if(targetSide!==sourceSide)renderList(targetSide);if(!quiet)pcmToastr.success('条目已放置到目标位置');}
+let outerScrollTouch=null;function isOuterScrollSurface(target){if(!target||typeof target.closest!=='function')return false;if(target.closest('.pcm-row,.pcm-group'))return true;if(target.closest('button,input,select,textarea,label,a'))return false;return Boolean(target.closest('.pcm-dialog,.pcm-app,.pcm-header,.pcm-lists,.pcm-pane,.pcm-pane-head,.pcm-tools,.pcm-summary,.pcm-list'));}function onOuterScrollTouchStart(event){if(!isOuterScrollSurface(event.target)||event.touches.length!==1)return;const point=event.touches[0],dialog=document.getElementById(APP_ID+'-dialog');outerScrollTouch={dialog,list:event.target.closest?.('.pcm-list')||null,lastY:point.clientY,startY:point.clientY,moved:false};}function onOuterScrollTouchMove(event){if(!outerScrollTouch||event.touches.length!==1)return;if(touchDrag?.holding){outerScrollTouch=null;return;}const point=event.touches[0],delta=outerScrollTouch.lastY-point.clientY,dialog=outerScrollTouch.dialog,maxScroll=Math.max(0,dialog.scrollHeight-dialog.clientHeight),canMoveOuter=delta>0?dialog.scrollTop<maxScroll:delta<0?dialog.scrollTop>0:false;if(outerScrollTouch.list&&!canMoveOuter)return;if(!outerScrollTouch.moved&&Math.abs(point.clientY-outerScrollTouch.startY)<4)return;outerScrollTouch.moved=true;outerScrollTouch.lastY=point.clientY;event.preventDefault();event.stopPropagation();dialog.scrollTop=Math.max(0,Math.min(maxScroll,dialog.scrollTop+delta));}function onOuterScrollTouchEnd(){outerScrollTouch=null;}
 let touchDrag=null,touchContacts=0;
 /* 拖拽自动滚动（Windows 文件管理器风格，触屏长按/桌面HTML5拖拽共用一套 rAF 循环）：指针进入某列表上/下边缘区并连续停留
    AUTOSCROLL_DWELL_MS 毫秒后才持续滚动该列表（快速划过/跨面板水平移动经过边缘不足该时长，不会误触发），越靠近边缘越快、
@@ -221,13 +222,14 @@ function onDragEnd(event){if(event.target instanceof Element)event.target.closes
 async function tavernPresetCandidates(){const candidates=new Map(),add=(name,value)=>{if(value&&Array.isArray(value.prompts))candidates.set(String(name||'未命名预设'),value);};try{const module=await import('/scripts/openai.js'),names=module.openai_setting_names||{},settings=module.openai_settings||[];if(Array.isArray(names))names.forEach((name,index)=>add(name,settings[index]));else Object.entries(names).forEach(([name,index])=>add(name,settings[Number(index)]));}catch(error){console.warn('[preset-compare-migrator] Failed to import openai preset module',error);}return candidates;}
 async function pullTavernPreset(){const candidates=await tavernPresetCandidates();if(!candidates.size){pcmToastr.warning('未能读取 Chat Completion/OpenAI 预设。','未找到酒馆预设');return;}tavernPresetPickerData=candidates;let picker=document.querySelector('[data-tavern-picker]');if(!picker){picker=el('section','pcm-picker');picker.dataset.tavernPicker='';const panel=el('div','pcm-picker-panel'),head=el('header','pcm-picker-head');head.append(el('h3','', '选择酒馆预设'),btn('×','close-picker','pcm-collapse'));panel.append(head);const list=el('div','pcm-picker-list');list.dataset.pickerList='';panel.append(list);picker.append(panel);document.getElementById(APP_ID+'-dialog').append(picker);}const list=picker.querySelector('[data-picker-list]');list.replaceChildren();for(const [name,preset] of candidates){const item=btn(name,'choose-tavern','pcm-picker-item');item.dataset.presetName=name;item.append(el('small','',preset.prompts.length+' 个条目'));list.append(item);}picker.classList.add('open');}
 function chooseTavernPreset(name){const preset=tavernPresetPickerData.get(name);if(!preset)return;state.old=validate(clone(preset));state.oldName=name+'.json';state.tavernSource.old=name;state.dirty.old=false;state.activeId=null;document.querySelector('[data-tavern-picker]')?.classList.remove('open');hideCompare();rebuildCache();renderAll(false);pcmToastr.success('已从酒馆载入：'+name);}
-function snapshotGroupChange(side){const preset=state[side];pushUndo({type:'move',side,promptOrder:preset.prompts.map(p=>p.identifier),prompts:new Map(preset.prompts.map(p=>[p.identifier,p])),promptOrderData:clone(preset.prompt_order),extensionsBefore:clone(preset.extensions),draggedBefore:[...state.dragged[side]]});}
+function snapshotGroupChange(side){pushUndo(moveSnapshot(side));}
 function deletePrompt(side,id){const preset=state[side];if(!preset)return;if(!confirm('确定从'+(side==='old'?'旧版':'新版')+'删除该条目吗？（可撤回）'))return;snapshotGroupChange(side);preset.prompts=preset.prompts.filter(p=>p.identifier!==id);const order=orderArray(preset),oi=order.findIndex(x=>(typeof x==='string'?x:x?.identifier)===id);if(oi>=0)order.splice(oi,1);if(state.activeId===id){state.activeId=null;state.activeSide=null;hideCompare();}state.dirty[side]=true;rebuildCache();renderAll();pcmToastr.success('已删除条目');}
 function duplicatePrompt(side,id){const preset=state[side],prompt=byId(side).get(id);if(!preset||!prompt)return;snapshotGroupChange(side);const copy=clone(prompt);copy.identifier=crypto.randomUUID();copy.name=(prompt.name||'(未命名)')+' 副本';const idx=preset.prompts.findIndex(p=>p.identifier===id);preset.prompts.splice(idx<0?preset.prompts.length:idx+1,0,copy);const order=orderArray(preset),oi=order.findIndex(x=>(typeof x==='string'?x:x?.identifier)===id);order.splice(oi<0?order.length:oi+1,0,{identifier:copy.identifier,enabled:prompt.enabled!==false});const srcGroups=getBaiBaiGroupState(preset),srcGid=srcGroups?.prompts?.[id]?.groupId;if(srcGid&&Array.isArray(srcGroups.groups)&&srcGroups.groups.some(g=>String(g.id)===String(srcGid)))ensureBaiBaiGroupState(preset).prompts[copy.identifier]={groupId:String(srcGid)};state.dirty[side]=true;rebuildCache();renderAll();pcmToastr.success('已复制条目');}
 function newGroup(side){const preset=state[side];if(!preset)return;const name=prompt('输入分组名称','新分组');if(!name)return;snapshotGroupChange(side);const groupState=ensureBaiBaiGroupState(preset);const groupId=crypto.randomUUID();groupState.groups.push({id:groupId,name,order:groupState.groups.length,collapsed:false,enabled:true});state.grouping={side,groupId};state.dirty[side]=true;renderList(side);}
 function renameGroup(side,id){const groupState=getBaiBaiGroupState(state[side]),group=groupState?.groups?.find(g=>String(g.id)===String(id));if(!group)return;const name=prompt('输入新的分组名称',group.name||'');if(!name)return;snapshotGroupChange(side);group.name=name;state.dirty[side]=true;renderList(side);}
 function deleteGroup(side,id){const groupState=getBaiBaiGroupState(state[side]);if(!groupState||!confirm('删除分组？组内条目会变为未分组，不会被删除。'))return;snapshotGroupChange(side);groupState.groups=groupState.groups.filter(g=>String(g.id)!==String(id));for(const [promptId,meta] of Object.entries(groupState.prompts||{}))if(String(meta?.groupId)===String(id))delete groupState.prompts[promptId];state.dirty[side]=true;renderList(side);}
-function assignPromptToGroup(sourceSide,targetSide,id,groupId){const source=state[sourceSide],target=state[targetSide],prompt=byId(sourceSide).get(id);if(!source||!target||!prompt)return;const groupState=ensureBaiBaiGroupState(target);if(!groupState.groups.some(g=>String(g.id)===String(groupId)))return;snapshotGroupChange(targetSide);if(!byId(targetSide).has(id)){const ord=state.cache.ordered[targetSide];let last=-1;for(let i=0;i<ord.length;i++){const gid2=groupState.prompts?.[ord[i].identifier]?.groupId;if(gid2&&String(gid2)===String(groupId))last=i;}const beforeId=last>=0&&last+1<ord.length?ord[last+1].identifier:null;movePrompt(sourceSide,targetSide,id,beforeId);}groupState.prompts[id]={groupId:String(groupId)};state.dirty[targetSide]=true;rebuildCache();renderList(targetSide);}
+function assignPromptToGroup(sourceSide,targetSide,id,groupId,skipUndo){const source=state[sourceSide],target=state[targetSide],prompt=byId(sourceSide).get(id);if(!source||!target||!prompt)return;const groupState=ensureBaiBaiGroupState(target);if(!groupState.groups.some(g=>String(g.id)===String(groupId)))return;if(!skipUndo)snapshotGroupChange(targetSide);if(!byId(targetSide).has(id)){const ord=state.cache.ordered[targetSide];let last=-1;for(let i=0;i<ord.length;i++){const gid2=groupState.prompts?.[ord[i].identifier]?.groupId;if(gid2&&String(gid2)===String(groupId))last=i;}const beforeId=last>=0&&last+1<ord.length?ord[last+1].identifier:null;movePrompt(sourceSide,targetSide,id,beforeId,true,true);}groupState.prompts[id]={groupId:String(groupId)};state.dirty[targetSide]=true;rebuildCache();renderList(targetSide);}
+function assignPromptsToGroup(sourceSide,targetSide,ids,groupId){const validIds=ids.filter(id=>byId(sourceSide).get(id)||byId(targetSide).get(id));if(!state[targetSide]||!validIds.length)return;snapshotGroupChange(targetSide);for(const id of validIds)assignPromptToGroup(sourceSide,targetSide,id,groupId,true);pcmToastr.success('已批量放置 '+validIds.length+' 个条目');}
 function togglePromptGroup(side,id){const grouping=state.grouping;if(grouping.side!==side||!grouping.groupId)return false;const groupState=ensureBaiBaiGroupState(state[side]),current=groupState.prompts?.[id]?.groupId;snapshotGroupChange(side);if(String(current||'')===String(grouping.groupId))delete groupState.prompts[id];else groupState.prompts[id]={groupId:String(grouping.groupId)};state.dirty[side]=true;renderList(side);return true;}
 function finishGrouping(){state.grouping={side:null,groupId:null};renderAll();}
 function onClick(event){if(performance.now()<suppressClickUntil)return;const target=event.target.closest('button');if(!target)return;const action=target.dataset.action;const groupElement=target.closest('.pcm-group');const groupId=groupElement?.dataset.groupId;const groupSide=groupElement?.dataset.groupSide||target.dataset.side;if(action==='submit-version'){document.querySelector('.pcm-inline-form[data-side="'+target.dataset.side+'"]')?.requestSubmit();}if(action==='choose-tavern')chooseTavernPreset(target.dataset.presetName);if(action==='close-picker')document.querySelector('[data-tavern-picker]')?.classList.remove('open');if(action==='new-group')newGroup(target.dataset.side);if(action==='rename-group')renameGroup(groupSide,groupId);if(action==='delete-group')deleteGroup(groupSide,groupId);if(action==='finish-group')finishGrouping();if(action==='toggle-uninjected'){const side=target.dataset.side;state.unInjectedCollapsed[side]=!state.unInjectedCollapsed[side];renderList(side);}if(action==='toggle-group'){const gk=target.dataset.groupKey;if(gk){state.groupCollapsed[gk]=!state.groupCollapsed[gk];renderList(target.dataset.side);}}if(action==='close'){if(typeof event.currentTarget.close==='function')event.currentTarget.close();else event.currentTarget.removeAttribute('open');}if(action==='export')exportPreset(target.dataset.side);if(action==='save-tavern')saveSideToTavern(target.dataset.side);if(action==='pull-tavern')pullTavernPreset();if(action==='save-project')saveProject();if(action==='save-changes'){if(state.projectId)saveProject(document.querySelector('[data-project-name]')?.value.trim());else saveProject();}if(action==='load-project'){if(!selectedProjectId){pcmToastr.warning('请先点开项目名称输入框，从下拉列表选择要加载的项目');return;}loadProject(selectedProjectId);}if(action==='delete-project'){if(!selectedProjectId){pcmToastr.warning('请先点开项目名称输入框，从下拉列表选择要删除的项目');return;}deleteProject(selectedProjectId);selectedProjectId=null;}if(action==='undo')undoLast();if(action==='manage-vars')openVarPanel(target.dataset.side);if(action==='close-vars')document.querySelector('[data-vars-panel]')?.classList.remove('open');if(action==='vars-toggle-view'){const p=target.closest('[data-vars-panel]');if(p){const side=p.dataset.side;if(p.dataset.view==='ref')renderVarPanel(side,p.dataset.entryId);else renderRefPanel(side,p.dataset.refId);}}if(action==='vars-add-row')varAddRow(target);if(action==='vars-del-row'){const tr=target.closest('tr');if(tr&&confirm('确定删除该变量行吗？可点「撤回删除」恢复。')){varsPanelTrash.push({segIndex:tr.dataset.segIndex,name:tr.querySelector('[data-field=name]')?.value||'',value:tr.querySelector('[data-field=value]')?.value||'',use:tr.querySelector('td:nth-child(3) span')?.textContent||'0',index:[...tr.parentNode.children].indexOf(tr)});tr.remove();updateVarsUndoBtn();}}if(action==='vars-undo-row'){const item=varsPanelTrash.pop();if(!item){pcmToastr.info('没有可撤回的删除');}else{const tbody=document.querySelector('[data-vars-panel] [data-vars-rows]');if(tbody){const row=varRowTr(item.segIndex,item.name,item.value,item.use);tbody.insertBefore(row,tbody.children[Math.min(item.index,tbody.children.length)]||null);}updateVarsUndoBtn();pcmToastr.success('已恢复删除的变量行');}}if(action==='vars-add-missing')varAddMissingRow(target);if(action==='vars-save')saveVarPanel(target.dataset.side,target.dataset.entryId);if(action==='vars-save-ref')saveRefPanel(target.dataset.side,target.dataset.entryId);if(action==='collapse'){state.activeId=null;state.activeSide=null;if(state.freeSelect.enabled){state.freeSelect={enabled:true,oldId:null,newId:null};markFreeSelection();}hideCompare();renderAll();}if(action==='migrate')migrate(target.dataset.side);if(action==='duplicate-prompt')duplicatePrompt(target.dataset.side,target.dataset.id);if(action==='delete-prompt')deletePrompt(target.dataset.side,target.dataset.id);if(target.dataset.open){if(togglePromptGroup(target.dataset.side,target.dataset.open))return;if(state.multiSelect.enabled){toggleMultiSelect(target.dataset.side,target.dataset.open);return;}state.activeId=target.dataset.open;state.activeSide=target.dataset.side;renderAll();}}
@@ -275,6 +277,143 @@ const ta=el('textarea');ta.dataset.refContent='';ta.value=String(prompt.content|
 const actions=el('div','pcm-vars-actions');const save=btn('保存修改','vars-save-ref','pcm-primary');save.dataset.side=side;save.dataset.entryId=refId;actions.append(save);body.append(actions);
 panel.classList.add('open');}
 function saveRefPanel(side,entryId){const panel=document.querySelector('[data-vars-panel]');const ta=panel?.querySelector('[data-ref-content]');if(!panel||!ta||!side||!entryId)return;const prompt=byId(side).get(entryId);if(!prompt){pcmToastr.error('条目不存在');return;}pushUndo({type:'edit',side,id:entryId,before:clone(prompt),modifiedBefore:[...state.modified[side]]});prompt.content=ta.value;state.modified[side].add(entryId);state.dirty[side]=true;rebuildCache();renderList(side);renderRefPanel(side,entryId);pcmToastr.success('条目内容已保存（可用顶部「撤回」恢复）');}
+
+// v1.8.2: group multi-select drops are one undoable transaction on every drag path.
+function onTouchEnd(event){
+  if(!touchDrag)return;
+  if(!touchEnded(event,touchDrag.id))return;
+  clearTimeout(touchDrag.timer);
+  if(touchDrag.raf)cancelAnimationFrame(touchDrag.raf);
+  if(touchDrag.holding){
+    for(const t of event.changedTouches)if(t.identifier===touchDrag.id){touchDrag.mx=t.clientX;touchDrag.my=t.clientY;break;}
+    try{processTouchDrag();}catch(_){}
+  }
+  const drag=touchDrag;
+  touchDrag=null;
+  drag.row.classList.remove('pcm-dragging');
+  const jitter=drag.mx===undefined||drag.my===undefined||(Math.abs(drag.my-drag.y)<12&&Math.abs(drag.mx-drag.x)<12);
+  try{
+    if(drag.holding&&drag.targetSide&&!jitter){
+      event.preventDefault();
+      const srcSide=drag.row.dataset.dragSide;
+      const msIds=dragIdsFor(drag.row);
+      if(drag.groupAssign){
+        const ids=msIds?msIds.ids:[drag.row.dataset.dragId];
+        if(ids.length>1)assignPromptsToGroup(srcSide,drag.targetSide,ids,drag.targetGroupId);
+        else assignPromptToGroup(srcSide,drag.targetSide,ids[0],drag.targetGroupId);
+      }else if(msIds){
+        movePrompts(srcSide,drag.targetSide,msIds.ids,drag.beforeId);
+        for(const x of msIds.ids)applyDropGroup(drag.targetSide,x,drag.targetGroupId);
+        rebuildCache();
+        renderList(drag.targetSide);
+      }else{
+        movePrompt(srcSide,drag.targetSide,drag.row.dataset.dragId,drag.beforeId);
+        applyDropGroup(drag.targetSide,drag.row.dataset.dragId,drag.targetGroupId);
+        rebuildCache();
+        renderList(drag.targetSide);
+      }
+      if(srcSide!==drag.targetSide&&drag.scrollHome){
+        const srcList=document.querySelector('[data-list="'+srcSide+'"]');
+        if(srcList&&drag.scrollHome[srcSide]!==undefined)srcList.scrollTop=drag.scrollHome[srcSide];
+      }
+    }
+  }catch(error){console.error('[preset-compare-migrator] touch drop failed',error);}
+  clearDropMarker();
+  stopDragAutoScroll();
+  drag.dialog?.classList.remove('pcm-touch-dragging');
+  if(drag.holding)pcmUnlock();
+}
+
+function onRowPointerUp(event){
+  if(!pointerDrag||event.pointerId!==pointerDrag.id)return;
+  clearTimeout(pointerDrag.timer);
+  if(pointerDrag.raf)cancelAnimationFrame(pointerDrag.raf);
+  if(pointerDrag.holding){
+    pointerDrag.mx=event.clientX;
+    pointerDrag.my=event.clientY;
+    try{processPointerDrag();}catch(_){}
+  }
+  const drag=pointerDrag;
+  pointerDrag=null;
+  if(drag.holding&&drag.suppressClick)suppressClickUntil=performance.now()+400;
+  drag.row.classList.remove('pcm-dragging');
+  const jitter=drag.mx===undefined||drag.my===undefined||(Math.abs(drag.my-drag.y)<12&&Math.abs(drag.mx-drag.x)<12);
+  try{
+    if(drag.holding&&drag.targetSide&&!jitter){
+      const srcSide=drag.row.dataset.dragSide;
+      const msIds=dragIdsFor(drag.row);
+      if(drag.groupAssign){
+        const ids=msIds?msIds.ids:[drag.row.dataset.dragId];
+        if(ids.length>1)assignPromptsToGroup(srcSide,drag.targetSide,ids,drag.targetGroupId);
+        else assignPromptToGroup(srcSide,drag.targetSide,ids[0],drag.targetGroupId);
+      }else if(msIds){
+        movePrompts(srcSide,drag.targetSide,msIds.ids,drag.beforeId);
+        for(const x of msIds.ids)applyDropGroup(drag.targetSide,x,drag.targetGroupId);
+        rebuildCache();
+        renderList(drag.targetSide);
+      }else{
+        movePrompt(srcSide,drag.targetSide,drag.row.dataset.dragId,drag.beforeId);
+        applyDropGroup(drag.targetSide,drag.row.dataset.dragId,drag.targetGroupId);
+        rebuildCache();
+        renderList(drag.targetSide);
+      }
+      if(srcSide!==drag.targetSide&&drag.scrollHome){
+        const srcList=document.querySelector('[data-list="'+srcSide+'"]');
+        if(srcList&&drag.scrollHome[srcSide]!==undefined)srcList.scrollTop=drag.scrollHome[srcSide];
+      }
+    }
+  }catch(error){console.error('[preset-compare-migrator] pointer drop failed',error);}
+  clearDropMarker();
+  stopDragAutoScroll();
+  drag.dialog?.classList.remove('pcm-touch-dragging');
+  if(drag.holding)pcmUnlock();
+}
+
+function onDrop(event){
+  stopDragAutoScroll();
+  const list=event.target.closest('.pcm-list');
+  if(!list)return;
+  event.preventDefault();
+  const row=event.target.closest('.pcm-row');
+  if(row){
+    try{
+      const data=JSON.parse(event.dataTransfer.getData('text/plain'));
+      const beforeId=markDropTarget(row,event);
+      const targetSide=list.dataset.list;
+      const targetGroupId=groupIdForRow(row);
+      clearDropMarker();
+      if(data.ids&&data.ids.length>1){
+        movePrompts(data.side,targetSide,data.ids,beforeId);
+        for(const x of data.ids)applyDropGroup(targetSide,x,targetGroupId);
+      }else{
+        movePrompt(data.side,targetSide,data.id,beforeId);
+        applyDropGroup(targetSide,data.id,targetGroupId);
+      }
+      rebuildCache();
+      renderList(targetSide);
+    }catch{clearDropMarker();}
+    return;
+  }
+  const groupHead=event.target.closest('.pcm-group-head');
+  const group=groupHead?.closest('.pcm-group');
+  if(group?.dataset.groupId){
+    try{
+      const data=JSON.parse(event.dataTransfer.getData('text/plain'));
+      const ids=data.ids&&data.ids.length>1?data.ids:[data.id];
+      group.classList.remove('pcm-group-drop');
+      if(ids.length>1)assignPromptsToGroup(data.side,group.dataset.groupSide,ids,group.dataset.groupId);
+      else assignPromptToGroup(data.side,group.dataset.groupSide,ids[0],group.dataset.groupId);
+    }catch{}
+    clearDropMarker();
+    return;
+  }
+  try{
+    const data=JSON.parse(event.dataTransfer.getData('text/plain'));
+    clearDropMarker();
+    if(data.ids&&data.ids.length>1)movePrompts(data.side,list.dataset.list,data.ids,null);
+    else movePrompt(data.side,list.dataset.list,data.id,null);
+  }catch{clearDropMarker();}
+}
 const PCM_ICONS={load:'<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 14l1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/></svg>',save:'<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>',trash:'<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',undo:'<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>'};
 function iconBtn(action,title,svg,cls){const b=el('button','menu_button pcm-icon-btn'+(cls?' '+cls:''));b.type='button';b.dataset.action=action;b.title=title;b.setAttribute('aria-label',title);b.innerHTML=svg;return b;}
 let selectedProjectId=null;
