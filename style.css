@@ -376,6 +376,44 @@
 .pcm-dialog.pcm-theme-day .pcm-editwrap.live>.pcm-diff-backdrop .add .a{background:#79740e80}
 .pcm-dialog.pcm-theme-day .pcm-editwrap.live>.pcm-diff-backdrop .del .d{background:#9d000680}
 .pcm-dialog.pcm-theme-day .pcm-row-disabled .pcm-name{color:#a89984}
+
+/* ============================================================
+   多选模式（v1.7.0）：点击选中，批量拖拽
+   ============================================================ */
+.pcm-ms-selected{outline:2px solid #55c98e;outline-offset:-2px;background:color-mix(in srgb,#55c98e 16%,transparent)!important}
+.pcm-ms-selected:hover{background:color-mix(in srgb,#55c98e 22%,transparent)!important}
+.pcm-ms-selected .pcm-name{font-weight:700}
+.pcm-dialog.pcm-theme-night .pcm-ms-selected{outline-color:#8ec07c;background:#8ec07c1f!important}
+.pcm-dialog.pcm-theme-night .pcm-ms-selected:hover{background:#8ec07c2b!important}
+.pcm-dialog.pcm-theme-day .pcm-ms-selected{outline-color:#427b58;background:#427b581f!important}
+.pcm-dialog.pcm-theme-day .pcm-ms-selected:hover{background:#427b582b!important}
+
+/* ============================================================
+   变量预设管理面板（v1.7.0）
+   ============================================================ */
+.pcm-vars-panel{width:min(880px,94vw)}
+.pcm-vars-body{min-height:0;overflow:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.pcm-vars-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pcm-vars-bar select{max-width:62vw;min-width:220px}
+.pcm-vars-label{font-size:12px;opacity:.7;white-space:nowrap}
+.pcm-vars-stats{font-size:11px;opacity:.75;padding:6px 9px;border:1px solid color-mix(in srgb,var(--SmartThemeBorderColor) 60%,transparent);border-radius:8px}
+.pcm-vars-missing{border:1px solid #d8a44a;border-radius:8px;padding:8px 10px}
+.pcm-vars-missing h4{margin:0 0 6px;font-size:12px;color:#e6b85f}
+.pcm-vars-miss-row{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:11px}
+.pcm-vars-miss-row code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pcm-vars-miss-count{opacity:.6;font-size:10px;white-space:nowrap}
+.pcm-vars-table{width:100%;border-collapse:collapse;font-size:11px}
+.pcm-vars-table th{text-align:left;font-size:10px;opacity:.55;padding:2px 6px;border-bottom:1px solid var(--SmartThemeBorderColor);white-space:nowrap}
+.pcm-vars-table td{padding:3px 4px;border-bottom:1px solid color-mix(in srgb,var(--SmartThemeBorderColor) 40%,transparent)}
+.pcm-vars-table input{width:100%;min-width:0;padding:4px 6px;font-size:11px}
+.pcm-vars-table td:nth-child(3),.pcm-vars-table th:nth-child(3){white-space:nowrap;opacity:.6;width:64px;text-align:right}
+.pcm-vars-table td:nth-child(4),.pcm-vars-table th:nth-child(4){width:36px;text-align:center}
+.pcm-vars-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.pcm-vars-other summary{font-size:10px;opacity:.5;cursor:pointer}
+.pcm-vars-other pre{margin:6px 0 0;padding:8px;border:1px solid color-mix(in srgb,var(--SmartThemeBorderColor) 50%,transparent);border-radius:6px;font-size:10px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:180px;overflow:auto}
+.pcm-dialog.pcm-theme-night .pcm-vars-missing{border-color:#fabd2f59}.pcm-dialog.pcm-theme-night .pcm-vars-missing h4{color:#fabd2f}
+.pcm-dialog.pcm-theme-day .pcm-vars-missing{border-color:#b5761480}.pcm-dialog.pcm-theme-day .pcm-vars-missing h4{color:#b57614}
+@media(max-width:640px){.pcm-vars-panel{width:96vw}.pcm-vars-bar select{min-width:0;width:100%}.pcm-vars-table th:nth-child(3){width:44px}.pcm-vars-table input{font-size:10px;padding:3px 4px}}
 .pcm-dialog.pcm-theme-day .pcm-free-select{background:rgba(0,0,0,0.025);border-color:#ddd3bf;color:#3c3836}
 .pcm-dialog.pcm-theme-day .pcm-free-select:hover{background:rgba(0,0,0,0.05);border-color:#cabfa4}
 .pcm-dialog.pcm-theme-day .pcm-free-select input[type="checkbox"]{border-color:#bdae93;background:#fffefa}
