@@ -404,6 +404,10 @@
 .pcm-vars-body{min-height:0;min-width:0;overflow:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
 .pcm-vars-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .pcm-vars-bar select{max-width:62vw;min-width:220px}
+.pcm-vars-entry-name{font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1 1 auto}
+.pcm-vars-save{flex:0 0 auto;color:#18734f!important;border-color:#36b47d!important}
+.pcm-dialog.pcm-theme-night .pcm-vars-save{color:#b8bb26!important;border-color:#b8bb26!important}
+.pcm-dialog.pcm-theme-day .pcm-vars-save{color:#427b58!important;border-color:#427b58!important}
 .pcm-vars-label{font-size:12px;opacity:.7;white-space:nowrap}
 .pcm-vars-stats{font-size:11px;opacity:.75;padding:6px 9px;border:1px solid color-mix(in srgb,var(--SmartThemeBorderColor) 60%,transparent);border-radius:8px}
 .pcm-vars-missing{border:1px solid #d8a44a;border-radius:8px;padding:8px 10px}
@@ -535,6 +539,7 @@
    ============================================================ */
 .pcm-btn-icon{display:none}
 .pcm-btn-text{white-space:nowrap}
+.pcm-pane-head [data-action=pull-tavern] .pcm-btn-tavern-short{display:none}
 @media(max-width:520px){
   .pcm-btn-icon{display:inline-flex!important}
   .pcm-pane-head .pcm-btn-text{display:none!important}
@@ -547,7 +552,7 @@
   .pcm-pane-head .pcm-icon-btn{flex:0 0 auto!important;width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important}
   .pcm-pane-head [data-file-name]{flex:1 1 24px!important;width:auto!important;min-width:0!important;max-width:none!important;margin-top:0!important;font-size:9px!important}
   .pcm-actions{flex:0 0 auto!important;min-width:0!important;max-width:none!important;gap:2px!important;overflow:visible!important;padding:0!important}
-  .pcm-actions .menu_button,.pcm-import{flex:0 0 auto!important;min-width:0!important;height:24px!important;min-height:24px!important;padding-inline:5px!important;font-size:9px!important;line-height:1!important;white-space:nowrap!important;border-radius:8px!important}
+  .pcm-actions .menu_button,.pcm-import{flex:0 0 auto!important;box-sizing:border-box!important;min-width:0!important;height:24px!important;min-height:24px!important;padding-block:0!important;padding-inline:5px!important;font-size:9px!important;line-height:1!important;white-space:nowrap!important;border-radius:8px!important}
   .pcm-pane-head .pcm-actions .menu_button svg,.pcm-pane-head .pcm-import svg{width:11px!important;height:11px!important}
   .pcm-pane-head [data-action=pull-tavern] .pcm-btn-text{display:none!important}
   .pcm-pane-head [data-action=pull-tavern] .pcm-btn-tavern-short{display:inline!important}
