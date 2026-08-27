@@ -576,3 +576,11 @@
 .pcm-dialog .pcm-inline-content textarea{color:#1d2021!important;background:#fffefa!important;-webkit-text-fill-color:#1d2021!important;caret-color:#1d2021!important;text-shadow:none!important}
 .pcm-dialog .pcm-vars-raw textarea{color:#1d2021!important;background:#fffefa!important;-webkit-text-fill-color:#1d2021!important;caret-color:#1d2021!important;text-shadow:none!important}
 .pcm-dialog textarea[data-ref-content]{color:#1d2021!important;background:#fffefa!important;-webkit-text-fill-color:#1d2021!important;caret-color:#1d2021!important;text-shadow:none!important}
+
+/* v1.9.5 ref view: orange chips + in-text highlight of unreferenced setvars */
+.pcm-vars-refchips .pcm-vars-chips{margin-top:4px}
+.pcm-vars-refchips .pcm-vars-chips code{color:#b23c17!important;border-color:#b23c1780!important;background:#e258221a!important;font-weight:700}
+.pcm-dialog.pcm-theme-night .pcm-vars-refchips .pcm-vars-chips code{color:#ff9457!important;border-color:#ff945780!important;background:#e2582226!important}
+.pcm-dialog.pcm-theme-day .pcm-vars-refchips .pcm-vars-chips code{color:#9d2f0e!important;border-color:#9d2f0e80!important;background:#e2582214!important}
+.pcm-diff-backdrop .refhit{background:rgba(226,88,34,.30);border-radius:2px;box-shadow:0 0 0 1px rgba(226,88,34,.28)}
+.pcm-dialog.pcm-theme-night .pcm-diff-backdrop .refhit{background:rgba(255,148,87,.20);box-shadow:0 0 0 1px rgba(255,148,87,.30)}
