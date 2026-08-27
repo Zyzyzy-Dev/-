@@ -564,3 +564,15 @@
 @media(max-width:359px){
   .pcm-pane-head .pcm-actions{overflow-x:auto!important;max-width:52vw!important}
 }
+
+/* ============================================================
+   v1.9.4 readability: compare editors + variable raw/ref textareas
+   render light-on-light on some host skins. Force light background
+   + near-black text. Name field keeps host styling (already dark).
+   Placed last so it wins cascade ties with theme rules.
+   ============================================================ */
+.pcm-dialog .pcm-inline-form input:not([name=name]),
+.pcm-dialog .pcm-inline-form select{color:#1d2021!important;background:#fffefa!important;-webkit-text-fill-color:#1d2021!important;caret-color:#1d2021!important;text-shadow:none!important}
+.pcm-dialog .pcm-inline-content textarea{color:#1d2021!important;background:#fffefa!important;-webkit-text-fill-color:#1d2021!important;caret-color:#1d2021!important;text-shadow:none!important}
+.pcm-dialog .pcm-vars-raw textarea{color:#1d2021!important;background:#fffefa!important;-webkit-text-fill-color:#1d2021!important;caret-color:#1d2021!important;text-shadow:none!important}
+.pcm-dialog textarea[data-ref-content]{color:#1d2021!important;background:#fffefa!important;-webkit-text-fill-color:#1d2021!important;caret-color:#1d2021!important;text-shadow:none!important}
