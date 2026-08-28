@@ -52,7 +52,7 @@ function rebuildComparisonCache(){
   // New imports/projects or changing whitespace mode invalidate these associations.
   if(previous?.old===state.old&&previous?.new===state.new&&previous?.loose===state.ignoreWhitespace){
     for(const pair of new Set(state.cache.pairs?.values()||[])){
-      if(pair.kind==='content'&&oldMap.has(pair.oldId)&&newMap.has(pair.newId))link(pair.oldId,pair.newId,'content');
+      if((pair.kind==='content'||pair.kind==='similar')&&oldMap.has(pair.oldId)&&newMap.has(pair.newId))link(pair.oldId,pair.newId,pair.kind);
     }
   }
   const buckets=new Map();
@@ -78,6 +78,7 @@ function rebuildComparisonCache(){
     const oldRest=bucket.old.filter(p=>!usedOld.has(p.identifier)),newRest=bucket.new.filter(p=>!usedNew.has(p.identifier));
     if(oldRest.length===1&&newRest.length===1)link(oldRest[0].identifier,newRest[0].identifier,'content');
   }
+  matchSimilarPrompts(oldMap,newMap,usedOld,usedNew,pairs,link);
   for(const id of oldMap.keys())if(!usedOld.has(id))pairs.set(id,{oldId:id,newId:null,kind:null});
   for(const id of newMap.keys())if(!usedNew.has(id))pairs.set(id,{oldId:null,newId:id,kind:null});
   state.cache.pairs=pairs;
@@ -90,10 +91,79 @@ function rebuildComparisonCache(){
   }
   state.cache.status=status;state.cache.similarity.clear();
 }
+// Matching is deliberately stricter than the display-only bigram percentage:
+// counted trigrams preserve repetition/length evidence and reduce template collisions.
+function matchingProfile(prompt){
+  if(typeof prompt.content!=='string')return null;
+  const normalize=t=>state.ignoreWhitespace?t.replace(/\s+/g,''):t;
+  const body=normalize(prompt.content),grams=new Map();
+  if(body.trim().length<32)return null;
+  let count=0;
+  for(let i=0;i<body.length-2;i++){
+    const gram=body.slice(i,i+3);if(!gram.trim())continue;
+    grams.set(gram,(grams.get(gram)||0)+1);count++;
+  }
+  if(grams.size<16)return null;
+  return{id:prompt.identifier,name:normalize(String(prompt.name||'')).trim(),grams,count};
+}
+function matchSimilarPrompts(oldMap,newMap,usedOld,usedNew,pairs,link){
+  // Keep remembered fuzzy pairs among rivals. Otherwise a later refresh could
+  // silently promote an ambiguous runner-up after its strongest rival was used.
+  const collect=(map,used)=>[...map.values()].filter(p=>!used.has(p.identifier)||pairs.get(p.identifier)?.kind==='similar').map(p=>({identifier:p.identifier,name:p.name,content:p.content}));
+  const oldInputs=collect(oldMap,usedOld),newInputs=collect(newMap,usedNew),cached=state.cache.similarMatching;
+  const unchanged=(a,b)=>a.length===b.length&&a.every((p,i)=>p.identifier===b[i].identifier&&p.name===b[i].name&&p.content===b[i].content);
+  // Toggle/reorder/save refreshes need not re-index unchanged text. Snapshot
+  // fields, not prompt references, because editors can mutate objects in place.
+  if(cached?.loose===state.ignoreWhitespace&&unchanged(oldInputs,cached.old)&&unchanged(newInputs,cached.new)){
+    for(const pair of cached.matches)link(pair.oldId,pair.newId,'similar');
+    return;
+  }
+  const old=oldInputs.map(matchingProfile).filter(Boolean),newer=newInputs.map(matchingProfile).filter(Boolean),matches=[];
+  const bestOld=new Map(),bestNew=new Map();
+  const sameNameMinimum=0.82,renamedMinimum=0.92,margin=0.06;
+  // Include near misses in runner-up scores, even if they cannot themselves match.
+  const candidateFloor=sameNameMinimum-margin;
+  const rank=(map,id,candidate)=>{
+    const best=map.get(id);
+    if(!best)map.set(id,{candidate,runnerUp:0});
+    else if(candidate.score>best.candidate.score){best.runnerUp=best.candidate.score;best.candidate=candidate;}
+    else best.runnerUp=Math.max(best.runnerUp,candidate.score);
+  };
+  // Index shared fragments once instead of scanning every pair of long bodies.
+  const index=new Map();
+  for(const n of newer)for(const [gram,count] of n.grams){
+    let postings=index.get(gram);if(!postings){postings=[];index.set(gram,postings);}
+    postings.push([n,count]);
+  }
+  for(const o of old){
+    // Even perfect overlap cannot exceed this length bound.
+    const compatible=new Set(newer.filter(n=>2*Math.min(o.count,n.count)/(o.count+n.count)>=candidateFloor));
+    const shared=new Map();
+    for(const [gram,count] of o.grams)for(const [n,otherCount] of index.get(gram)||[]){
+      if(compatible.has(n))shared.set(n,(shared.get(n)||0)+Math.min(count,otherCount));
+    }
+    for(const [n,count] of shared){
+      const score=2*count/(o.count+n.count);if(score<candidateFloor)continue;
+      const sameName=!!o.name&&o.name===n.name;
+      const candidate={oldId:o.id,newId:n.id,score,eligible:score>=(sameName?sameNameMinimum:renamedMinimum)};
+      rank(bestOld,o.id,candidate);rank(bestNew,n.id,candidate);
+    }
+  }
+  // Decide once, symmetrically, before linking anything. No greedy cascade may
+  // turn an ambiguous runner-up into a match just because a rival was consumed.
+  for(const {candidate,runnerUp} of bestOld.values()){
+    const reverse=bestNew.get(candidate.newId);
+    if(candidate.eligible&&reverse?.candidate===candidate&&candidate.score-runnerUp>=margin&&candidate.score-reverse.runnerUp>=margin){
+      matches.push({oldId:candidate.oldId,newId:candidate.newId});
+      link(candidate.oldId,candidate.newId,'similar');
+    }
+  }
+  state.cache.similarMatching={old:oldInputs,new:newInputs,loose:state.ignoreWhitespace,matches};
+}
 function comparisonPrompts(id){const pair=state.cache.pairs?.get(id);return{old:byId('old').get(pair?pair.oldId:id),new:byId('new').get(pair?pair.newId:id)};}
 function counterpartId(side,id){const pair=state.cache.pairs?.get(id);return pair?.[side==='old'?'newId':'oldId']||null;}
 function isComparisonActive(side,id){return !!state.activeId&&(state.cache.pairs?.get(state.activeId)?.[side+'Id']||state.activeId)===id;}
-function comparisonHint(id){return state.cache.pairs?.get(id)?.kind==='content'?'按正文匹配（ID 不同）':'';}
+function comparisonHint(id){const kind=state.cache.pairs?.get(id)?.kind;return kind==='similar'?'按相似正文匹配（ID 不同，请核对差异）':kind==='content'?'按正文匹配（ID 不同）':'';}
 function promptOrderEntry(preset){if(!preset)return null;if(!Array.isArray(preset.prompt_order))preset.prompt_order=[];const prompts=new Set((preset.prompts||[]).map(p=>p.identifier));let best=preset.prompt_order.find(x=>Number(x?.character_id)===100001&&Array.isArray(x.order));if(!best)best=preset.prompt_order.filter(x=>Array.isArray(x?.order)).sort((a,b)=>{const score=x=>x.order.reduce((n,item)=>n+(prompts.has(typeof item==='string'?item:item?.identifier)?1:0),0);return score(b)-score(a)||b.order.length-a.order.length;})[0];return best||null;}
 function promptEnabled(side,prompt){const item=promptOrderEntry(state[side])?.order?.find(x=>(typeof x==='string'?x:x?.identifier)===prompt.identifier);return typeof item==='object'&&typeof item.enabled==='boolean'?item.enabled:prompt.enabled!==false;}
 // IDs and switches are identity/state, not comparable prompt content. Other fields still matter.
