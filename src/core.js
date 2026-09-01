@@ -1,5 +1,5 @@
 // 预设更新编辑器 · 纯功能核心：不接触 DOM，可在 Node 中直接回归测试。
-// 预设校验、prompt_order 顺序节点选择、比对归一化/正文相似度、Myers 混合粒度 diff、变量宏解析。
+// 预设校验、prompt_order 顺序节点选择、正则配对/迁移、比对归一化/正文相似度、Myers 混合粒度 diff、变量宏解析。
 const ALL_TRIGGERS = ['continue', 'impersonate', 'normal', 'quiet', 'regenerate', 'swipe'];
 const LINE_DIFF_LIMIT = 200_000;
 const CHAR_DIFF_LIMIT = 40_000;
@@ -68,6 +68,113 @@ export function findPromptOrderEntry(preset) {
       .sort((left, right) => score(right) - score(left) || right.order.length - left.order.length)[0];
   }
   return best || null;
+}
+
+export function getRegexScripts(preset) {
+  return Array.isArray(preset?.extensions?.regex_scripts) ? preset.extensions.regex_scripts : [];
+}
+
+// 正则先按稳定 ID 配对；剩余项目仅在两侧名称都唯一时才按名称配对，避免重名正则误覆盖。
+export function pairRegexScripts(oldPreset, newPreset) {
+  const oldScripts = getRegexScripts(oldPreset);
+  const newScripts = getRegexScripts(newPreset);
+  const pairs = [];
+  const usedOld = new Set();
+  const usedNew = new Set();
+
+  const uniqueIndexes = (scripts, field, excluded) => {
+    const indexes = new Map();
+    for (let index = 0; index < scripts.length; index++) {
+      if (excluded.has(index)) continue;
+      const value = String(scripts[index]?.[field] || '').trim();
+      if (!value) continue;
+      const matches = indexes.get(value) || [];
+      matches.push(index);
+      indexes.set(value, matches);
+    }
+    return indexes;
+  };
+
+  const oldIds = uniqueIndexes(oldScripts, 'id', usedOld);
+  const newIds = uniqueIndexes(newScripts, 'id', usedNew);
+  for (const [id, oldIndexes] of oldIds) {
+    const newIndexes = newIds.get(id);
+    if (oldIndexes.length !== 1 || newIndexes?.length !== 1) continue;
+    const oldIndex = oldIndexes[0];
+    const newIndex = newIndexes[0];
+    pairs.push({ oldIndex, newIndex, kind: 'id' });
+    usedOld.add(oldIndex);
+    usedNew.add(newIndex);
+  }
+
+  const oldNames = uniqueIndexes(oldScripts, 'scriptName', usedOld);
+  const newNames = uniqueIndexes(newScripts, 'scriptName', usedNew);
+  for (const [name, oldIndexes] of oldNames) {
+    const newIndexes = newNames.get(name);
+    if (oldIndexes.length !== 1 || newIndexes?.length !== 1) continue;
+    const oldIndex = oldIndexes[0];
+    const newIndex = newIndexes[0];
+    pairs.push({ oldIndex, newIndex, kind: 'name' });
+    usedOld.add(oldIndex);
+    usedNew.add(newIndex);
+  }
+
+  for (let oldIndex = 0; oldIndex < oldScripts.length; oldIndex++) {
+    if (!usedOld.has(oldIndex)) pairs.push({ oldIndex, newIndex: null, kind: 'old-only' });
+  }
+  for (let newIndex = 0; newIndex < newScripts.length; newIndex++) {
+    if (!usedNew.has(newIndex)) pairs.push({ oldIndex: null, newIndex, kind: 'new-only' });
+  }
+  return pairs;
+}
+
+export function copyRegexScript(sourcePreset, targetPreset, sourceSide, sourceIndex) {
+  if (!['old', 'new'].includes(sourceSide)) throw new Error('正则来源版本无效。');
+  const sourceScripts = getRegexScripts(sourcePreset);
+  const script = sourceScripts[sourceIndex];
+  if (!script || typeof script !== 'object' || Array.isArray(script)) throw new Error('找不到要迁移的正则。');
+
+  const oldPreset = sourceSide === 'old' ? sourcePreset : targetPreset;
+  const newPreset = sourceSide === 'new' ? sourcePreset : targetPreset;
+  const pair = pairRegexScripts(oldPreset, newPreset).find(item => item[sourceSide + 'Index'] === sourceIndex);
+  const targetSide = sourceSide === 'old' ? 'new' : 'old';
+  const counterpartIndex = pair?.[targetSide + 'Index'];
+
+  if (!targetPreset.extensions || typeof targetPreset.extensions !== 'object' || Array.isArray(targetPreset.extensions)) {
+    targetPreset.extensions = {};
+  }
+  if (!Array.isArray(targetPreset.extensions.regex_scripts)) targetPreset.extensions.regex_scripts = [];
+  const targetScripts = targetPreset.extensions.regex_scripts;
+
+  if (counterpartIndex !== null && counterpartIndex !== undefined) {
+    targetScripts[counterpartIndex] = clone(script);
+    return { mode: 'overwrite', index: counterpartIndex };
+  }
+
+  const sourceIndexField = sourceSide + 'Index';
+  const targetIndexField = targetSide + 'Index';
+  const pairs = pairRegexScripts(oldPreset, newPreset);
+  let insertIndex = targetScripts.length;
+  let anchoredAfterPrevious = false;
+  for (let index = sourceIndex - 1; index >= 0; index--) {
+    const previous = pairs.find(item => item[sourceIndexField] === index && item[targetIndexField] !== null);
+    if (previous) {
+      insertIndex = previous[targetIndexField] + 1;
+      anchoredAfterPrevious = true;
+      break;
+    }
+  }
+  if (!anchoredAfterPrevious) {
+    for (let index = sourceIndex + 1; index < sourceScripts.length; index++) {
+      const next = pairs.find(item => item[sourceIndexField] === index && item[targetIndexField] !== null);
+      if (next) {
+        insertIndex = next[targetIndexField];
+        break;
+      }
+    }
+  }
+  targetScripts.splice(insertIndex, 0, clone(script));
+  return { mode: 'insert', index: insertIndex };
 }
 
 function bigramSet(text) {

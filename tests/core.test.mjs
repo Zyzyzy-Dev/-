@@ -6,10 +6,13 @@ import {
   applyPresetToMemory,
   buildRows,
   clone,
+  copyRegexScript,
   contentSimilarity,
   diffLines,
   equalValues,
   findPromptOrderEntry,
+  getRegexScripts,
+  pairRegexScripts,
   parseVarContent,
   shouldRefreshActivePreset,
   validatePreset,
@@ -58,6 +61,58 @@ test('prompt order picks character 100001, then the best covered entry', () => {
     ],
   });
   assert.equal(covered.character_id, 1);
+});
+
+test('regex scripts pair by ID, then by a unique exact name', () => {
+  const oldPreset = { extensions: { regex_scripts: [
+    { id: 'same-id', scriptName: 'renamed', findRegex: 'old' },
+    { id: 'old-name-id', scriptName: 'same name', findRegex: 'old-name' },
+    { id: 'duplicate-a', scriptName: 'duplicate' },
+    { id: 'duplicate-b', scriptName: 'duplicate' },
+  ] } };
+  const newPreset = { extensions: { regex_scripts: [
+    { id: 'same-id', scriptName: 'new name', findRegex: 'new' },
+    { id: 'new-name-id', scriptName: 'same name', findRegex: 'new-name' },
+    { id: 'duplicate-c', scriptName: 'duplicate' },
+  ] } };
+  const pairs = pairRegexScripts(oldPreset, newPreset);
+  assert.deepEqual(pairs.find(pair => pair.oldIndex === 0), { oldIndex: 0, newIndex: 0, kind: 'id' });
+  assert.deepEqual(pairs.find(pair => pair.oldIndex === 1), { oldIndex: 1, newIndex: 1, kind: 'name' });
+  assert.equal(pairs.find(pair => pair.oldIndex === 2).newIndex, null);
+  assert.equal(pairs.find(pair => pair.oldIndex === 3).newIndex, null);
+  assert.equal(pairs.find(pair => pair.newIndex === 2).oldIndex, null);
+  assert.deepEqual(getRegexScripts({}), []);
+});
+
+test('regex migration overwrites counterparts and inserts missing scripts near matched neighbors', () => {
+  const oldPreset = { extensions: { regex_scripts: [
+    { id: 'a', scriptName: 'A', findRegex: 'a' },
+    { id: 'b', scriptName: 'B', findRegex: 'old-b', disabled: false },
+    { id: 'c', scriptName: 'C', findRegex: 'c' },
+  ] } };
+  const newPreset = { prompts: [], extensions: { regex_scripts: [
+    { id: 'a', scriptName: 'A', findRegex: 'a' },
+    { id: 'b', scriptName: 'B', findRegex: 'new-b', disabled: true },
+  ] } };
+
+  assert.deepEqual(copyRegexScript(oldPreset, newPreset, 'old', 1), { mode: 'overwrite', index: 1 });
+  assert.deepEqual(newPreset.extensions.regex_scripts[1], oldPreset.extensions.regex_scripts[1]);
+  newPreset.extensions.regex_scripts[1].findRegex = 'independent';
+  assert.equal(oldPreset.extensions.regex_scripts[1].findRegex, 'old-b');
+
+  assert.deepEqual(copyRegexScript(oldPreset, newPreset, 'old', 2), { mode: 'insert', index: 2 });
+  assert.deepEqual(newPreset.extensions.regex_scripts.map(script => script.id), ['a', 'b', 'c']);
+
+  const reversedTarget = { prompts: [], extensions: { regex_scripts: [
+    { id: 'c', scriptName: 'C', findRegex: 'c' },
+    { id: 'a', scriptName: 'A', findRegex: 'a' },
+  ] } };
+  assert.deepEqual(copyRegexScript(oldPreset, reversedTarget, 'old', 1), { mode: 'insert', index: 2 });
+  assert.deepEqual(reversedTarget.extensions.regex_scripts.map(script => script.id), ['c', 'a', 'b']);
+
+  const emptyTarget = { prompts: [] };
+  assert.deepEqual(copyRegexScript(oldPreset, emptyTarget, 'old', 0), { mode: 'insert', index: 0 });
+  assert.equal(emptyTarget.extensions.regex_scripts[0].id, 'a');
 });
 
 test('content similarity keeps existing whitespace semantics', () => {
