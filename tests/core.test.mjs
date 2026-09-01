@@ -11,9 +11,11 @@ import {
   diffLines,
   equalValues,
   findPromptOrderEntry,
+  getRegexGroupModel,
   getRegexScripts,
   pairRegexScripts,
   parseVarContent,
+  reorderRegexScript,
   shouldRefreshActivePreset,
   validatePreset,
 } from '../src/core.js';
@@ -113,6 +115,87 @@ test('regex migration overwrites counterparts and inserts missing scripts near m
   const emptyTarget = { prompts: [] };
   assert.deepEqual(copyRegexScript(oldPreset, emptyTarget, 'old', 0), { mode: 'insert', index: 0 });
   assert.equal(emptyTarget.extensions.regex_scripts[0].id, 'a');
+});
+
+test('BaiBai regex groups render by group metadata and keep ungrouped scripts', () => {
+  const preset = { extensions: {
+    regex_scripts: [
+      { id: 'a', scriptName: 'A' },
+      { id: 'b', scriptName: 'B' },
+      { id: 'c', scriptName: 'C' },
+    ],
+    baibaiToolkit: { regexGroups: {
+      version: 1,
+      groups: [
+        { id: 'late', name: '后置', order: 1, collapsed: true },
+        { id: 'early', name: '前置', order: 0, collapsed: false },
+      ],
+      scripts: {
+        a: { groupId: 'early', order: 1 },
+        b: { groupId: 'early', order: 0 },
+        c: { groupId: 'missing-group', order: 0 },
+      },
+      ungrouped: { name: '散装', collapsed: false },
+    } },
+  } };
+  const model = getRegexGroupModel(preset);
+  assert.equal(model.enabled, true);
+  assert.deepEqual(model.groups.map(group => group.name), ['前置', '后置', '散装']);
+  assert.deepEqual(model.groups[0].scripts.map(item => item.script.id), ['b', 'a']);
+  assert.deepEqual(model.groups[2].scripts.map(item => item.script.id), ['c']);
+});
+
+test('regex migration preserves BaiBai groups and supports explicit drop targets', () => {
+  const oldPreset = { extensions: {
+    regex_scripts: [
+      { id: 'a', scriptName: 'A' },
+      { id: 'b', scriptName: 'B' },
+    ],
+    baibaiToolkit: { regexGroups: {
+      version: 1,
+      groups: [{ id: 'cleanup', name: '清理', order: 0, collapsed: true }],
+      scripts: { a: { groupId: 'cleanup', order: 0 }, b: { groupId: 'cleanup', order: 1 } },
+      ungrouped: { name: '未分组', collapsed: false },
+    } },
+  } };
+  const newPreset = { extensions: {
+    regex_scripts: [{ id: 'z', scriptName: 'Z' }],
+    baibaiToolkit: { regexGroups: {
+      version: 1,
+      groups: [{ id: 'target', name: '目标组', order: 0, collapsed: false }],
+      scripts: { z: { groupId: 'target', order: 0 } },
+      ungrouped: { name: '未分组', collapsed: false },
+    } },
+  } };
+
+  copyRegexScript(oldPreset, newPreset, 'old', 0);
+  assert.equal(newPreset.extensions.baibaiToolkit.regexGroups.groups[1].id, 'cleanup');
+  assert.deepEqual(newPreset.extensions.baibaiToolkit.regexGroups.scripts.a, { groupId: 'cleanup', order: 0 });
+
+  copyRegexScript(oldPreset, newPreset, 'old', 1, { targetGroupId: 'target', beforeId: 'z' });
+  assert.deepEqual(newPreset.extensions.regex_scripts.map(script => script.id), ['b', 'z', 'a']);
+  assert.deepEqual(newPreset.extensions.baibaiToolkit.regexGroups.scripts.b, { groupId: 'target', order: 0 });
+  assert.deepEqual(newPreset.extensions.baibaiToolkit.regexGroups.scripts.z, { groupId: 'target', order: 1 });
+});
+
+test('same-side regex drag reorders a BaiBai group and updates compact orders', () => {
+  const preset = { extensions: {
+    regex_scripts: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+    baibaiToolkit: { regexGroups: {
+      version: 1,
+      groups: [{ id: 'g', name: '组', order: 0, collapsed: false }],
+      scripts: {
+        a: { groupId: 'g', order: 0 },
+        b: { groupId: 'g', order: 1 },
+        c: { groupId: '__ungrouped', order: 0 },
+      },
+      ungrouped: { name: '未分组', collapsed: false },
+    } },
+  } };
+  assert.deepEqual(reorderRegexScript(preset, 1, { targetGroupId: 'g', beforeId: 'a' }), { index: 0 });
+  assert.deepEqual(preset.extensions.regex_scripts.map(script => script.id), ['b', 'a', 'c']);
+  assert.deepEqual(preset.extensions.baibaiToolkit.regexGroups.scripts.b, { groupId: 'g', order: 0 });
+  assert.deepEqual(preset.extensions.baibaiToolkit.regexGroups.scripts.a, { groupId: 'g', order: 1 });
 });
 
 test('content similarity keeps existing whitespace semantics', () => {
