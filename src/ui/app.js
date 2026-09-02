@@ -30,9 +30,9 @@ const DB_NAME='preset-compare-projects',DB_STORE='projects';
 state.freeSelect={enabled:false,oldId:null,newId:null}; state.multiSelect={enabled:false,selected:{old:new Set(),new:new Set()}};
 state.unInjectedCollapsed={old:true,new:true};state.groupCollapsed={};
 state.tavernSource={old:null,new:null};
-let hostEnvironment={theme:{},keyboardOffset:0,viewport:null};
+let hostEnvironment={theme:{},safeInsets:{top:0,right:0,bottom:0,left:0},keyboardOffset:0,viewport:null};
 const hostEnvironmentListeners=new Set();
-function applyHostEnvironment(environment){hostEnvironment=environment||hostEnvironment;for(const [name,value] of Object.entries(hostEnvironment.theme||{})){if(value)document.documentElement.style.setProperty(name,value);}for(const listener of hostEnvironmentListeners){try{listener(hostEnvironment);}catch(error){console.error('[preset-compare-migrator] environment listener failed',error);}}}
+function applyHostEnvironment(environment){hostEnvironment=environment||hostEnvironment;for(const [name,value] of Object.entries(hostEnvironment.theme||{})){if(value)document.documentElement.style.setProperty(name,value);}for(const side of['top','right','bottom','left']){const inset=Math.max(0,Number(hostEnvironment.safeInsets?.[side])||0);document.documentElement.style.setProperty('--pcm-host-inset-'+side,inset+'px');}for(const listener of hostEnvironmentListeners){try{listener(hostEnvironment);}catch(error){console.error('[preset-compare-migrator] environment listener failed',error);}}}
 function onHostEnvironment(listener){hostEnvironmentListeners.add(listener);listener(hostEnvironment);return()=>hostEnvironmentListeners.delete(listener);}
 host.on('environment',applyHostEnvironment);
 function openProjectDb(){return new Promise((resolve,reject)=>{const request=indexedDB.open(DB_NAME,2);request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains(DB_STORE))db.createObjectStore(DB_STORE,{keyPath:'id'});if(!db.objectStoreNames.contains('prefs'))db.createObjectStore('prefs',{keyPath:'id'});};request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});}

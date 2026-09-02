@@ -1,6 +1,6 @@
 /* 预设更新编辑器 · iframe 独立样式：控件与主题变量完全自足，不依赖酒馆主页面或美化插件 CSS。
    开头为自足基础层，后半保留触屏禁用 content-visibility、移动端面板高度、编辑区紧凑化及 auto/day/night 配色。 */
-:root{color-scheme:dark;--SmartThemeBorderColor:#504945;--SmartThemeBlurTintColor:#282828;--SmartThemeBodyColor:#ebdbb2;--mainFontFamily:system-ui,-apple-system,"Segoe UI",sans-serif;--monoFontFamily:"Cascadia Mono","SFMono-Regular",Consolas,monospace}
+:root{color-scheme:dark;--SmartThemeBorderColor:#504945;--SmartThemeBlurTintColor:#282828;--SmartThemeBodyColor:#ebdbb2;--mainFontFamily:system-ui,-apple-system,"Segoe UI",sans-serif;--monoFontFamily:"Cascadia Mono","SFMono-Regular",Consolas,monospace;--pcm-host-inset-top:0px;--pcm-host-inset-right:0px;--pcm-host-inset-bottom:0px;--pcm-host-inset-left:0px;--pcm-safe-top:max(var(--tt-inset-top,0px),var(--pcm-host-inset-top),env(safe-area-inset-top,0px));--pcm-safe-right:max(var(--tt-inset-right,0px),var(--pcm-host-inset-right),env(safe-area-inset-right,0px));--pcm-safe-bottom:max(var(--tt-inset-bottom,0px),var(--pcm-host-inset-bottom),env(safe-area-inset-bottom,0px));--pcm-safe-left:max(var(--tt-inset-left,0px),var(--pcm-host-inset-left),env(safe-area-inset-left,0px))}
 html,body{width:100%;height:100%;margin:0;padding:0;background:transparent;color:var(--SmartThemeBodyColor);font-family:var(--mainFontFamily);font-size:14px}
 *,*::before,*::after{box-sizing:border-box}
 body{overflow:hidden}
@@ -659,3 +659,19 @@ dialog{font-family:var(--mainFontFamily)}
 .pcm-regex-row.pcm-regex-dragging{opacity:.42;cursor:grabbing;outline:2px dashed #68c8ff;outline-offset:-2px}.pcm-regex-drop-before::before,.pcm-regex-drop-after::after{content:"";position:absolute;z-index:3;left:4px;right:4px;height:3px;border-radius:3px;background:#68c8ff}.pcm-regex-drop-before::before{top:-2px}.pcm-regex-drop-after::after{bottom:-2px}.pcm-regex-drop-group{outline:2px solid #68c8ff;outline-offset:-2px;background:color-mix(in srgb,#68c8ff 12%,transparent)}.pcm-regex-drop-end::after{content:"拖到这里放在末尾";display:block;margin:7px;padding:10px;border:2px dashed #68c8ff;border-radius:7px;color:#68c8ff;text-align:center;font-size:10px}
 @media(max-width:900px){.pcm-header-toggles .pcm-header-regex{order:initial;min-width:48px;padding:4px 8px;font-size:10px}.pcm-regex-panel{width:calc(100vw - 12px);height:calc(100dvh - 12px);max-height:none}.pcm-regex-body{min-height:0;display:grid;grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) minmax(0,1fr);overflow:hidden;overscroll-behavior:contain}.pcm-regex-column{min-height:0;display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden;border-right:0;border-bottom:1px solid var(--SmartThemeBorderColor)}.pcm-regex-column:last-child{border-bottom:0}.pcm-regex-column-head{position:static;background:var(--SmartThemeBlurTintColor)}.pcm-regex-list{min-height:0;overflow-y:auto;overflow-x:hidden;padding:5px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}.pcm-regex-row-top>.menu_button{min-width:60px;padding-inline:5px}}
 @media(max-width:520px){.pcm-header-toggles .pcm-header-regex{display:inline-flex!important;align-items:center;justify-content:center;width:100%;min-width:0;height:auto;min-height:0;padding:4px 2px!important;font-size:clamp(8px,2.35vw,10px)!important}.pcm-regex-panel .pcm-picker-head{padding:8px}.pcm-regex-title{font-size:14px}.pcm-regex-column-head{padding:5px 7px}.pcm-regex-group{margin-bottom:4px}.pcm-regex-group-head{padding:4px 6px}.pcm-regex-group-items{padding:3px}.pcm-regex-row{margin-bottom:3px;padding:3px 5px}.pcm-regex-info strong{font-size:10px}.pcm-regex-row-top>.menu_button{min-width:54px;min-height:23px;height:23px;padding:1px 4px;font-size:8px}.pcm-regex-disclosure{width:18px;height:18px}.pcm-regex-disclosure span{font-size:19px}.pcm-regex-expanded{margin-left:22px}}
+
+/* v1.9.3 mobile safe-area contract: the iframe stays full-bleed while only
+   interactive content avoids TT/iOS insets. max() prevents double padding. */
+@media(max-width:900px){
+  .pcm-app{padding:var(--pcm-safe-top) var(--pcm-safe-right) var(--pcm-safe-bottom) var(--pcm-safe-left)!important}
+  .pcm-dialog>.pcm-picker{padding-top:max(16px,var(--pcm-safe-top))!important;padding-right:max(16px,var(--pcm-safe-right))!important;padding-bottom:max(16px,var(--pcm-safe-bottom))!important;padding-left:max(16px,var(--pcm-safe-left))!important}
+  .pcm-dialog>.pcm-picker[data-regex-panel]{padding-top:max(clamp(6px,1.5vw,16px),var(--pcm-safe-top))!important;padding-right:max(clamp(6px,1.5vw,16px),var(--pcm-safe-right))!important;padding-bottom:max(clamp(6px,1.5vw,16px),var(--pcm-safe-bottom))!important;padding-left:max(clamp(6px,1.5vw,16px),var(--pcm-safe-left))!important}
+  .pcm-dialog>.pcm-picker:not([data-regex-panel]) .pcm-picker-panel{max-height:min(82vh,calc(100dvh - var(--pcm-safe-top) - var(--pcm-safe-bottom) - 32px))!important}
+  .pcm-regex-panel{height:calc(100dvh - var(--pcm-safe-top) - var(--pcm-safe-bottom) - 12px)!important}
+  .pcm-close{position:relative}
+  .pcm-close::after{content:"";position:absolute;inset:-3px}
+}
+@media(max-width:700px){
+  .pcm-dialog>.pcm-picker:not([data-regex-panel]){padding-top:max(8px,var(--pcm-safe-top))!important;padding-right:max(8px,var(--pcm-safe-right))!important;padding-bottom:max(8px,var(--pcm-safe-bottom))!important;padding-left:max(8px,var(--pcm-safe-left))!important}
+  .pcm-dialog>.pcm-picker:not([data-regex-panel]) .pcm-picker-panel{max-height:min(92vh,calc(100dvh - var(--pcm-safe-top) - var(--pcm-safe-bottom) - 16px))!important}
+}
