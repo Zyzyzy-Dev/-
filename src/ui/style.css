@@ -60,7 +60,7 @@ dialog{font-family:var(--mainFontFamily)}
   .pcm-list{overscroll-behavior-y:contain!important}
 }
 
-/* v1.8.4: tablet panes capped at 520px can otherwise leave the outer dialog
+/* Tablet panes capped at 520px can otherwise leave the outer dialog
    shorter than one viewport. Reserve one viewport for the stacked pane area so
    the global header can scroll away until the old-preset header reaches top. */
 @media(min-width:521px) and (max-width:900px){
@@ -450,7 +450,7 @@ dialog{font-family:var(--mainFontFamily)}
 [data-ref-content]{width:100%;min-height:220px;resize:vertical;font-family:var(--monoFontFamily,monospace);font-size:11px}
 
 /* ============================================================
-   UI 紧凑化重构（v1.8.0）：胶囊开关 / 图标按钮 / 项目下拉 / 头部布局
+   UI 紧凑化重构：胶囊开关 / 图标按钮 / 项目下拉 / 头部布局
    ============================================================ */
 
 /* ---------- 开关胶囊化：无方块勾选框，选中高亮 ---------- */
@@ -506,7 +506,7 @@ dialog{font-family:var(--mainFontFamily)}
 .pcm-dialog.pcm-theme-day .pcm-free-select input[type="checkbox"]::before{box-shadow:inset 1em 1em #3c3836}
 
 /* ============================================================
-   响应式头部修正（v1.8.1）：PC / 平板 / 窄屏手机
+   响应式头部修正：PC / 平板 / 窄屏手机
    ============================================================ */
 .pcm-dialog .pcm-free-select input[type="checkbox"]{display:none!important;width:0!important;height:0!important;min-width:0!important;min-height:0!important;margin:0!important;padding:0!important;appearance:none!important;-webkit-appearance:none!important}
 .pcm-title-block,.pcm-window-actions,.pcm-header-toggles{display:flex;align-items:center;min-width:0}
@@ -542,7 +542,7 @@ dialog{font-family:var(--mainFontFamily)}
 }
 
 /* ============================================================
-   v1.8.2 responsive follow-up: project row first, compact mobile controls,
+   Responsive follow-up: project row first, compact mobile controls,
    and outer-scroll handoff from preset rows on touch devices.
    ============================================================ */
 @media(max-width:900px){
@@ -555,7 +555,7 @@ dialog{font-family:var(--mainFontFamily)}
 }
 
 /* ============================================================
-   v1.9.1 mobile single-row pane head: narrow title + filename + icon actions
+   Mobile single-row pane head: narrow title + filename + icon actions
    ============================================================ */
 .pcm-btn-icon{display:none}
 .pcm-btn-text{white-space:nowrap}
@@ -586,7 +586,7 @@ dialog{font-family:var(--mainFontFamily)}
 }
 
 /* ============================================================
-   v1.9.4 readability: compare editors + variable raw/ref textareas
+   Readability: compare editors + variable raw/ref textareas
    render light-on-light on some host skins. Force light background
    + near-black text. Name field keeps host styling (already dark).
    Placed last so it wins cascade ties with theme rules.
@@ -597,7 +597,7 @@ dialog{font-family:var(--mainFontFamily)}
 .pcm-dialog .pcm-vars-raw textarea{color:#1d2021!important;background:#fffefa!important;-webkit-text-fill-color:#1d2021!important;caret-color:#1d2021!important;text-shadow:none!important}
 .pcm-dialog textarea[data-ref-content]{color:#1d2021!important;background:#fffefa!important;-webkit-text-fill-color:#1d2021!important;caret-color:#1d2021!important;text-shadow:none!important}
 
-/* v1.9.5 ref view: orange chips + in-text highlight of unreferenced setvars */
+/* Ref view: orange chips + in-text highlight of unreferenced setvars */
 .pcm-vars-refchips .pcm-vars-chips{margin-top:4px}
 .pcm-vars-refchips .pcm-vars-chips code{color:#b23c17!important;border-color:#b23c1780!important;background:#e258221a!important;font-weight:700}
 .pcm-dialog.pcm-theme-night .pcm-vars-refchips .pcm-vars-chips code{color:#ff9457!important;border-color:#ff945780!important;background:#e2582226!important}
@@ -629,7 +629,7 @@ dialog{font-family:var(--mainFontFamily)}
 .pcm-dialog .pcm-row-action{box-sizing:border-box;min-width:24px;min-height:24px;margin:0;padding:3px 5px;line-height:1}
 
 /* ============================================================
-   v1.9.0 正则对比、拖拽迁移与 BaiBai 分组
+   正则对比、拖拽迁移与 BaiBai 分组
    ============================================================ */
 .pcm-header-toggles .pcm-header-regex{flex:0 0 auto;min-width:48px;padding:5px 10px;border-radius:999px;font-size:10px;white-space:nowrap}
 .pcm-dialog.pcm-regex-open{overflow:hidden!important;overscroll-behavior:none!important}
@@ -660,7 +660,7 @@ dialog{font-family:var(--mainFontFamily)}
 @media(max-width:900px){.pcm-header-toggles .pcm-header-regex{order:initial;min-width:48px;padding:4px 8px;font-size:10px}.pcm-regex-panel{width:calc(100vw - 12px);height:calc(100dvh - 12px);max-height:none}.pcm-regex-body{min-height:0;display:grid;grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) minmax(0,1fr);overflow:hidden;overscroll-behavior:contain}.pcm-regex-column{min-height:0;display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden;border-right:0;border-bottom:1px solid var(--SmartThemeBorderColor)}.pcm-regex-column:last-child{border-bottom:0}.pcm-regex-column-head{position:static;background:var(--SmartThemeBlurTintColor)}.pcm-regex-list{min-height:0;overflow-y:auto;overflow-x:hidden;padding:5px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}.pcm-regex-row-top>.menu_button{min-width:60px;padding-inline:5px}}
 @media(max-width:520px){.pcm-header-toggles .pcm-header-regex{display:inline-flex!important;align-items:center;justify-content:center;width:100%;min-width:0;height:auto;min-height:0;padding:4px 2px!important;font-size:clamp(8px,2.35vw,10px)!important}.pcm-regex-panel .pcm-picker-head{padding:8px}.pcm-regex-title{font-size:14px}.pcm-regex-column-head{padding:5px 7px}.pcm-regex-group{margin-bottom:4px}.pcm-regex-group-head{padding:4px 6px}.pcm-regex-group-items{padding:3px}.pcm-regex-row{margin-bottom:3px;padding:3px 5px}.pcm-regex-info strong{font-size:10px}.pcm-regex-row-top>.menu_button{min-width:54px;min-height:23px;height:23px;padding:1px 4px;font-size:8px}.pcm-regex-disclosure{width:18px;height:18px}.pcm-regex-disclosure span{font-size:19px}.pcm-regex-expanded{margin-left:22px}}
 
-/* v1.9.3 mobile safe-area contract: the iframe stays full-bleed while only
+/* v1.7.5 mobile safe-area contract: the iframe stays full-bleed while only
    interactive content avoids TT/iOS insets. max() prevents double padding. */
 @media(max-width:900px){
   .pcm-app{padding:var(--pcm-safe-top) var(--pcm-safe-right) var(--pcm-safe-bottom) var(--pcm-safe-left)!important}
