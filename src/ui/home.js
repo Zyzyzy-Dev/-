@@ -33,15 +33,15 @@ export function createToolboxHome({ themeIcon, onCycleTheme }) {
     </header>
     <div class="pcm-home-content">
       <button type="button" class="pcm-toolbox-card" data-action="open-editor">
-        <span class="pcm-toolbox-card-icon pcm-toolbox-cat" aria-hidden="true"><img src="${new URL('./assets/workshop-cat.png', import.meta.url).href}" alt="" draggable="false"></span>
+        <span class="pcm-toolbox-card-icon pcm-toolbox-cat" aria-hidden="true"><img src="${new URL('./assets/editor-kitty.svg', import.meta.url).href}" alt="" draggable="false"></span>
         <span class="pcm-toolbox-card-copy"><strong>预设编辑</strong><small>对比、迁移、排序并检查预设内容</small></span>
         <span class="pcm-home-card-go"><i aria-hidden="true">${arrow}</i></span>
       </button>
       <section class="pcm-home-welcome" aria-label="酒馆工坊">
         <span class="pcm-home-tape" aria-hidden="true"></span>
         <div class="pcm-home-art" aria-hidden="true">
-          <img class="pcm-home-day-art" src="${new URL('./assets/workshop-day.png', import.meta.url).href}" alt="" width="1536" height="1024" draggable="false">
-          <img class="pcm-home-night-art" src="${new URL('./assets/workshop-night.png', import.meta.url).href}" alt="" width="1536" height="1024" draggable="false">
+          <img class="pcm-home-day-art" src="${new URL('./assets/day-puppy.svg', import.meta.url).href}" alt="" width="320" height="210" draggable="false">
+          <img class="pcm-home-night-art" src="${new URL('./assets/night-kitty.svg', import.meta.url).href}" alt="" width="320" height="210" draggable="false">
           <div class="pcm-home-auto-art">${friends}</div>
         </div>
         <span class="pcm-home-paw" aria-hidden="true">${paw}</span>
