@@ -19,15 +19,25 @@ export function readWorldbook(data, source = '世界书') {
   }).sort((a, b) => a.displayIndex - b.displayIndex);
 }
 
-export function stitchWorldbook(preset, entries, { beforeId = null, keepDisabled = true } = {}) {
+export function stitchWorldbook(preset, entries, { beforeId = null, afterId = null, placement = 'end', keepDisabled = true } = {}) {
   validatePreset(preset);
   if (!Array.isArray(entries) || !entries.length) throw new Error('请先勾选要缝合的世界书条目。');
   // 先完整构造结果，任何校验失败都不触碰目标草稿。
   const result = clone(preset);
   let orderNode = findPromptOrderEntry(result);
-  if (beforeId !== null && (!result.prompts.some(prompt => prompt.identifier === beforeId)
-    || !orderNode?.order.some(item => (typeof item === 'string' ? item : item?.identifier) === beforeId))) {
+  const idOf = item => typeof item === 'string' ? item : item?.identifier;
+  const existingIds = new Set(result.prompts.map(prompt => prompt.identifier));
+  const activeIds = (orderNode?.order || []).map(idOf).filter(id => existingIds.has(id));
+  if (beforeId !== null && afterId !== null) throw new Error('不能同时指定条目前后两个插入位置。');
+  let anchor = beforeId ?? afterId;
+  let after = afterId !== null;
+  if (anchor !== null && !activeIds.includes(anchor)) {
     throw new Error('插入位置已失效，请重新打开世界书面板。');
+  }
+  if (anchor === null) {
+    if (!['start', 'end'].includes(placement)) throw new Error('无效的插入位置。');
+    anchor = (placement === 'start' ? activeIds[0] : activeIds.at(-1)) ?? null;
+    after = placement === 'end';
   }
   const ids = new Set(result.prompts.map(prompt => prompt.identifier));
   const prompts = entries.map(entry => {
@@ -48,9 +58,17 @@ export function stitchWorldbook(preset, entries, { beforeId = null, keepDisabled
     orderNode = { character_id: 100001, order: [] };
     result.prompt_order.push(orderNode);
   }
-  const at = beforeId === null ? orderNode.order.length : orderNode.order.findIndex(item => (typeof item === 'string' ? item : item?.identifier) === beforeId);
+  const at = anchor === null ? (placement === 'start' ? 0 : orderNode.order.length)
+    : orderNode.order.findIndex(item => idOf(item) === anchor) + Number(after);
   orderNode.order.splice(at, 0, ...prompts.map(({ identifier, enabled }) => ({ identifier, enabled })));
-  const promptAt = beforeId === null ? result.prompts.length : result.prompts.findIndex(prompt => prompt.identifier === beforeId);
+  const promptAt = anchor === null ? (placement === 'start' ? 0 : result.prompts.length)
+    : result.prompts.findIndex(prompt => prompt.identifier === anchor) + Number(after);
   result.prompts.splice(promptAt, 0, ...prompts);
+  // 按选中的条目继承归属，而非看下一条：组尾「之后」不能跑入下一组。
+  const groups = result.extensions?.baibaiToolkit?.presetPromptGroups;
+  const groupId = groups?.prompts?.[anchor]?.groupId;
+  if (groupId != null && Array.isArray(groups?.groups) && groups.groups.some(group => String(group.id) === String(groupId))) {
+    for (const prompt of prompts) groups.prompts[prompt.identifier] = { groupId: String(groupId) };
+  }
   return { preset: result, identifiers: prompts.map(prompt => prompt.identifier) };
 }

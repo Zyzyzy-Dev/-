@@ -20,27 +20,44 @@ import {
 import { host } from './bridge.js';
 import { stitchWorldbook } from '../worldbook.js';
 import { openWorldbookPanel } from './worldbook-panel.js';
+import { beginWorldbookPlacement } from './worldbook-placement.js';
 
+let worldbookPlacement = null;
 function manageWorldbook(side) {
+  worldbookPlacement?.cancel(false);
   const preset = state[side];
   if (!preset) { pcmToastr.warning('请先导入这一侧的目标预设'); return; }
+  const dialog = document.getElementById(APP_ID+'-dialog');
+  const apply = (entries, options) => {
+    if (state[side] !== preset) throw new Error('目标预设已切换或重新载入，请关闭面板后重新选择。');
+    const result = stitchWorldbook(preset, entries, options);
+    pushUndo(moveSnapshot(side));
+    preset.prompts = result.preset.prompts;
+    preset.prompt_order = result.preset.prompt_order;
+    if (result.preset.extensions !== undefined) preset.extensions = result.preset.extensions;
+    for (const id of result.identifiers) state.dragged[side].add(id);
+    state.dirty[side] = true;
+    state.query[side] = ''; state.filter[side] = 'all';
+    const search = document.querySelector('[data-search="'+side+'"]'); if (search) search.value = '';
+    const filter = document.querySelector('[data-filter="'+side+'"]'); if (filter) filter.value = 'all';
+    rebuildCache(); renderAll();
+    pcmToastr.success('已缝合 '+result.identifiers.length+' 条到'+(side==='old'?'旧版':'新版')+'草稿，可撤回；点击「保存」后写回酒馆');
+  };
   openWorldbookPanel({
-    dialog: document.getElementById(APP_ID+'-dialog'), preset,
+    dialog,
     title: (side === 'old' ? '旧版' : '新版') + ' · ' + state[side+'Name'],
-    onApply(entries, options) {
-      if (state[side] !== preset) throw new Error('目标预设已切换或重新载入，请关闭面板后重新选择。');
-      const result = stitchWorldbook(preset, entries, options);
-      pushUndo(moveSnapshot(side));
-      // 保持预设对象身份，让既有正文配对缓存继续有效。
-      preset.prompts = result.preset.prompts;
-      preset.prompt_order = result.preset.prompt_order;
-      for (const id of result.identifiers) state.dragged[side].add(id);
-      state.dirty[side] = true;
-      state.query[side] = ''; state.filter[side] = 'all';
-      const search = document.querySelector('[data-search="'+side+'"]'); if (search) search.value = '';
-      const filter = document.querySelector('[data-filter="'+side+'"]'); if (filter) filter.value = 'all';
-      rebuildCache(); renderAll();
-      pcmToastr.success('已缝合 '+result.identifiers.length+' 条到'+(side==='old'?'旧版':'新版')+'草稿，可撤回；点击「保存」后写回酒馆');
+    onApply: apply,
+    onPick(entries, options, callbacks) {
+      hideCompare();
+      worldbookPlacement = beginWorldbookPlacement({
+        dialog, side, count: entries.length,
+        getPrompt(id) {
+          if (state[side] !== preset || !promptOrderEntry(preset)?.order?.some(item => (typeof item === 'string' ? item : item?.identifier) === id)) return null;
+          return preset.prompts.find(prompt => prompt.identifier === id);
+        },
+        onApply(position) { apply(entries, { ...options, ...position }); callbacks.done(); },
+        onCancel: callbacks.restore,
+      });
     },
   });
 }
@@ -285,7 +302,7 @@ function setupViewportPin(dialog){const touchLikely=matchMedia('(pointer: coarse
 let viewportPinCleanup=null;
 /* 关闭即销毁：面板 DOM/监听/观察者/定时器全部释放，重开由 shell() 重建（state 数据保留，秒恢复）。幂等；
    销毁时强制交互锁归零并 flush 待重载（渲染空守卫跳过，仅同步数据），防锁泄漏卡死后续 PRESET_CHANGED。 */
-function destroyPanel(dialog){if(!dialog||!dialog.isConnected)return;stopDragAutoScroll();cleanupTouchDrag();cleanupPointerDrag();cleanupRegexDrag();clearTimeout(searchTimers.old);clearTimeout(searchTimers.new);searchTimers.old=searchTimers.new=null;touchDrag=null;outerScrollTouch=null;dropMarker=null;dropClass='';dropEndList=null;html5DragPointer=null;pcmInteractionLock=0;for(const [side,name] of [...pcmPendingReload]){pcmPendingReload.delete(side);reloadSideFromTavern(side,name);}if(viewportPinCleanup){try{viewportPinCleanup();}catch{}viewportPinCleanup=null;}tavernPresetPickerData.clear();state.cache.similarity.clear();state.cache.rows.old.clear();state.cache.rows.new.clear();dialog.remove();host.notify('close');}
+function destroyPanel(dialog){if(!dialog||!dialog.isConnected)return;worldbookPlacement?.cancel(false);worldbookPlacement=null;stopDragAutoScroll();cleanupTouchDrag();cleanupPointerDrag();cleanupRegexDrag();clearTimeout(searchTimers.old);clearTimeout(searchTimers.new);searchTimers.old=searchTimers.new=null;touchDrag=null;outerScrollTouch=null;dropMarker=null;dropClass='';dropEndList=null;html5DragPointer=null;pcmInteractionLock=0;for(const [side,name] of [...pcmPendingReload]){pcmPendingReload.delete(side);reloadSideFromTavern(side,name);}if(viewportPinCleanup){try{viewportPinCleanup();}catch{}viewportPinCleanup=null;}tavernPresetPickerData.clear();state.cache.similarity.clear();state.cache.rows.old.clear();state.cache.rows.new.clear();dialog.remove();host.notify('close');}
 /* 重开恢复：销毁重建后从 state 还原搜索词/筛选并填列表（勾选框由 installHeaderToggles 建时初始化）；rAF 先出框架再渲染。 */
 function restorePanelState(dialog){if(!state.old&&!state.new)return;for(const side of['old','new']){const input=dialog.querySelector('[data-search="'+side+'"]');if(input)input.value=state.query[side];const sel=dialog.querySelector('[data-filter="'+side+'"]');if(sel)sel.value=state.filter[side];}requestAnimationFrame(()=>{if(dialog.isConnected)renderAll(false);});}
 function shell(){let d=document.getElementById(APP_ID+'-dialog');if(d)return d;d=el('dialog','pcm-dialog');d.id=APP_ID+'-dialog';const app=el('div','pcm-app'),header=el('header','pcm-header'),title=el('div','pcm-title-block'),titleCopy=el('div','pcm-title-copy'),desktopUndo=iconBtn('undo','撤回上一步操作',PCM_ICONS.undo);desktopUndo.classList.add('pcm-desktop-undo');titleCopy.append(el('h2','', '预设条目对比与迁移'),el('p','', '默认只显示列表，点击条目后展开对比'));title.append(titleCopy,desktopUndo);const project=el('div','pcm-project-bar');const drop=el('div','pcm-proj-drop');const name=el('input');name.placeholder='项目名称';name.dataset.projectName='';const dropList=el('div','pcm-proj-list');dropList.dataset.projList='';drop.append(name,dropList);name.addEventListener('click',()=>toggleProjList());name.addEventListener('input',()=>{selectedProjectId=null;});project.append(drop,iconBtn('load-project','加载选中的已保存项目',PCM_ICONS.load),iconBtn('save-project','保存项目（读取项目名称输入框，为空则询问）',PCM_ICONS.save),iconBtn('delete-project','删除选中的已保存项目',PCM_ICONS.trash));const headerToggles=el('div','pcm-header-toggles'),windowActions=el('div','pcm-window-actions');windowActions.append(btn('×','close','pcm-close'));header.append(title,project,headerToggles,windowActions);app.append(header);const lists=el('section','pcm-lists');lists.append(column('old','旧版预设'),column('new','新版预设'));app.append(lists);const detail=el('section','pcm-compare pcm-hidden');detail.dataset.compare='';app.append(detail);d.append(app);d.addEventListener('click',onClick);d.addEventListener('change',onChange);d.addEventListener('input',onInput);d.addEventListener('dragstart',onDragStart);d.addEventListener('dragover',onDragOver);d.addEventListener('drop',onDrop);d.addEventListener('dragend',onDragEnd);d.addEventListener('touchstart',onOuterScrollTouchStart,{passive:true,capture:true});d.addEventListener('touchmove',onOuterScrollTouchMove,{passive:false,capture:true});d.addEventListener('touchend',onOuterScrollTouchEnd,{passive:true,capture:true});d.addEventListener('touchcancel',onOuterScrollTouchEnd,{passive:true,capture:true});d.addEventListener('touchstart',onTouchStart,{passive:true});d.addEventListener('touchmove',onTouchMove,{passive:false});d.addEventListener('touchend',onTouchEnd,{passive:false});d.addEventListener('touchcancel',onTouchCancel,{passive:true});d.addEventListener('pointerdown',onRowPointerDown);d.addEventListener('pointermove',onRowPointerMove);d.addEventListener('pointerup',onRowPointerUp);d.addEventListener('pointercancel',onRowPointerCancel);d.addEventListener('touchstart',onRegexTouchStart,{passive:true});d.addEventListener('touchmove',onRegexTouchMove,{passive:false});d.addEventListener('touchend',onRegexTouchEnd,{passive:false});d.addEventListener('touchcancel',onRegexTouchCancel,{passive:true});d.addEventListener('pointerdown',onRegexPointerDown);d.addEventListener('pointermove',onRegexPointerMove);d.addEventListener('pointerup',onRegexPointerUp);d.addEventListener('pointercancel',onRegexPointerCancel);d.addEventListener('touchstart',onTouchContactChange,{passive:true,capture:true});d.addEventListener('touchend',onTouchContactChange,{passive:true,capture:true});d.addEventListener('touchcancel',onTouchContactChange,{passive:true,capture:true});d.addEventListener('focusin',e=>{if(isCompareEditable(e.target))pcmLock();});d.addEventListener('focusout',e=>{if(isCompareEditable(e.target)&&!isCompareEditable(e.relatedTarget))pcmUnlock();});d.addEventListener('click',onToggleEnabledClick,true);d.addEventListener('click',onTavernPickerClick,true);d.addEventListener('change',onHeaderToggleChange,true);d.addEventListener('click',onFreeSelectClick,true);/* Esc 分层退出：dialog 原生 cancel(Esc) 会直接关闭整个 iframe 前端；

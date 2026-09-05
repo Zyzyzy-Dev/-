@@ -1,6 +1,5 @@
 // 世界书缝合面板：文件/宿主读取、条目筛选与正文预览，提交所选条目给应用草稿。
 import { readWorldbook } from '../worldbook.js';
-import { findPromptOrderEntry } from '../core.js';
 import { host } from './bridge.js';
 
 const node = (tag, className = '', text) => {
@@ -21,7 +20,7 @@ function option(select, value, text) {
   select.append(element);
 }
 
-export function openWorldbookPanel({ dialog, preset, title, onApply }) {
+export function openWorldbookPanel({ dialog, title, onApply, onPick }) {
   dialog.querySelector('[data-worldbook-panel]')?.remove();
   const panel = node('section', 'pcm-picker open');
   panel.dataset.worldbookPanel = '';
@@ -52,6 +51,7 @@ export function openWorldbookPanel({ dialog, preset, title, onApply }) {
   let items = [];
   let busy = false;
   let currentTavernName = '';
+  const applyButtons = [];
   const keyOf = item => JSON.stringify([item.source, item.key]);
   function addBook(data, source, replaceTavern = false) {
     const entries = readWorldbook(data, source);
@@ -72,7 +72,7 @@ export function openWorldbookPanel({ dialog, preset, title, onApply }) {
   }
   async function runBusy(control, work) {
     if (busy) return;
-    busy = true; apply.disabled = true;
+    busy = true; applyButtons.forEach(button => { button.disabled = true; });
     for (const input of sources.querySelectorAll('button,input,select')) input.disabled = true;
     try { await work(); } catch (error) { if (panel.isConnected) report(error); }
     finally {
@@ -132,7 +132,7 @@ export function openWorldbookPanel({ dialog, preset, title, onApply }) {
   const selectedItems = () => items.filter(item => selected.has(keyOf(item)));
   function updateCount() {
     count.textContent = `已选 ${selected.size} / ${items.length} 条（筛选不清除选择）`;
-    apply.disabled = busy || !selected.size;
+    applyButtons.forEach(button => { button.disabled = busy || !selected.size; });
   }
   selection.append(button('全选筛选结果', () => { for (const item of visibleItems()) selected.add(keyOf(item)); render(); }),
     button('取消选择', () => { selected.clear(); render(); }),
@@ -160,25 +160,26 @@ export function openWorldbookPanel({ dialog, preset, title, onApply }) {
   }
   search.addEventListener('input', render); filter.addEventListener('change', render);
   const footer = node('footer', 'pcm-worldbook-footer');
-  const positionLabel = node('label', 'pcm-worldbook-position', '插入位置');
-  const position = node('select'); position.setAttribute('aria-label', '插入位置');
-  option(position, '', '预设已注入条目末尾');
-  const map = new Map(preset.prompts.map(prompt => [prompt.identifier, prompt]));
-  for (const item of findPromptOrderEntry(preset)?.order || []) {
-    const id = typeof item === 'string' ? item : item?.identifier;
-    if (map.has(id)) option(position, id, `在「${map.get(id).name || '未命名条目'}」之前`);
-  }
-  positionLabel.append(position);
   const keepLabel = node('label', 'pcm-worldbook-check');
   const keep = node('input'); keep.type = 'checkbox'; keep.checked = true;
   keepLabel.append(keep, document.createTextNode('保留禁用状态'));
-  const apply = button('缝合到预设草稿', () => {
-    try {
-      onApply(selectedItems(), { beforeId: position.value || null, keepDisabled: keep.checked });
-      close();
-    } catch (error) { report(error); }
-  }, 'pcm-primary');
-  footer.append(positionLabel, keepLabel, apply);
+  const positions = node('div', 'pcm-worldbook-positions');
+  for (const [label, placement] of [['注入预设最前', 'start'], ['注入预设末尾', 'end'], ['注入指定位置', 'pick']]) {
+    const apply = button(label, () => {
+      try {
+        const entries = selectedItems(), options = { keepDisabled: keep.checked };
+        if (placement === 'pick') {
+          panel.classList.remove('open'); dialog.classList.remove('pcm-worldbook-open');
+          onPick(entries, options, {
+            done: close,
+            restore() { if (panel.isConnected) { panel.classList.add('open'); dialog.classList.add('pcm-worldbook-open'); apply.focus(); } },
+          });
+        } else { onApply(entries, { ...options, placement }); close(); }
+      } catch (error) { panel.classList.add('open'); dialog.classList.add('pcm-worldbook-open'); report(error); }
+    }, 'pcm-primary');
+    applyButtons.push(apply); positions.append(apply);
+  }
+  footer.append(keepLabel, positions);
   body.append(sources, status, filters, selection, list);
   box.append(head, body, footer); panel.append(box); dialog.append(panel);
   dialog.classList.add('pcm-worldbook-open');

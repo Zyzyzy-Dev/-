@@ -16,6 +16,65 @@ const book = () => ({ entries: {
   1: { name: '首条', content: '', displayIndex: 0, role: 'user' },
 } });
 
+const groupedPreset = () => ({
+  prompts: ['a', 'b', 'c', 'd', 'loose'].map(identifier => ({ identifier, name: identifier, content: identifier })),
+  prompt_order: [{ character_id: 9, order: [{ identifier: 'a', enabled: false }] },
+    { character_id: 100001, order: ['a', 'b', 'c', 'd', 'loose'].map(identifier => ({ identifier, enabled: true })) }],
+  extensions: { regex_scripts: [{ id: 'keep' }], baibaiToolkit: { other: 'preserve', presetPromptGroups: {
+    version: 1, groups: [{ id: 'g1', name: '第一组', order: 0 }, { id: 'g2', name: '第二组', order: 1, collapsed: true }],
+    prompts: { a: { groupId: 'g1' }, b: { groupId: 'g1' }, c: { groupId: 'g2' }, d: { groupId: 'g2' } },
+  } } },
+});
+
+test('front injection precedes first active entry and joins its existing group', () => {
+  const source = groupedPreset(), before = structuredClone(source);
+  const result = stitchWorldbook(source, [{ name: 'first', content: 'first' }], { placement: 'start' });
+  const id = result.identifiers[0];
+  assert.deepEqual(result.preset.prompt_order[1].order.map(item => item.identifier), [id, 'a', 'b', 'c', 'd', 'loose']);
+  assert.equal(result.preset.prompts[0].identifier, id);
+  assert.equal(result.preset.extensions.baibaiToolkit.presetPromptGroups.prompts[id]?.groupId, 'g1');
+  assert.deepEqual(result.preset.prompt_order[0], before.prompt_order[0]);
+  assert.deepEqual(source, before);
+});
+
+test('after group tail stays before next group and inherits selected group, not next group', () => {
+  const source = groupedPreset(), before = structuredClone(source);
+  const result = stitchWorldbook(source, readWorldbook(book()), { afterId: 'b' });
+  assert.deepEqual(result.preset.prompt_order[1].order.map(item => item.identifier), ['a', 'b', ...result.identifiers, 'c', 'd', 'loose']);
+  assert.deepEqual(result.preset.prompts.map(item => item.identifier), ['a', 'b', ...result.identifiers, 'c', 'd', 'loose']);
+  for (const id of result.identifiers) assert.equal(result.preset.extensions.baibaiToolkit.presetPromptGroups.prompts[id]?.groupId, 'g1');
+  assert.deepEqual(result.preset.extensions.baibaiToolkit.presetPromptGroups.groups, before.extensions.baibaiToolkit.presetPromptGroups.groups);
+  assert.deepEqual(result.preset.extensions.regex_scripts, before.extensions.regex_scripts);
+  assert.deepEqual(source, before);
+});
+
+test('before group head joins that group and end injection respects an ungrouped tail', () => {
+  const source = groupedPreset();
+  const before = stitchWorldbook(source, [{ content: 'head' }], { beforeId: 'c' });
+  assert.equal(before.preset.extensions.baibaiToolkit.presetPromptGroups.prompts[before.identifiers[0]]?.groupId, 'g2');
+  const end = stitchWorldbook(source, [{ content: 'last' }], { placement: 'end' });
+  assert.equal(end.preset.prompt_order[1].order.at(-1).identifier, end.identifiers[0]);
+  assert.equal(end.preset.extensions.baibaiToolkit.presetPromptGroups.prompts[end.identifiers[0]], undefined);
+});
+
+test('end injection joins last active group even with unrelated uninjected entries after it', () => {
+  const source = groupedPreset();
+  source.prompt_order[1].order.pop();
+  const result = stitchWorldbook(source, [{ content: 'last' }], { placement: 'end' });
+  assert.equal(result.preset.extensions.baibaiToolkit.presetPromptGroups.prompts[result.identifiers[0]]?.groupId, 'g2');
+  assert.equal(result.preset.prompt_order[1].order.at(-1).identifier, result.identifiers[0]);
+  assert.ok(!result.preset.prompt_order[1].order.some(item => item.identifier === 'loose'));
+});
+
+test('stale or uninjected after-target rejects atomically instead of falling through to end', () => {
+  const source = groupedPreset(), before = structuredClone(source);
+  assert.throws(() => stitchWorldbook(source, [{ content: 'x' }], { afterId: 'missing' }), /失效/);
+  source.prompt_order[1].order.pop();
+  assert.throws(() => stitchWorldbook(source, [{ content: 'x' }], { afterId: 'loose' }), /失效/);
+  source.prompt_order[1].order.push(before.prompt_order[1].order.at(-1));
+  assert.deepEqual(source, before);
+});
+
 test('worldbook reading preserves content, display order, names and disabled state', () => {
   const data = book(), before = structuredClone(data), items = readWorldbook(data, '测试');
   assert.deepEqual(items.map(item => item.name), ['首条', '<安全文本>']);
