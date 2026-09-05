@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readWorldbook, stitchWorldbook } from '../src/worldbook.js';
+import { createIdentifier } from '../src/core.js';
 
 const preset = () => ({
   temperature: 0.73,
@@ -73,4 +74,30 @@ test('invalid selection or stale insertion target never modifies the draft', () 
   assert.throws(() => stitchWorldbook(source, readWorldbook(book()), { beforeId: 'missing' }), /失效/);
   assert.throws(() => stitchWorldbook(source, [{ content: 'ok' }, { content: null }]), /无效/);
   assert.deepEqual(source, before);
+});
+
+test('worldbook stitching works without randomUUID (HTTP and older WebView)', () => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
+  const cryptoApi = globalThis.crypto;
+  Object.defineProperty(globalThis, 'crypto', { configurable: true, value: { getRandomValues: cryptoApi.getRandomValues.bind(cryptoApi) } });
+  try {
+    const source = preset(), before = structuredClone(source);
+    const result = stitchWorldbook(source, readWorldbook(book()), { beforeId: 'b' });
+    assert.equal(result.preset.prompts.length, 4);
+    assert.equal(result.preset.prompts[2].enabled, false);
+    assert.equal(new Set(Array.from({ length: 1000 }, () => createIdentifier())).size, 1000);
+    assert.match(createIdentifier(), /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/);
+    assert.deepEqual(source, before);
+  } finally { Object.defineProperty(globalThis, 'crypto', descriptor); }
+});
+
+test('legacy WebView without crypto still generates distinct batch identifiers', () => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
+  Object.defineProperty(globalThis, 'crypto', { configurable: true, value: undefined });
+  try {
+    assert.equal(new Set(Array.from({ length: 1000 }, () => createIdentifier())).size, 1000);
+    const first = stitchWorldbook(preset(), readWorldbook(book()));
+    const second = stitchWorldbook(first.preset, readWorldbook(book()));
+    assert.equal(new Set(second.preset.prompts.map(prompt => prompt.identifier)).size, 6);
+  } finally { Object.defineProperty(globalThis, 'crypto', descriptor); }
 });

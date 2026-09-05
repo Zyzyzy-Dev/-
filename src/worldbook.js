@@ -1,5 +1,5 @@
 // 世界书缝合纯逻辑：读取导出格式，将所选条目转换并插入预设；不执行正文或改写来源。
-import { clone, findPromptOrderEntry, validatePreset } from './core.js';
+import { clone, createIdentifier, findPromptOrderEntry, validatePreset } from './core.js';
 
 export function readWorldbook(data, source = '世界书') {
   const entries = data?.entries ?? data?.character_book?.entries ?? data?.data?.character_book?.entries;
@@ -33,7 +33,7 @@ export function stitchWorldbook(preset, entries, { beforeId = null, keepDisabled
   const prompts = entries.map(entry => {
     if (!entry || typeof entry.content !== 'string') throw new Error('所选世界书条目正文无效。');
     let identifier;
-    do { identifier = `worldbook_${crypto.randomUUID()}`; } while (ids.has(identifier));
+    do { identifier = `worldbook_${createIdentifier()}`; } while (ids.has(identifier));
     ids.add(identifier);
     const role = ['system', 'user', 'assistant'].includes(entry.role) ? entry.role
       : ({ 0: 'system', 1: 'user', 2: 'assistant' })[entry.role] || 'system';
