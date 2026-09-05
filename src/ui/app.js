@@ -18,6 +18,7 @@ import {
   validatePreset as validate,
 } from '../core.js';
 import { host } from './bridge.js';
+import { createToolboxHome } from './home.js';
 import { stitchWorldbook } from '../worldbook.js';
 import { openWorldbookPanel } from './worldbook-panel.js';
 import { beginWorldbookPlacement } from './worldbook-placement.js';
@@ -64,23 +65,7 @@ function manageWorldbook(side) {
 
 const APP_ID='preset-compare-migrator';const APP_TITLE='酒馆工坊';
 let toolboxView='home';
-function toolboxHome(){
-  const home=el('main','pcm-toolbox-home');
-  const actions=el('div','pcm-toolbox-home-actions'),theme=el('button','menu_button pcm-icon-btn pcm-toolbox-theme');
-  theme.type='button';theme.dataset.themeToggle='';theme.title='切换插件配色：自适应 / 日间 / 夜间';
-  theme.setAttribute('aria-label',theme.title);theme.innerHTML=UI_THEME_ICONS[state.uiTheme]||'';
-  theme.addEventListener('click',cycleUiTheme);
-  const close=btn('×','close','pcm-icon-btn pcm-toolbox-close');close.title='关闭插件';close.setAttribute('aria-label','关闭插件');
-  actions.append(theme,close);home.append(actions);
-  const hero=el('section','pcm-toolbox-hero');
-  hero.append(el('div','pcm-toolbox-mark','✦'),el('h1','pcm-toolbox-copy','酒馆工坊'));
-  const cat=el('img','pcm-toolbox-cat');cat.src=new URL('./assets/workshop-cat.png',import.meta.url).href;
-  cat.alt='';cat.setAttribute('aria-hidden','true');cat.width=180;cat.height=180;cat.draggable=false;
-  hero.append(cat);home.append(hero);
-  const card=el('button','pcm-toolbox-card');card.type='button';card.dataset.action='open-editor';
-  card.append(el('span','pcm-toolbox-card-icon','⌘'),el('span','pcm-toolbox-card-copy','预设编辑'),el('small','','对比、迁移、排序并检查预设内容'));
-  home.append(card,el('p','pcm-toolbox-hint','更多酒馆工具将陆续加入'));return home;
-}
+function toolboxHome(){return createToolboxHome({themeIcon:UI_THEME_ICONS[state.uiTheme]||'',onCycleTheme:cycleUiTheme});}
 // 页面切换清掉外层滚动，避免矮屏首页/详情的滚动偏移把新页面头部推入安全区。
 function showToolbox(){const dialog=document.getElementById(APP_ID+'-dialog');if(!dialog)return;toolboxView='home';dialog.querySelector('.pcm-toolbox-home')?.classList.remove('pcm-view-hidden');dialog.querySelector('.pcm-app')?.classList.add('pcm-view-hidden');dialog.scrollTop=0;}
 function showEditor(){const dialog=document.getElementById(APP_ID+'-dialog');if(!dialog)return;toolboxView='editor';dialog.querySelector('.pcm-toolbox-home')?.classList.add('pcm-view-hidden');dialog.querySelector('.pcm-app')?.classList.remove('pcm-view-hidden');dialog.scrollTop=0;restorePanelState(dialog);}

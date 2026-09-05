@@ -718,25 +718,7 @@ dialog{font-family:var(--mainFontFamily)}
 
 /* 工具箱首页：功能入口与预设编辑器共享主题变量。 */
 .pcm-view-hidden{display:none!important}
-.pcm-toolbox-home{box-sizing:border-box;min-height:100%;width:100%;padding:72px 28px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;color:var(--SmartThemeBodyColor);background:radial-gradient(ellipse at 50% 42%,color-mix(in srgb,#91b68c 12%,transparent),transparent 62%),var(--SmartThemeBlurTintColor)}
-.pcm-toolbox-hero{position:relative;display:flex;align-items:center;gap:14px;width:100%;max-width:560px;min-height:180px;padding:16px 190px 16px 4px}
-.pcm-toolbox-mark{display:grid;place-items:center;flex:0 0 48px;width:48px;height:48px;border-radius:15px;color:#fff;font-size:27px;background:linear-gradient(135deg,#80b378,#32805b);box-shadow:0 6px 16px #427b5826}
-.pcm-toolbox-copy{margin:0;font-size:28px;font-weight:700;letter-spacing:.02em;white-space:nowrap}
-.pcm-toolbox-cat{position:absolute;right:0;top:0;width:180px;height:180px;object-fit:contain;border-radius:50%;pointer-events:none;user-select:none;mask-image:radial-gradient(ellipse,black 48%,transparent 72%)}
-.pcm-dialog:not(.pcm-theme-day) .pcm-toolbox-cat{mask-image:none;border-radius:28px;opacity:.9}
-.pcm-toolbox-card{display:grid;grid-template-columns:48px minmax(0,1fr);grid-template-rows:auto auto;column-gap:14px;align-items:center;text-align:left;width:100%;max-width:560px;padding:24px;border:1px solid color-mix(in srgb,var(--SmartThemeBorderColor) 60%,#80b378 40%);border-radius:20px;background:linear-gradient(120deg,color-mix(in srgb,var(--SmartThemeBlurTintColor) 82%,#91b68c 18%),color-mix(in srgb,var(--SmartThemeBlurTintColor) 95%,#91b68c 5%));color:inherit;cursor:pointer;box-shadow:0 5px 18px #344d3710,inset 0 1px 0 #ffffff30;transition:transform .16s,box-shadow .16s,border-color .16s}
-.pcm-toolbox-card:hover{transform:translateY(-2px);border-color:#80b378;box-shadow:0 9px 24px #344d3720}.pcm-toolbox-card:focus-visible{outline:3px solid #689d6a;outline-offset:3px}
-.pcm-toolbox-card-icon{grid-row:1/3;display:grid;place-items:center;width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#80b378,#32805b);color:#fff;font-size:26px}
-.pcm-toolbox-card-copy{font-size:18px;font-weight:650}.pcm-toolbox-card small{margin-top:6px;font-size:12px;line-height:1.6;opacity:.72}.pcm-toolbox-hint{margin:2px 4px;text-align:center;font-size:12px;opacity:.55}
-@media(max-width:900px){.pcm-toolbox-home{padding-top:max(72px,calc(var(--pcm-safe-top) + 56px));padding-right:max(18px,var(--pcm-safe-right));padding-bottom:max(30px,var(--pcm-safe-bottom));padding-left:max(18px,var(--pcm-safe-left))}}
-@media(max-width:520px){.pcm-toolbox-home{gap:18px}.pcm-toolbox-hero{min-height:132px;padding-right:108px;gap:10px}.pcm-toolbox-copy{font-size:22px}.pcm-toolbox-mark{width:42px;height:42px;flex-basis:42px;font-size:25px}.pcm-toolbox-cat{top:12px;right:-8px;width:126px;height:126px}.pcm-toolbox-card{padding:20px 16px;border-radius:18px}.pcm-toolbox-card small{font-size:11px}}
-
-/* 工具箱首页操作区：移动端也保持配色与关闭按钮在同一行。 */
-.pcm-toolbox-home{position:relative}
-.pcm-toolbox-home-actions{position:absolute;top:max(14px,var(--pcm-safe-top));right:max(14px,var(--pcm-safe-right));display:flex;gap:6px;z-index:2}
-.pcm-toolbox-home-actions .pcm-icon-btn{width:34px;height:34px;min-width:34px;min-height:34px;border-radius:10px}
-.pcm-toolbox-home-actions .pcm-toolbox-close{font-size:18px}
-@media(max-width:520px){.pcm-toolbox-home-actions .pcm-icon-btn{width:32px;height:32px;min-width:32px;min-height:32px}}
+/* 首页样式独立在 home.css，编辑器布局基线仍保留于下方。 */
 
 /* 奶油白与鼠尾草绿：沿用双栏、移动端上下列表及原有详情区，仅更新日间皮肤。 */
 .pcm-dialog.pcm-theme-day{--SmartThemeBorderColor:#e6e2d8;--SmartThemeBlurTintColor:#f8f6f0;--SmartThemeBodyColor:#303833;--pcm-input-bg:#fffefa;--pcm-input-bd:#e6e2d8;--pcm-surface:#fffefa;box-shadow:0 16px 56px #263b3026}
