@@ -1,4 +1,4 @@
-/* 酒馆工坊 · 编辑器三主题补色：仅修改绘制属性，保留所有尺寸、间距、定位、字体和控件结构。 */
+/* 酒馆工坊编辑器三主题：清晰面板边框、轻立体条目和紧凑间距，保留操作区与滚动结构。 */
 .pcm-dialog.pcm-theme-day{--SmartThemeBorderColor:#dfcfb9;--SmartThemeBlurTintColor:#f7efe3;--SmartThemeBodyColor:#4b3b2d;--pcm-input-bg:#fffaf2;--pcm-input-bd:#dfcfb9;--pcm-surface:#fcf7ee;--pcm-muted:#887360;--pcm-accent:#707b4e;box-shadow:0 16px 56px #61432224}
 .pcm-dialog.pcm-theme-day .pcm-header{background:linear-gradient(110deg,#f2e7d5,#f7efe3 75%);border-bottom-color:#dfcfb9}
 .pcm-dialog.pcm-theme-day .pcm-header h2{color:#4b3b2d}
@@ -62,9 +62,47 @@
 .pcm-dialog:not(.pcm-theme-day):not(.pcm-theme-night) .pcm-row.active{background:color-mix(in srgb,var(--SmartThemeBodyColor) 10%,transparent);box-shadow:inset 3px 0 var(--SmartThemeBodyColor)}
 .pcm-dialog:not(.pcm-theme-day):not(.pcm-theme-night) .menu_button.pcm-primary{background:color-mix(in srgb,var(--SmartThemeBodyColor) 14%,var(--SmartThemeBlurTintColor))!important;border-color:color-mix(in srgb,var(--SmartThemeBodyColor) 50%,var(--SmartThemeBlurTintColor))!important;color:var(--SmartThemeBodyColor)!important;box-shadow:none}
 
-/* 自适应主题补足卡片层次，并让编辑区在三主题下保持清晰边界。 */
-.pcm-dialog:not(.pcm-theme-day):not(.pcm-theme-night) .pcm-pane{border:1px solid color-mix(in srgb,var(--SmartThemeBodyColor) 28%,var(--SmartThemeBlurTintColor));border-radius:12px;margin:5px;overflow:hidden;background:color-mix(in srgb,var(--SmartThemeBlurTintColor) 96%,var(--SmartThemeBodyColor) 4%)}
-.pcm-dialog:not(.pcm-theme-day):not(.pcm-theme-night) .pcm-version-editor{border:1px solid color-mix(in srgb,var(--SmartThemeBodyColor) 30%,var(--SmartThemeBlurTintColor));border-radius:12px;background:color-mix(in srgb,var(--SmartThemeBlurTintColor) 94%,var(--SmartThemeBodyColor) 6%);box-shadow:0 3px 10px color-mix(in srgb,var(--SmartThemeBodyColor) 10%,transparent)}
-.pcm-dialog.pcm-theme-day .pcm-pane,.pcm-dialog.pcm-theme-night .pcm-pane{border-radius:12px;margin:5px;overflow:hidden}
-.pcm-dialog.pcm-theme-day .pcm-version-editor,.pcm-dialog.pcm-theme-night .pcm-version-editor{border-width:2px;border-radius:12px;box-shadow:0 3px 10px #00000012}
-@media(max-width:900px){.pcm-dialog .pcm-pane{margin:3px 4px}.pcm-dialog .pcm-version-forms{gap:7px}.pcm-dialog .pcm-version-editor{padding:9px}}
+/* 所有模式共用几何与层次；自适应沿用宿主底色/文字，加少量鼠尾草色。 */
+.pcm-dialog{
+  --pcm-card-edge:color-mix(in srgb,var(--SmartThemeBodyColor) 42%,var(--SmartThemeBlurTintColor));
+  --pcm-card-bg:color-mix(in srgb,var(--SmartThemeBlurTintColor) 96%,#c9d8a8);
+  --pcm-row-bg:color-mix(in srgb,var(--SmartThemeBlurTintColor) 94%,#e4d4b7);
+  --pcm-row-edge:color-mix(in srgb,var(--SmartThemeBodyColor) 24%,var(--SmartThemeBlurTintColor));
+  --pcm-card-shade:#00000015;--pcm-card-glint:#ffffff19;
+  --pcm-selection:color-mix(in srgb,var(--SmartThemeBlurTintColor) 80%,#a2bc80);
+  --pcm-selection-edge:color-mix(in srgb,var(--SmartThemeBodyColor) 65%,#82a063);
+}
+.pcm-dialog.pcm-theme-day{--pcm-card-edge:#bca98a;--pcm-card-bg:#fffcf4;--pcm-row-bg:#fffaf0;--pcm-row-edge:#d9c9ac;--pcm-card-shade:#90744920;--pcm-card-glint:#ffffffc0;--pcm-selection:#eaf0da;--pcm-selection-edge:#7e955e}
+.pcm-dialog.pcm-theme-night{--pcm-card-edge:#968c72;--pcm-card-bg:#30332c;--pcm-row-bg:#3a3c33;--pcm-row-edge:#6c6d59;--pcm-card-shade:#00000038;--pcm-card-glint:#f4ebc414;--pcm-selection:#444f36;--pcm-selection-edge:#b5c58e}
+.pcm-dialog .pcm-app .pcm-lists{gap:6px;padding:6px}
+.pcm-dialog .pcm-lists .pcm-pane{margin:0;border:2px solid var(--pcm-card-edge);border-radius:15px 12px 16px 13px;background:var(--pcm-card-bg);box-shadow:0 2px 0 var(--pcm-card-shade);overflow:hidden;grid-template-columns:minmax(0,1fr)}
+.pcm-dialog .pcm-pane .pcm-pane-head{background:var(--pcm-card-bg);border-bottom-color:var(--pcm-row-edge)}
+.pcm-dialog .pcm-pane .pcm-list{padding:3px 4px;background:var(--pcm-card-bg)}
+.pcm-dialog .pcm-pane .pcm-list .pcm-row{margin:3px 0;border:1px solid var(--pcm-row-edge);border-radius:9px 7px 10px 8px;background:linear-gradient(165deg,var(--pcm-card-glint),transparent 60%),var(--pcm-row-bg);color:var(--SmartThemeBodyColor);box-shadow:0 2px 0 var(--pcm-card-shade),inset 0 1px 0 var(--pcm-card-glint)}
+.pcm-dialog .pcm-pane .pcm-list .pcm-row:hover{border-color:var(--pcm-card-edge);background:var(--pcm-selection)}
+.pcm-dialog .pcm-pane .pcm-list .pcm-row.active{background:var(--pcm-selection);border-color:var(--pcm-selection-edge);box-shadow:inset 3px 0 var(--pcm-selection-edge),0 2px 0 var(--pcm-card-shade)}
+.pcm-dialog .pcm-pane .pcm-group{margin:4px 0;border:1.5px solid var(--pcm-card-edge);border-radius:11px 9px 12px 10px;background:var(--pcm-card-bg)}
+.pcm-dialog .pcm-pane .pcm-group-head{background:var(--pcm-selection);border-radius:9px 7px 0 0}
+.pcm-dialog .pcm-group.pcm-uninjected{border-style:dashed}
+.pcm-dialog .pcm-pane .pcm-list .pcm-row.pcm-row-disabled{opacity:.72}
+.pcm-dialog .pcm-pane .pcm-list .pcm-row.pcm-row-disabled:hover{opacity:.9}
+.pcm-dialog .pcm-pane .pcm-list .pcm-row.pcm-row-disabled .pcm-name{color:color-mix(in srgb,var(--SmartThemeBodyColor) 80%,var(--pcm-card-bg))}
+.pcm-dialog .pcm-pane .pcm-list .pcm-row.pcm-row-disabled .pcm-badge{opacity:.8}
+/* 拖拽落点保留明确指示，不能被卡片投影覆盖。 */
+.pcm-dialog .pcm-pane .pcm-list .pcm-row.pcm-drop-before{box-shadow:inset 0 4px #68c8ff}
+.pcm-dialog .pcm-pane .pcm-list .pcm-row.pcm-drop-after{box-shadow:inset 0 -4px #68c8ff}
+.pcm-dialog .pcm-version-editor{border:2px solid var(--pcm-card-edge);border-radius:12px;background:var(--pcm-card-bg);box-shadow:0 2px 0 var(--pcm-card-shade)}
+.pcm-dialog .pcm-version-forms{gap:8px}
+.pcm-dialog .pcm-compare{margin-inline:6px}
+.pcm-dialog:not(.pcm-theme-day):not(.pcm-theme-night) :is(.menu_button,.pcm-import,.pcm-free-select){border:1px solid var(--pcm-row-edge)!important;border-radius:9px;background:var(--pcm-card-bg)!important;box-shadow:0 2px 0 var(--pcm-card-shade);color:var(--SmartThemeBodyColor)!important}
+.pcm-dialog:not(.pcm-theme-day):not(.pcm-theme-night) :is(.menu_button.pcm-primary,.pcm-free-select:has(input:checked)){background:var(--pcm-selection)!important;border-color:var(--pcm-selection-edge)!important}
+.pcm-dialog:not(.pcm-theme-day):not(.pcm-theme-night) :is(.pcm-project-bar input,.pcm-tools input,.pcm-tools select){border:1px solid var(--pcm-row-edge)!important;border-radius:9px;background:var(--pcm-card-bg)!important}
+@media(max-width:900px){
+  /* 旧移动样式有 !important 的单边框，在此完整覆盖，宽度包含边框且不额外加 margin。 */
+  .pcm-dialog .pcm-app .pcm-lists{gap:5px;padding:4px}
+  .pcm-dialog .pcm-lists .pcm-pane{border:2px solid var(--pcm-card-edge)!important;margin:0;border-radius:13px 11px 14px 12px}
+  .pcm-dialog .pcm-pane .pcm-list{padding:2px 3px}
+  .pcm-dialog .pcm-pane .pcm-group{margin:3px 0!important}
+  .pcm-dialog .pcm-pane .pcm-list .pcm-row{margin:2px 0}
+  .pcm-dialog .pcm-version-forms{gap:6px}.pcm-dialog .pcm-version-editor{padding:8px}.pcm-dialog .pcm-compare{margin-inline:4px}
+}

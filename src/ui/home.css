@@ -1,86 +1,49 @@
-/* 酒馆工坊 · 首页三主题：浅杏仁、Gruvbox 夜间与继承宿主色的线稿；规则仅作用于首页。 */
+/* 酒馆工坊首页：原创猫咪贴纸、柔和手绘卡片，三主题共享移动优先布局。 */
 .pcm-toolbox-home{
-  --home-bg:var(--SmartThemeBlurTintColor);--home-surface:color-mix(in srgb,var(--SmartThemeBlurTintColor) 96%,var(--SmartThemeBodyColor) 4%);
-  --home-text:var(--SmartThemeBodyColor);--home-muted:color-mix(in srgb,var(--SmartThemeBodyColor) 74%,var(--SmartThemeBlurTintColor));
-  --home-border:color-mix(in srgb,var(--SmartThemeBodyColor) 23%,var(--SmartThemeBlurTintColor));--home-accent:var(--SmartThemeBodyColor);
-  --home-accent-soft:color-mix(in srgb,var(--SmartThemeBodyColor) 8%,var(--SmartThemeBlurTintColor));--home-on-accent:var(--SmartThemeBlurTintColor);
-  --home-gold:color-mix(in srgb,var(--SmartThemeBodyColor) 68%,var(--SmartThemeBlurTintColor));--home-shadow:transparent;
-  position:relative;min-height:100%;width:100%;padding:28px 38px 22px;display:flex;flex-direction:column;color:var(--home-text);background:var(--home-bg);
+  --home-bg:var(--SmartThemeBlurTintColor);--home-text:var(--SmartThemeBodyColor);
+  --home-surface:color-mix(in srgb,var(--home-bg) 93%,#f4d9b2);
+  --home-muted:color-mix(in srgb,var(--home-text) 82%,var(--home-bg));
+  --home-border:color-mix(in srgb,var(--home-text) 52%,#b79c7f);
+  --home-accent:color-mix(in srgb,var(--home-text) 65%,#7e9b63);
+  --home-soft:color-mix(in srgb,var(--home-bg) 84%,#b7ce91);
+  --home-shadow:color-mix(in srgb,var(--home-text) 15%,transparent);
+  position:relative;min-height:100%;width:100%;padding:22px 26px;display:flex;flex-direction:column;
+  color:var(--home-text);background:radial-gradient(ellipse at 12% 70%,#b6ca8c16,transparent 58%),var(--home-bg);
   font-family:var(--mainFontFamily);isolation:isolate;
 }
-.pcm-theme-day .pcm-toolbox-home{--home-bg:#f7efe3;--home-surface:#fcf7ee;--home-text:#4b3728;--home-muted:#8a7059;--home-border:#dcc4a4;--home-accent:#6b7442;--home-accent-soft:#f0eedb;--home-on-accent:#fffaf0;--home-gold:#c18b3c;--home-shadow:#9b724815;background:radial-gradient(ellipse at 0 70%,#eadabf38,transparent 42%),var(--home-bg)}
-.pcm-theme-night .pcm-toolbox-home{--home-bg:#282828;--home-surface:#32302f;--home-text:#ebdbb2;--home-muted:#bdae93;--home-border:#665c54;--home-accent:#b8bb78;--home-accent-soft:#37392d;--home-on-accent:#282828;--home-gold:#d79921;--home-shadow:#00000024;background:radial-gradient(ellipse at 100% 5%,#d799210b,transparent 40%),var(--home-bg)}
+.pcm-theme-day .pcm-toolbox-home{--home-bg:#faf6ec;--home-surface:#fffdf5;--home-text:#594735;--home-muted:#82715d;--home-border:#b89d7c;--home-accent:#637c49;--home-soft:#edf2df;--home-shadow:#94775126}
+.pcm-theme-night .pcm-toolbox-home{--home-bg:#292c28;--home-surface:#343930;--home-text:#f3e8cd;--home-muted:#c5bea8;--home-border:#a99d7b;--home-accent:#c3d49f;--home-soft:#414b36;--home-shadow:#0005}
 .pcm-toolbox-home svg{display:block;width:100%;height:100%}
-.pcm-home-top{position:sticky;top:var(--pcm-safe-top);z-index:5;display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;margin-bottom:32px;background:var(--home-bg)}
-.pcm-home-brand{display:flex;align-items:center;gap:13px;min-width:0}
-.pcm-home-brand-mark{width:42px;height:48px;color:var(--home-gold);transform:rotate(-7deg)}
-.pcm-theme-day .pcm-home-brand-mark svg{fill:#f1d598;stroke:#a17843;stroke-width:1.2}
-.pcm-theme-night .pcm-home-brand-mark svg{fill:#d7992130;stroke:#d79921;stroke-width:1.2}
-.pcm-home-brand h1{margin:0;font-size:25px;font-weight:750;line-height:1.3;letter-spacing:.08em}
-.pcm-home-brand p{margin:3px 0 0;font-size:12px;color:var(--home-muted);letter-spacing:.03em}
-.pcm-toolbox-home-actions{display:flex;align-items:center;gap:10px;flex:0 0 auto}
-.pcm-toolbox-home-actions button{display:grid;place-items:center;width:40px;height:40px;padding:10px;border:1px solid var(--home-border);border-radius:13px;background:var(--home-surface);color:var(--home-text);cursor:pointer;transition:background .15s,border-color .15s}
-.pcm-toolbox-home-actions button:hover{background:var(--home-accent-soft);border-color:var(--home-accent)}
-.pcm-toolbox-home-actions button svg{width:18px;height:18px}
+.pcm-home-top{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;margin-bottom:clamp(30px,8vh,80px)}
+.pcm-home-brand{display:flex;align-items:center;gap:10px;min-width:0}
+.pcm-home-brand-mark{width:32px;height:38px;color:#b58e53;transform:rotate(-8deg)}
+.pcm-home-brand-mark svg{fill:#efd99a66}
+.pcm-home-brand h1{margin:0;font-size:24px;font-weight:750;line-height:1.3;letter-spacing:.06em}
+.pcm-toolbox-home-actions{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.pcm-toolbox-home-actions button{display:grid;place-items:center;width:38px;height:38px;padding:9px;border:1.5px solid var(--home-border);border-radius:13px 11px 14px 12px;background:var(--home-surface);color:var(--home-text);cursor:pointer;box-shadow:0 2px 0 var(--home-shadow)}
+.pcm-toolbox-home-actions button:hover{background:var(--home-soft)}
 .pcm-toolbox-home :is(button):focus-visible{outline:2px solid var(--home-accent);outline-offset:4px}
-.pcm-home-content{width:100%;max-width:1080px;margin:auto;display:flex;flex-direction:column;gap:24px}
-.pcm-home-welcome{position:relative;display:flex;align-items:center;justify-content:center;min-height:340px;padding:28px 32px;border:1px solid var(--home-border);border-radius:30px 36px 31px 38px;background:var(--home-surface);box-shadow:0 7px 24px var(--home-shadow)}
-.pcm-home-welcome::before{content:"";position:absolute;inset:5px;border:1px dashed var(--home-border);border-radius:26px 32px 27px 34px;opacity:.35;pointer-events:none}
-.pcm-home-tape{position:absolute;left:36px;top:-8px;width:67px;height:20px;transform:rotate(-5deg);background:var(--home-accent-soft);border:1px solid var(--home-border);opacity:.85;clip-path:polygon(2% 0,98% 0,96% 25%,100% 40%,96% 60%,98% 100%,0 100%,3% 70%,0 40%)}
-.pcm-home-intro{position:relative;z-index:1;min-width:0}
-.pcm-home-eyebrow{margin:0 0 22px;font-size:12px;letter-spacing:.15em;color:var(--home-muted)}
-.pcm-home-intro h2{margin:0;font-family:"STKaiti","KaiTi","Kaiti SC",var(--mainFontFamily);font-size:clamp(30px,3.4vw,46px);font-weight:700;line-height:1.5;letter-spacing:.045em;color:var(--home-text)}
-.pcm-home-heading-star{display:inline-block;width:22px;height:28px;margin-left:10px;vertical-align:middle;color:var(--home-gold);transform:rotate(12deg)}
-.pcm-home-description{margin:20px 0 0;font-size:13px;line-height:1.95;color:var(--home-muted);letter-spacing:.02em}
-.pcm-home-art{position:relative;width:min(680px,100%);min-width:0;align-self:center;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.pcm-home-art img{display:none;width:100%;height:auto;aspect-ratio:3/2;object-fit:contain;pointer-events:none;user-select:none;mask-image:linear-gradient(to right,transparent,black 7%,black 93%,transparent),linear-gradient(to bottom,transparent,black 7%,black 92%,transparent);mask-composite:intersect}
-.pcm-theme-day .pcm-home-day-art,.pcm-theme-night .pcm-home-night-art{display:block}
-.pcm-home-auto-art{width:100%;max-width:440px;color:var(--home-text);opacity:.8}
-.pcm-home-auto-art svg{stroke-width:2.3}
-.pcm-theme-day .pcm-home-auto-art,.pcm-theme-night .pcm-home-auto-art{display:none}
-.pcm-home-art-note{display:block;margin-top:5px;color:var(--home-muted);font-size:11px;letter-spacing:.12em;transform:rotate(-3deg)}
-.pcm-home-paw{position:absolute;width:25px;height:25px;right:-11px;top:28px;color:var(--home-gold);opacity:.45;transform:rotate(21deg)}
-.pcm-home-day-copy,.pcm-home-night-copy{display:none}
-.pcm-theme-day .pcm-home-day-copy,.pcm-theme-night .pcm-home-night-copy{display:inline}
-.pcm-theme-day .pcm-home-auto-copy,.pcm-theme-night .pcm-home-auto-copy{display:none}
-.pcm-toolbox-card{display:flex;align-items:center;gap:22px;width:100%;padding:24px 30px;border:1px solid var(--home-accent);border-radius:24px;background:linear-gradient(110deg,var(--home-surface),var(--home-accent-soft));color:var(--home-text);box-shadow:0 4px 0 var(--home-shadow);cursor:pointer;text-align:left;transition:transform .18s,box-shadow .18s}
-.pcm-toolbox-card:hover{transform:translateY(-2px);box-shadow:0 7px 18px var(--home-shadow)}
-.pcm-toolbox-card-icon{display:grid;place-items:center;flex:0 0 64px;width:64px;height:64px;padding:17px;border-radius:20px;background:var(--home-accent);color:var(--home-on-accent);box-shadow:inset 0 1px 0 #ffffff22}
+.pcm-home-content{width:100%;max-width:660px;margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:16px}
+.pcm-toolbox-card{position:relative;display:flex;align-items:center;gap:20px;width:100%;padding:20px 24px;border:2.5px solid var(--home-border);border-radius:27px 21px 29px 23px / 23px 29px 21px 27px;background:linear-gradient(115deg,var(--home-surface),var(--home-soft));color:var(--home-text);box-shadow:1px 5px 0 var(--home-shadow),inset 0 2px 0 #ffffff26;cursor:pointer;text-align:left;transition:transform .18s,box-shadow .18s}
+.pcm-toolbox-card::after{content:"";position:absolute;inset:4px;border:1px solid var(--home-border);border-radius:23px 18px 24px 20px / 19px 24px 18px 23px;opacity:.22;pointer-events:none}
+.pcm-toolbox-card:hover{transform:translateY(-2px);box-shadow:1px 7px 0 var(--home-shadow)}
+.pcm-toolbox-card-icon{display:block;flex:0 0 86px;width:86px;height:86px;transform:rotate(-5deg)}
+.pcm-toolbox-card-icon img{display:block;width:100%;height:100%;object-fit:contain}
 .pcm-toolbox-card-copy{flex:1;min-width:0}
-.pcm-toolbox-card-copy strong{display:block;font-size:25px;line-height:1.4;font-weight:700;letter-spacing:.04em}
-.pcm-toolbox-card-copy small{display:block;margin-top:6px;font-size:13px;line-height:1.6;color:var(--home-muted)}
-.pcm-home-card-go{display:flex;align-items:center;gap:17px;color:var(--home-accent);font-size:12px;white-space:nowrap}
-.pcm-home-card-go i{display:grid;place-items:center;flex:0 0 46px;width:46px;height:46px;padding:12px;border:1px solid var(--home-accent);border-radius:50%;transition:transform .18s}
-.pcm-toolbox-card:hover .pcm-home-card-go i{transform:translateX(3px)}
-.pcm-home-note{position:relative;display:flex;align-items:center;gap:16px;min-height:84px;padding:4px 26px 12px}
-.pcm-home-note::after{content:"";position:absolute;bottom:0;left:32px;right:32px;border-bottom:1px dashed var(--home-border);transform:rotate(-.4deg)}
-.pcm-home-bulb{flex:0 0 32px;width:32px;height:38px;padding:3px;color:var(--home-gold)}
-.pcm-home-note strong{font-size:12px;font-weight:600;letter-spacing:.08em;color:var(--home-text)}
-.pcm-home-note p{margin:5px 0 0;font-size:12px;line-height:1.8;color:var(--home-muted)}
-.pcm-home-sleepy{width:113px;height:65px;flex:0 0 auto;margin-left:auto;transform:rotate(3deg);color:var(--home-muted)}
-.pcm-home-footer{display:flex;align-items:center;justify-content:center;gap:14px;color:var(--home-muted);padding:0 0 4px}
-.pcm-home-footer p{margin:0;font-size:11px;line-height:1.7;letter-spacing:.08em;text-align:center}
-.pcm-home-footer>span{width:15px;height:15px;color:var(--home-gold);flex:0 0 auto}
-.pcm-home-footer>span:last-child{color:var(--home-muted)}
-@media(min-width:1450px){.pcm-home-content{gap:28px}.pcm-home-welcome{min-height:370px;padding-block:40px}.pcm-home-top{margin-bottom:38px}}
-@media(max-width:900px){.pcm-toolbox-home{padding:calc(max(18px,var(--pcm-safe-top)) + 8px) max(22px,var(--pcm-safe-right)) max(20px,var(--pcm-safe-bottom)) max(22px,var(--pcm-safe-left))}.pcm-home-top{margin-bottom:30px}.pcm-home-content{max-width:720px;gap:22px}.pcm-home-welcome{padding:30px 24px;min-height:320px;gap:0}.pcm-toolbox-card{padding:22px 24px}.pcm-home-card-go>span{display:none}.pcm-home-sleepy{width:94px}}
+.pcm-toolbox-card-copy strong{display:block;font-size:25px;line-height:1.4;font-weight:750;letter-spacing:.04em}
+.pcm-toolbox-card-copy small{display:block;margin-top:5px;font-size:13px;line-height:1.6;color:var(--home-muted)}
+.pcm-home-card-go{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;padding:9px;border:2px solid var(--home-accent);border-radius:48% 52% 46% 54%;color:var(--home-accent)}
+.pcm-home-companion{width:248px;max-width:65%;margin-top:10px;pointer-events:none;user-select:none}
+.pcm-home-companion img{display:block;width:100%;height:auto;object-fit:contain}
+.pcm-toolbox-hint{margin:0;font-size:12px;line-height:1.7;color:var(--home-muted);text-align:center}
+@media(max-width:900px){.pcm-toolbox-home{padding:calc(max(12px,var(--pcm-safe-top)) + 6px) max(18px,var(--pcm-safe-right)) max(18px,var(--pcm-safe-bottom)) max(18px,var(--pcm-safe-left))}}
 @media(max-width:600px){
-  .pcm-toolbox-home{padding:calc(max(10px,var(--pcm-safe-top)) + 8px) max(18px,var(--pcm-safe-right)) max(16px,var(--pcm-safe-bottom)) max(18px,var(--pcm-safe-left))}
-  .pcm-home-top{margin-bottom:25px;gap:8px}.pcm-home-brand{gap:8px}.pcm-home-brand-mark{width:30px;height:36px}.pcm-home-brand h1{font-size:20px;letter-spacing:.04em}.pcm-home-brand p{font-size:10px;margin-top:2px}
-  .pcm-toolbox-home-actions{gap:7px}.pcm-toolbox-home-actions button{width:34px;height:34px;padding:8px;border-radius:11px}
-  .pcm-home-content{gap:17px;margin:auto}.pcm-home-welcome{gap:5px;min-height:0;padding:27px 25px 20px;border-radius:25px 30px 25px 28px}
-  .pcm-home-welcome::before{border-radius:22px 27px 22px 25px}.pcm-home-tape{left:26px;width:53px;height:17px;top:-7px}.pcm-home-eyebrow{margin-bottom:13px;font-size:10px;letter-spacing:.05em}.pcm-home-intro h2{font-size:30px;line-height:1.4;letter-spacing:.035em}.pcm-home-heading-star{width:17px;height:21px;margin-left:9px}
-  .pcm-home-description{margin-top:12px;font-size:11px;line-height:1.85}.pcm-home-art{width:100%;max-width:290px;justify-self:center;margin-top:-2px}.pcm-home-art img{max-height:172px}.pcm-home-auto-art{max-width:270px;max-height:166px}.pcm-home-auto-art svg{max-height:166px}.pcm-home-art-note{margin-top:0;font-size:9px;letter-spacing:.08em}.pcm-home-paw{width:20px;height:20px;top:29px;right:-9px}
-  .pcm-toolbox-card{padding:18px 16px;gap:13px;border-radius:20px}.pcm-toolbox-card-icon{flex-basis:48px;width:48px;height:48px;padding:12px;border-radius:16px}.pcm-toolbox-card-copy strong{font-size:19px}.pcm-toolbox-card-copy small{font-size:10px;line-height:1.65;margin-top:4px}.pcm-home-card-go{gap:0}.pcm-home-card-go i{width:32px;height:32px;flex-basis:32px;padding:7px}
-  .pcm-home-note{padding:1px 5px 15px;gap:9px;min-height:64px}.pcm-home-bulb{width:26px;height:32px;flex-basis:26px}.pcm-home-note strong{font-size:10px}.pcm-home-note p{font-size:10px;margin-top:3px;line-height:1.75}.pcm-home-sleepy{width:55px;height:44px;flex-basis:55px}.pcm-home-note::after{left:8px;right:8px}.pcm-home-footer{gap:8px;padding-bottom:0}.pcm-home-footer p{font-size:9px;letter-spacing:.03em}.pcm-home-footer>span{width:12px;height:12px}
+  .pcm-toolbox-home{padding-inline:max(14px,var(--pcm-safe-left)) max(14px,var(--pcm-safe-right))}
+  .pcm-home-top{margin-bottom:32px;gap:8px}.pcm-home-brand{gap:7px}.pcm-home-brand-mark{width:27px;height:32px}.pcm-home-brand h1{font-size:20px;letter-spacing:.04em}
+  .pcm-toolbox-home-actions{gap:7px}.pcm-toolbox-home-actions button{width:34px;height:34px;padding:8px}
+  .pcm-home-content{gap:13px}.pcm-toolbox-card{gap:10px;padding:14px 12px;border-radius:23px 18px 24px 20px / 20px 24px 19px 22px}
+  .pcm-toolbox-card-icon{flex-basis:65px;width:65px;height:65px}.pcm-toolbox-card-copy strong{font-size:20px}.pcm-toolbox-card-copy small{font-size:11px;line-height:1.55;margin-top:3px}
+  .pcm-home-card-go{flex-basis:28px;width:28px;height:28px;padding:5px}.pcm-home-companion{width:190px;margin-top:8px}.pcm-toolbox-hint{font-size:11px}
 }
-@media(max-width:350px){.pcm-home-brand h1{font-size:18px}.pcm-home-brand-mark{width:26px}.pcm-home-brand p{font-size:9px}.pcm-toolbox-home-actions button{width:32px;height:32px}.pcm-home-welcome{padding:24px 20px 16px}.pcm-home-intro h2{font-size:27px}.pcm-home-art img{max-height:148px}.pcm-home-auto-art,.pcm-home-auto-art svg{max-height:148px}.pcm-toolbox-card{gap:10px;padding:16px 12px}.pcm-toolbox-card-copy strong{font-size:18px}.pcm-toolbox-card-copy small{font-size:9px}.pcm-home-sleepy{display:none}}
-@media(prefers-reduced-motion:reduce){.pcm-toolbox-home button,.pcm-home-card-go i{transition:none}.pcm-toolbox-card:hover,.pcm-toolbox-card:hover .pcm-home-card-go i{transform:none}}
-
-/* 新版移动优先卡片：手绘轮廓与猫咪贴纸。 */
-.pcm-toolbox-card{order:-1;position:relative;border:2px solid var(--home-border);border-radius:26px 22px 28px 24px;box-shadow:3px 4px 0 var(--home-shadow);transform:rotate(-.25deg)}
-.pcm-toolbox-card::after{content:"";position:absolute;inset:5px;border:1px dashed color-mix(in srgb,var(--home-accent) 55%,transparent);border-radius:21px 18px 23px 19px;pointer-events:none;opacity:.45}
-.pcm-toolbox-card-icon.pcm-toolbox-cat{overflow:hidden;padding:0;background:var(--home-accent-soft);border:2px solid var(--home-accent);border-radius:20px 17px 22px 18px}
-.pcm-toolbox-card-icon.pcm-toolbox-cat img{width:100%;height:100%;object-fit:cover;object-position:center;display:block}
-.pcm-toolbox-card-copy,.pcm-home-card-go{position:relative;z-index:1}
-@media(max-width:600px){.pcm-toolbox-card{order:-1;padding:14px 13px;border-radius:21px 18px 23px 20px}.pcm-toolbox-card-icon.pcm-toolbox-cat{flex-basis:50px;width:50px;height:50px;border-radius:16px 14px 18px 15px}}
+@media(max-width:350px){.pcm-home-brand h1{font-size:18px}.pcm-toolbox-card{gap:7px;padding:12px 10px}.pcm-toolbox-card-icon{flex-basis:54px;width:54px;height:54px}.pcm-toolbox-card-copy strong{font-size:18px}.pcm-toolbox-card-copy small{font-size:10px}.pcm-home-card-go{flex-basis:25px;width:25px;height:25px}}
+@media(prefers-reduced-motion:reduce){.pcm-toolbox-card{transition:none}.pcm-toolbox-card:hover{transform:none}}
