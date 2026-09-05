@@ -572,6 +572,3 @@ async function startApplication(){
   await host.notify('ready');
 }
 startApplication().catch(error=>console.error('[preset-compare-migrator] bootstrap failed',error));
-
-
-
