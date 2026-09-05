@@ -38,21 +38,30 @@
 .pcm-dialog.pcm-theme-night .pcm-tools,.pcm-dialog.pcm-theme-night .pcm-summary{border-bottom-color:#45403d}
 .pcm-dialog.pcm-theme-night .pcm-list{background:#2e2c2b}
 .pcm-dialog.pcm-theme-night .pcm-row.pcm-same{background:#a8998409;border-color:#a8998420;color:#bdae93}
-.pcm-dialog.pcm-theme-night .pcm-row:hover{background:#3c3e30}
-.pcm-dialog.pcm-theme-night .pcm-row.active{background:#3b422f;box-shadow:inset 3px 0 #a9b665}
-.pcm-dialog.pcm-theme-night .pcm-group-head{background:#36382f}
+.pcm-dialog.pcm-theme-night .pcm-row:hover{background:#504945}
+.pcm-dialog.pcm-theme-night .pcm-row.active{background:#504945;box-shadow:inset 3px 0 #83a598}
+.pcm-dialog.pcm-theme-night .pcm-group-head{background:#3c3836}
 .pcm-dialog.pcm-theme-night .menu_button,.pcm-dialog.pcm-theme-night .pcm-import{background:#3c3836!important;border-color:#665c54!important;color:#ebdbb2!important;box-shadow:0 2px 5px #00000015}
 .pcm-dialog.pcm-theme-night .menu_button:hover,.pcm-dialog.pcm-theme-night .pcm-import:hover{background:#504945!important;border-color:#928374!important}
-.pcm-dialog.pcm-theme-night .menu_button.pcm-primary{background:linear-gradient(125deg,#a9b665,#8c9b54)!important;border-color:#a9b665!important;color:#282828!important;box-shadow:0 2px 9px #a9b66515}
-.pcm-dialog.pcm-theme-night .menu_button.pcm-primary:hover{background:#b8bb78!important;filter:none;box-shadow:0 3px 12px #a9b66525}
+.pcm-dialog.pcm-theme-night .menu_button.pcm-primary{background:linear-gradient(125deg,#83a598,#458588)!important;border-color:#83a598!important;color:#282828!important;box-shadow:0 2px 9px #83a59815}
+.pcm-dialog.pcm-theme-night .menu_button.pcm-primary:hover{background:#a7c0b5!important;filter:none;box-shadow:0 3px 12px #83a59825}
 .pcm-dialog.pcm-theme-night .pcm-free-select{background:#3c3836;border-color:#665c54;color:#d5c4a1}
-.pcm-dialog.pcm-theme-night .pcm-free-select:has(input:checked){background:#3d4530;border-color:#879657;color:#d0d7a2;box-shadow:0 2px 7px #00000010}
-.pcm-dialog.pcm-theme-night .pcm-switch.pcm-op-enabled .pcm-switch-track{background:#a9b665}
+.pcm-dialog.pcm-theme-night .pcm-free-select:has(input:checked){background:#504945;border-color:#928374;color:#ebdbb2;box-shadow:0 2px 7px #00000010}
+.pcm-dialog.pcm-theme-night .pcm-switch.pcm-op-enabled .pcm-switch-track{background:#83a598}
 .pcm-dialog.pcm-theme-night .pcm-switch.pcm-op-enabled .pcm-switch-knob{background:#ebdbb2}
-.pcm-dialog.pcm-theme-night .pcm-compare,.pcm-dialog.pcm-theme-night .pcm-compare-head{background:#32302f;border-color:#879657}
+.pcm-dialog.pcm-theme-night .pcm-switch.pcm-op-enabled{background:#3c3836;border-color:#83a598;color:#ebdbb2}
+.pcm-dialog.pcm-theme-night .pcm-switch.pcm-op-enabled:hover{background:#504945;border-color:#a7c0b5}
+.pcm-dialog.pcm-theme-night .pcm-free-select input[type="checkbox"]:checked{background:#83a598;border-color:#83a598}
+.pcm-dialog.pcm-theme-night .pcm-pane:last-child .pcm-pane-head h3::before{background:#83a598;box-shadow:none}
+.pcm-dialog.pcm-theme-night .pcm-compare,.pcm-dialog.pcm-theme-night .pcm-compare-head{background:#32302f;border-color:#928374}
 .pcm-dialog.pcm-theme-night .pcm-version-editor,.pcm-dialog.pcm-theme-night .pcm-picker-panel,.pcm-dialog.pcm-theme-night .pcm-worldbook-panel{background:#32302f;border-color:#665c54}
-.pcm-dialog.pcm-theme-night .pcm-ms-selected,.pcm-dialog.pcm-theme-night .pcm-group-selected{outline-color:#a9b665;background:#3c472d!important}
+.pcm-dialog.pcm-theme-night .pcm-ms-selected,.pcm-dialog.pcm-theme-night .pcm-group-selected{outline-color:#83a598;background:#504945!important}
 .pcm-dialog.pcm-theme-night .pcm-free-selected{outline-color:#d79921;background:#514429!important}
+.pcm-dialog.pcm-theme-night .pcm-toast-success{background:#3c3836;color:#ebdbb2;border-color:#83a598}
+.pcm-dialog.pcm-theme-night .pcm-switch.pcm-op-enabled .pcm-switch-knob{box-shadow:0 1px 3px #0004}
+.pcm-dialog.pcm-theme-night :is(.menu_button,.pcm-row-action,.pcm-switch):focus-visible{outline-color:#83a598}
+.pcm-dialog.pcm-theme-night .pcm-ms-selected:hover{background:#504945!important}
+.pcm-dialog.pcm-theme-night :is(.pcm-group-finish,.pcm-vars-save){color:#83a598!important;border-color:#83a598!important}
 
 /* 自适应保留宿主的透明度和色相，用同源颜色混合替代固定的绿色块。 */
 .pcm-dialog:not(.pcm-theme-day):not(.pcm-theme-night) .pcm-header{background:linear-gradient(110deg,color-mix(in srgb,var(--SmartThemeBodyColor) 5%,transparent),transparent)}
@@ -73,7 +82,7 @@
   --pcm-selection-edge:color-mix(in srgb,var(--SmartThemeBodyColor) 65%,#82a063);
 }
 .pcm-dialog.pcm-theme-day{--pcm-card-edge:#bca98a;--pcm-card-bg:#fffcf4;--pcm-row-bg:#fffaf0;--pcm-row-edge:#d9c9ac;--pcm-card-shade:#90744920;--pcm-card-glint:#ffffffc0;--pcm-selection:#eaf0da;--pcm-selection-edge:#7e955e}
-.pcm-dialog.pcm-theme-night{--pcm-card-edge:#968c72;--pcm-card-bg:#30332c;--pcm-row-bg:#3a3c33;--pcm-row-edge:#6c6d59;--pcm-card-shade:#00000038;--pcm-card-glint:#f4ebc414;--pcm-selection:#444f36;--pcm-selection-edge:#b5c58e}
+.pcm-dialog.pcm-theme-night{--pcm-card-edge:#928374;--pcm-card-bg:#282828;--pcm-row-bg:#32302f;--pcm-row-edge:#665c54;--pcm-card-shade:#00000038;--pcm-card-glint:#ffffff0a;--pcm-selection:#504945;--pcm-selection-edge:#a89984}
 .pcm-dialog .pcm-app .pcm-lists{gap:6px;padding:6px}
 .pcm-dialog .pcm-lists .pcm-pane{margin:0;border:2px solid var(--pcm-card-edge);border-radius:15px 12px 16px 13px;background:var(--pcm-card-bg);box-shadow:0 2px 0 var(--pcm-card-shade);overflow:hidden;grid-template-columns:minmax(0,1fr)}
 .pcm-dialog .pcm-pane .pcm-pane-head{background:var(--pcm-card-bg);border-bottom-color:var(--pcm-row-edge)}

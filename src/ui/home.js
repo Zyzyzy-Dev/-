@@ -4,6 +4,7 @@ const star = svg('<path d="M12 2c1.2 6.3 3.7 8.8 10 10-6.3 1.2-8.8 3.7-10 10C10.
 const arrow = svg('<path d="M5 12h14m-6-6 6 6-6 6"/>');
 const notesCat = new URL('./assets/kitten-notes.png', import.meta.url).href;
 const boxCat = new URL('./assets/kitten-box.png', import.meta.url).href;
+const masterpiece = new URL('./assets/gpt-masterpiece.png', import.meta.url).href;
 
 export function createToolboxHome({ themeIcon, onCycleTheme }) {
   const home = document.createElement('main');
@@ -22,11 +23,24 @@ export function createToolboxHome({ themeIcon, onCycleTheme }) {
         <span class="pcm-toolbox-card-copy"><strong>预设编辑</strong><small>对比、迁移、排序并检查预设内容</small></span>
         <span class="pcm-home-card-go" aria-hidden="true">${arrow}</span>
       </button>
-      <div class="pcm-home-companion" aria-hidden="true"><img src="${boxCat}" alt="" width="288" height="192" draggable="false"></div>
+      <button type="button" class="pcm-home-flip" aria-label="翻转查看 GPT 力作" aria-pressed="false">
+        <span class="pcm-home-flip-inner">
+          <span class="pcm-home-flip-face pcm-home-flip-front"><img src="${boxCat}" alt="纸盒里的小猫" width="288" height="192" draggable="false"><small>点我翻一面</small></span>
+          <span class="pcm-home-flip-face pcm-home-flip-back" aria-hidden="true"><img src="${masterpiece}" alt="手绘小猫" width="116" height="116" draggable="false"><small>GPT力作</small></span>
+        </span>
+      </button>
       <p class="pcm-toolbox-hint">更多酒馆工具将陆续加入</p>
     </div>`;
   const theme = home.querySelector('[data-theme-toggle]');
   theme.innerHTML = themeIcon;
   theme.addEventListener('click', onCycleTheme);
+  const flip = home.querySelector('.pcm-home-flip');
+  flip.addEventListener('click', () => {
+    const flipped = flip.classList.toggle('is-flipped');
+    flip.setAttribute('aria-pressed', String(flipped));
+    flip.setAttribute('aria-label', flipped ? 'GPT力作，点击翻回小猫' : '翻转查看 GPT 力作');
+    flip.querySelector('.pcm-home-flip-front').setAttribute('aria-hidden', String(flipped));
+    flip.querySelector('.pcm-home-flip-back').setAttribute('aria-hidden', String(!flipped));
+  });
   return home;
 }

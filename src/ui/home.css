@@ -12,7 +12,7 @@
   font-family:var(--mainFontFamily);isolation:isolate;
 }
 .pcm-theme-day .pcm-toolbox-home{--home-bg:#faf6ec;--home-surface:#fffdf5;--home-text:#594735;--home-muted:#82715d;--home-border:#b89d7c;--home-accent:#637c49;--home-soft:#edf2df;--home-shadow:#94775126}
-.pcm-theme-night .pcm-toolbox-home{--home-bg:#292c28;--home-surface:#343930;--home-text:#f3e8cd;--home-muted:#c5bea8;--home-border:#a99d7b;--home-accent:#c3d49f;--home-soft:#414b36;--home-shadow:#0005}
+.pcm-theme-night .pcm-toolbox-home{--home-bg:#282828;--home-surface:#3c3836;--home-text:#ebdbb2;--home-muted:#bdae93;--home-border:#928374;--home-accent:#d5c4a1;--home-soft:#504945;--home-shadow:#0005;background:var(--home-bg)}
 .pcm-toolbox-home svg{display:block;width:100%;height:100%}
 .pcm-home-top{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;margin-bottom:clamp(30px,8vh,80px)}
 .pcm-home-brand{display:flex;align-items:center;gap:10px;min-width:0}
@@ -33,8 +33,15 @@
 .pcm-toolbox-card-copy strong{display:block;font-size:25px;line-height:1.4;font-weight:750;letter-spacing:.04em}
 .pcm-toolbox-card-copy small{display:block;margin-top:5px;font-size:13px;line-height:1.6;color:var(--home-muted)}
 .pcm-home-card-go{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;padding:9px;border:2px solid var(--home-accent);border-radius:48% 52% 46% 54%;color:var(--home-accent)}
-.pcm-home-companion{width:248px;max-width:65%;margin-top:10px;pointer-events:none;user-select:none}
-.pcm-home-companion img{display:block;width:100%;height:auto;object-fit:contain}
+.pcm-home-flip{width:192px;height:172px;max-width:70%;margin:8px 0 0;padding:0;border:0;background:transparent;color:var(--home-muted);cursor:pointer;perspective:700px;-webkit-tap-highlight-color:transparent}
+.pcm-home-flip-inner{position:relative;display:block;width:100%;height:100%;transform-style:preserve-3d;transition:transform .5s ease}
+.pcm-home-flip.is-flipped .pcm-home-flip-inner{transform:rotateY(180deg)}
+.pcm-home-flip-face{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.pcm-home-flip-face img{display:block;object-fit:contain;pointer-events:none;user-select:none}
+.pcm-home-flip-front img{width:100%;height:128px}
+.pcm-home-flip-face small{font-size:11px;line-height:1.5}
+.pcm-home-flip-back{transform:rotateY(180deg)}
+.pcm-home-flip-back img{width:116px;height:116px;border-radius:24px}
 .pcm-toolbox-hint{margin:0;font-size:12px;line-height:1.7;color:var(--home-muted);text-align:center}
 @media(max-width:900px){.pcm-toolbox-home{padding:calc(max(12px,var(--pcm-safe-top)) + 6px) max(18px,var(--pcm-safe-right)) max(18px,var(--pcm-safe-bottom)) max(18px,var(--pcm-safe-left))}}
 @media(max-width:600px){
@@ -43,7 +50,7 @@
   .pcm-toolbox-home-actions{gap:7px}.pcm-toolbox-home-actions button{width:34px;height:34px;padding:8px}
   .pcm-home-content{gap:13px}.pcm-toolbox-card{gap:10px;padding:14px 12px;border-radius:23px 18px 24px 20px / 20px 24px 19px 22px}
   .pcm-toolbox-card-icon{flex-basis:65px;width:65px;height:65px}.pcm-toolbox-card-copy strong{font-size:20px}.pcm-toolbox-card-copy small{font-size:11px;line-height:1.55;margin-top:3px}
-  .pcm-home-card-go{flex-basis:28px;width:28px;height:28px;padding:5px}.pcm-home-companion{width:190px;margin-top:8px}.pcm-toolbox-hint{font-size:11px}
+  .pcm-home-card-go{flex-basis:28px;width:28px;height:28px;padding:5px}.pcm-toolbox-hint{font-size:11px}
 }
 @media(max-width:350px){.pcm-home-brand h1{font-size:18px}.pcm-toolbox-card{gap:7px;padding:12px 10px}.pcm-toolbox-card-icon{flex-basis:54px;width:54px;height:54px}.pcm-toolbox-card-copy strong{font-size:18px}.pcm-toolbox-card-copy small{font-size:10px}.pcm-home-card-go{flex-basis:25px;width:25px;height:25px}}
-@media(prefers-reduced-motion:reduce){.pcm-toolbox-card{transition:none}.pcm-toolbox-card:hover{transform:none}}
+@media(prefers-reduced-motion:reduce){.pcm-toolbox-card,.pcm-home-flip-inner{transition:none}.pcm-toolbox-card:hover{transform:none}}
