@@ -76,3 +76,11 @@
 }
 @media(max-width:350px){.pcm-home-brand h1{font-size:18px}.pcm-home-brand-mark{width:26px}.pcm-home-brand p{font-size:9px}.pcm-toolbox-home-actions button{width:32px;height:32px}.pcm-home-welcome{padding:24px 20px 16px}.pcm-home-intro h2{font-size:27px}.pcm-home-art img{max-height:148px}.pcm-home-auto-art,.pcm-home-auto-art svg{max-height:148px}.pcm-toolbox-card{gap:10px;padding:16px 12px}.pcm-toolbox-card-copy strong{font-size:18px}.pcm-toolbox-card-copy small{font-size:9px}.pcm-home-sleepy{display:none}}
 @media(prefers-reduced-motion:reduce){.pcm-toolbox-home button,.pcm-home-card-go i{transition:none}.pcm-toolbox-card:hover,.pcm-toolbox-card:hover .pcm-home-card-go i{transform:none}}
+
+/* 新版移动优先卡片：手绘轮廓与猫咪贴纸。 */
+.pcm-toolbox-card{order:-1;position:relative;border:2px solid var(--home-border);border-radius:26px 22px 28px 24px;box-shadow:3px 4px 0 var(--home-shadow);transform:rotate(-.25deg)}
+.pcm-toolbox-card::after{content:"";position:absolute;inset:5px;border:1px dashed color-mix(in srgb,var(--home-accent) 55%,transparent);border-radius:21px 18px 23px 19px;pointer-events:none;opacity:.45}
+.pcm-toolbox-card-icon.pcm-toolbox-cat{overflow:hidden;padding:0;background:var(--home-accent-soft);border:2px solid var(--home-accent);border-radius:20px 17px 22px 18px}
+.pcm-toolbox-card-icon.pcm-toolbox-cat img{width:100%;height:100%;object-fit:cover;object-position:center;display:block}
+.pcm-toolbox-card-copy,.pcm-home-card-go{position:relative;z-index:1}
+@media(max-width:600px){.pcm-toolbox-card{order:-1;padding:14px 13px;border-radius:21px 18px 23px 20px}.pcm-toolbox-card-icon.pcm-toolbox-cat{flex-basis:50px;width:50px;height:50px;border-radius:16px 14px 18px 15px}}

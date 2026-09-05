@@ -61,3 +61,10 @@
 .pcm-dialog:not(.pcm-theme-day):not(.pcm-theme-night) .pcm-free-select:has(input:checked){background:color-mix(in srgb,var(--SmartThemeBodyColor) 13%,var(--SmartThemeBlurTintColor));border-color:color-mix(in srgb,var(--SmartThemeBodyColor) 55%,var(--SmartThemeBlurTintColor));color:var(--SmartThemeBodyColor)}
 .pcm-dialog:not(.pcm-theme-day):not(.pcm-theme-night) .pcm-row.active{background:color-mix(in srgb,var(--SmartThemeBodyColor) 10%,transparent);box-shadow:inset 3px 0 var(--SmartThemeBodyColor)}
 .pcm-dialog:not(.pcm-theme-day):not(.pcm-theme-night) .menu_button.pcm-primary{background:color-mix(in srgb,var(--SmartThemeBodyColor) 14%,var(--SmartThemeBlurTintColor))!important;border-color:color-mix(in srgb,var(--SmartThemeBodyColor) 50%,var(--SmartThemeBlurTintColor))!important;color:var(--SmartThemeBodyColor)!important;box-shadow:none}
+
+/* 自适应主题补足卡片层次，并让编辑区在三主题下保持清晰边界。 */
+.pcm-dialog:not(.pcm-theme-day):not(.pcm-theme-night) .pcm-pane{border:1px solid color-mix(in srgb,var(--SmartThemeBodyColor) 28%,var(--SmartThemeBlurTintColor));border-radius:12px;margin:5px;overflow:hidden;background:color-mix(in srgb,var(--SmartThemeBlurTintColor) 96%,var(--SmartThemeBodyColor) 4%)}
+.pcm-dialog:not(.pcm-theme-day):not(.pcm-theme-night) .pcm-version-editor{border:1px solid color-mix(in srgb,var(--SmartThemeBodyColor) 30%,var(--SmartThemeBlurTintColor));border-radius:12px;background:color-mix(in srgb,var(--SmartThemeBlurTintColor) 94%,var(--SmartThemeBodyColor) 6%);box-shadow:0 3px 10px color-mix(in srgb,var(--SmartThemeBodyColor) 10%,transparent)}
+.pcm-dialog.pcm-theme-day .pcm-pane,.pcm-dialog.pcm-theme-night .pcm-pane{border-radius:12px;margin:5px;overflow:hidden}
+.pcm-dialog.pcm-theme-day .pcm-version-editor,.pcm-dialog.pcm-theme-night .pcm-version-editor{border-width:2px;border-radius:12px;box-shadow:0 3px 10px #00000012}
+@media(max-width:900px){.pcm-dialog .pcm-pane{margin:3px 4px}.pcm-dialog .pcm-version-forms{gap:7px}.pcm-dialog .pcm-version-editor{padding:9px}}

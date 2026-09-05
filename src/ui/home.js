@@ -32,6 +32,11 @@ export function createToolboxHome({ themeIcon, onCycleTheme }) {
       </div>
     </header>
     <div class="pcm-home-content">
+      <button type="button" class="pcm-toolbox-card" data-action="open-editor">
+        <span class="pcm-toolbox-card-icon pcm-toolbox-cat" aria-hidden="true"><img src="${new URL('./assets/workshop-cat.png', import.meta.url).href}" alt="" draggable="false"></span>
+        <span class="pcm-toolbox-card-copy"><strong>预设编辑</strong><small>对比、迁移、排序并检查预设内容</small></span>
+        <span class="pcm-home-card-go"><i aria-hidden="true">${arrow}</i></span>
+      </button>
       <section class="pcm-home-welcome" aria-label="酒馆工坊">
         <span class="pcm-home-tape" aria-hidden="true"></span>
         <div class="pcm-home-art" aria-hidden="true">
@@ -41,11 +46,6 @@ export function createToolboxHome({ themeIcon, onCycleTheme }) {
         </div>
         <span class="pcm-home-paw" aria-hidden="true">${paw}</span>
       </section>
-      <button type="button" class="pcm-toolbox-card" data-action="open-editor">
-        <span class="pcm-toolbox-card-icon" aria-hidden="true">${command}</span>
-        <span class="pcm-toolbox-card-copy"><strong>预设编辑</strong><small>对比、迁移、排序并检查预设内容</small></span>
-        <span class="pcm-home-card-go"><i aria-hidden="true">${arrow}</i></span>
-      </button>
       <p class="pcm-toolbox-hint">更多酒馆工具将陆续加入</p>
     </div>`;
   const theme = home.querySelector('[data-theme-toggle]');
