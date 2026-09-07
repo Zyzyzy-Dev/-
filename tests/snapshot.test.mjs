@@ -2,9 +2,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { captureSnapshot, planSnapshotRestore, resolveSnapshotBinding, validateSnapshot } from '../src/snapshot.js';
+import * as snapshots from '../src/snapshot.js';
 const settings = () => ({prompts:[{identifier:'a',name:'A',content:'current'},{identifier:'b',name:'B'}],prompt_order:[{character_id:7,order:[{identifier:'a',enabled:false}]},{character_id:100001,order:[{identifier:'a',enabled:true},{identifier:'b',enabled:false}]}]});
 const groups = () => ({groups:[{id:'g',name:'组',enabled:false}],prompts:{a:{groupId:'g'},b:{groupId:'g'}}});
 const capture = (extra={}) => captureSnapshot({id:'s',name:' 快照 ',presetName:'预设',settings:settings(),orderCharacterId:100001,groupState:groups(),worldNames:['书'],now:123,...extra});
+
+test('editor display resolves live membership and content without adding either to persisted switches',()=>{
+ const saved=capture(), current=settings();current.prompts[0].content='Latest body';
+ const view=snapshots.snapshotPresetEditor(saved,current,groups());
+ assert.equal(view.entries[0].content,'Latest body');assert.equal(view.entries[0].groupId,'g');
+ assert.deepEqual(view.groups[0].memberIds,['a','b']);
+ assert.equal(saved.entries[0].groupId,undefined);assert.equal(saved.entries[0].content,undefined);
+ current.prompts=[];
+ assert.equal(snapshots.snapshotPresetEditor(saved,current,groups()).entries[0].missing,true);
+});
 test('capture keeps independent group and item switches, excluding content and other nodes',()=>{
  const s=capture();assert.equal(s.name,'快照');assert.deepEqual(s.entries,[{identifier:'a',name:'A',enabled:true},{identifier:'b',name:'B',enabled:false}]);assert.deepEqual(s.groups,[{id:'g',name:'组',enabled:false}]);assert.equal(s.entries[0].content,undefined);
 });

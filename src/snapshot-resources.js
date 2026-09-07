@@ -64,6 +64,49 @@ export function restoreRegexSwitches(saved, current) {
   }
   return {scripts,missing};
 }
+
+function regexGroupRecords(state) {
+  const groups = [...(state?.groups || [])].filter(group=>group?.id!=='__ungrouped'&&group?.id!=='__pending_assignment').sort((a,b)=>(a.order??0)-(b.order??0)).map(group => ({id:String(group.id || ''),name:String(group.name || group.id)}));
+  unique(groups,'id');
+  return groups;
+}
+export function regexEditor(scripts, state, saved = captureRegexSwitches(scripts)) {
+  const source = new Map(scripts.map(script => [regexId(script),script]));
+  const groups = regexGroupRecords(state), ids = new Set(groups.map(group => group.id));
+  const entries = saved.map((item,index) => {
+    const script = source.get(item.id), meta=state?.scripts?.[script?.id],groupId = String(meta?.groupId||'');
+    return {id:item.id,name:String(script?.scriptName || item.name || item.id),groupId:ids.has(groupId) ? groupId : groupId==='__pending_assignment'?groupId:'__ungrouped',order:Number.isFinite(Number(meta?.order))?Number(meta.order):index,findRegex:String(script?.findRegex || ''),replaceString:String(script?.replaceString || ''),missing:!script};
+  });
+  if(entries.some(entry=>entry.groupId==='__pending_assignment'))groups.unshift({id:'__pending_assignment',name:'待分组'});
+  if(entries.some(entry=>entry.groupId==='__ungrouped'))groups.push({id:'__ungrouped',name:state?.ungrouped?.name||'默认分组'});
+  return {entries,groups:groups.map(group => ({...group,memberIds:entries.filter(entry => entry.groupId === group.id).map(entry => entry.id)}))};
+}
+
+// 正则分组开关遵循柏宝箱的批量开关语义，不另设运行门控。
+export function regexGroupState(entries, memberIds) {
+  const ids=new Set(memberIds),members=entries.filter(entry=>ids.has(entry.id));
+  const enabled=members.filter(entry=>entry.enabled).length,count=members.length;
+  return {checked:count>0&&enabled===count,mixed:enabled>0&&enabled<count,count,enabled};
+}
+export function toggleRegexGroup(entries, memberIds, enabled) {
+  const ids=new Set(memberIds);
+  return entries.map(entry=>({...entry,...(ids.has(entry.id)?{enabled:Boolean(enabled)}:{})}));
+}
+
+// v1 只迁移明确记录的全局挂载及其配置；附加书既不回填也不应用。
+// 白名单输出让 editor.content/groupId 等展示字段永远无法进入持久快照。
+export function normalizeSnapshotResources(resources) {
+  if (!object(resources)) throw new Error('快照资源格式无效');
+  if(!Array.isArray(resources.worlds?.global)||!Array.isArray(resources.worldEntries)||['global','preset','character'].some(scope=>!Array.isArray(resources.regex?.[scope])))throw new Error('快照资源配置不完整');
+  if (resources.version !== undefined && resources.version !== 1 && resources.version !== 2) throw new Error('快照资源版本不受支持');
+  const normalized = {
+    version:2,
+    worlds:{global:copy(resources.worlds?.global || [])},
+    worldEntries:(resources.worldEntries || []).filter(book => resources.worlds?.global?.includes(book.name)).map(book => ({name:book.name,entries:book.entries.map(entry => ({uid:entry.uid,name:entry.name || entry.uid,settings:copy(entry.settings)}))})),
+    regex:Object.fromEntries(['global','preset','character'].map(scope => [scope,(resources.regex?.[scope] || []).map(({id,name,enabled}) => ({id,name:name || id,enabled}))])),
+  };
+  return validateSnapshotResources(normalized);
+}
 function validateWorldSettings(settings) {
   if (!object(settings)) throw new Error('世界书配置格式无效');
   safeJson(settings);
@@ -79,8 +122,10 @@ function validateWorldSettings(settings) {
 export function validateSnapshotResources(resources) {
   if (!object(resources) || !object(resources.worlds) || !object(resources.regex)) throw new Error('快照资源格式无效');
   safeJson(resources);
+  if (resources.version !== undefined && resources.version !== 1 && resources.version !== 2) throw new Error('快照资源版本不受支持');
   const names=new Set();
-  for (const scope of ['global','character','chat']) {
+  if (resources.version === 2 && Object.keys(resources.worlds).some(scope => scope !== 'global')) throw new Error('新快照仅支持全局世界书');
+  for (const scope of resources.version === 2 ? ['global'] : ['global','character','chat']) {
     const values=resources.worlds[scope];
     if (!Array.isArray(values) || values.some(name=>typeof name!=='string'||!name) || new Set(values).size!==values.length || (scope==='chat'&&values.length>1)) throw new Error('世界书挂载列表无效（聊天最多一本）');
     values.forEach(name=>names.add(name));
@@ -95,6 +140,7 @@ export function validateSnapshotResources(resources) {
   for (const scope of ['global','preset','character']) {
     unique(resources.regex[scope],'id');
     if (resources.regex[scope].some(item=>typeof item.enabled!=='boolean')) throw new Error('正则开关格式无效');
+
   }
   return resources;
 }

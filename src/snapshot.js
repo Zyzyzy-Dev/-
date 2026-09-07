@@ -55,6 +55,18 @@ export function captureSnapshot({ id = createIdentifier(), name, presetName, set
   return validateSnapshot(snapshot);
 }
 
+// 编辑器辅助信息每次从当前预设读取，不属于快照备份，不参与应用或保存。
+export function snapshotPresetEditor(snapshot, settings, groupState) {
+  const prompts = new Map((settings?.prompts || []).map(item => [item.identifier, item]));
+  const groupIds = new Set((groupState?.groups || []).map(group => String(group.id)));
+  const entries = snapshot.entries.map(item => {
+    const prompt = prompts.get(item.identifier), groupId = String(groupState?.prompts?.[item.identifier]?.groupId||'');
+    return {identifier:item.identifier, name:String(prompt?.name || item.name), content:String(prompt?.content || ''), groupId:groupIds.has(groupId) ? groupId : null, missing:!prompt};
+  });
+  const groups = snapshot.groups.map(group => ({id:group.id, name:group.name, memberIds:entries.filter(entry => entry.groupId === group.id).map(entry => entry.identifier)}));
+  return {entries, groups};
+}
+
 export function planSnapshotRestore(snapshot, { settings, orderCharacterId, groupState, worldNames }) {
   validateSnapshot(snapshot);
   if (String(snapshot.orderCharacterId) !== String(orderCharacterId)) throw new Error('快照与当前预设的条目节点不同，请重新保存快照');

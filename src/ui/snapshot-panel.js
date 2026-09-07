@@ -8,13 +8,15 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
   const back = button('← 首页', () => editor ? closeEditor() : onBack()), title = node('h2', '', '设置快照');
   const theme = button('', onCycleTheme); theme.dataset.themeToggle = ''; theme.title = '切换配色'; theme.setAttribute('aria-label', '切换配色'); theme.innerHTML = themeIcon;
   const close = button('×', onClose); close.setAttribute('aria-label', '关闭插件');
-  header.append(back, title, theme, close);
+  const reload = iconButton('刷新', 'refresh', () => refresh());reload.classList.add('pcm-snapshot-refresh');
+  const heading=node('div','pcm-snapshot-heading');heading.append(title,reload);
+  header.append(back, heading, theme, close);
   const context = node('details', 'pcm-snapshot-context');context.open=true;
   const contextTitle=node('summary','','当前设置'),contextBody=node('div','pcm-snapshot-context-body');context.append(contextTitle,contextBody);
   const toolbar = node('div', 'pcm-snapshot-toolbar');
   const save = button('＋ 保存当前设置', () => execute('save')); save.classList.add('pcm-snapshot-primary');
-  const reload = button('刷新', () => refresh()); toolbar.append(button('＋ 创建快照',()=>openEditor()), reload);
-  const notice = node('p', 'pcm-snapshot-notice', '保存预设条目与分组开关、世界书挂载及条目配置、正则开关。聊天绑定优先于角色绑定。');
+  const create=button('＋ 创建快照',()=>openEditor());create.classList.add('pcm-snapshot-create');toolbar.append(create);
+  const notice = node('p', 'pcm-snapshot-notice', '保存预设与分组开关、全局世界书及条目配置、正则与分组开关。聊天绑定优先于角色绑定。');
   const status = node('p', 'pcm-snapshot-status'); status.setAttribute('role', 'status');
   const list = node('section', 'pcm-snapshot-list'); list.setAttribute('aria-label', '已保存快照');
   element.append(header, context, toolbar, notice, status, list);
@@ -25,6 +27,15 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
     const b = node('button', '', text); b.type = 'button';
     b.addEventListener('click', event => {event.stopPropagation(); action();});
     return b;
+  }
+  function iconButton(label, icon, action) {
+    const b=button('',action);b.className='pcm-snapshot-icon';b.title=label;b.setAttribute('aria-label',label);
+    const paths={refresh:'M20 7v5h-5 M4 17v-5h5 M6.1 7a7 7 0 0 1 11.5-1L20 9 M4 15l2.4 3A7 7 0 0 0 18 17',rename:'m14 5 5 5 M4 20l4-1L20 7a2.1 2.1 0 0 0-3-3L5 16l-1 4Z',delete:'M3 6h18 M9 6V3h6v3 M6 6l1 15h10l1-15 M10 10v7 M14 10v7'};
+    b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+paths[icon]+'"/></svg>';
+    return b;
+  }
+  function settingLine(label,value,cls='') {
+    const row=node('div','pcm-snapshot-setting '+cls);row.append(node('span','pcm-snapshot-setting-label',label),node('span','pcm-snapshot-setting-value',value));return row;
   }
   function showStatus(message, error = false) {status.textContent = message; status.classList.toggle('is-error', error);}
   function setBusy(value) {
@@ -41,17 +52,18 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
     const expanded = new Set([...contextBody.querySelectorAll('details[open]')].map(d => d.dataset.regexScope));
     contextBody.replaceChildren(); list.replaceChildren();
     const c = data.context;
-    contextBody.append(node('div', 'pcm-snapshot-current', '当前预设：'+(c.presetName || '未选择')));
-    contextBody.append(node('div', '', '当前角色：'+c.characterName),node('div','','当前聊天：'+c.chatName));
-    for(const [scope,label] of [['global','当前挂载的全局世界书'],['character','当前角色附加世界书'],['chat','当前聊天附加世界书']])contextBody.append(node('div','pcm-snapshot-context-line',label+'：'+(c.resources?.worlds?.[scope]?.join('、')||'未挂载')));
+    const settings=node('div','pcm-snapshot-settings-grid');
+    settings.append(settingLine('当前预设',c.presetName||'未选择','pcm-snapshot-current'),settingLine('当前角色',c.characterName),settingLine('当前聊天',c.chatName));
+    for(const [scope,label] of [['global','全局世界书'],['character','角色附加世界书'],['chat','聊天附加世界书']])settings.append(settingLine(label,c.resources?.worlds?.[scope]?.join('、')||'未挂载'));
+    contextBody.append(settings);
     const regex=node('div','pcm-snapshot-current-regex');regex.append(node('strong','','当前正则'));
     for(const [scope,label] of [['global','全局正则'],['preset','预设正则'],['character','角色正则']]) {
       const scripts=c.resources?.regex?.[scope]||[],details=node('details','pcm-snapshot-regex-details');details.dataset.regexScope=scope;details.open=expanded.has(scope);
-      details.append(node('summary','',label+' · '+scripts.filter(s=>s.enabled).length+'/'+scripts.length+' 开启'));
-      const lines=node('div','pcm-snapshot-regex-choices');for(const script of scripts)lines.append(node('span','',(script.enabled?'开 · ':'关 · ')+(script.name||script.id)));if(!scripts.length)lines.append(node('small','','没有正则'));details.append(lines);regex.append(details);
+      const summary=node('summary');summary.append(node('span','',label),node('span','pcm-snapshot-count',scripts.filter(s=>s.enabled).length+'/'+scripts.length+' 开启'));details.append(summary);
+      const lines=node('div','pcm-snapshot-regex-choices');for(const script of scripts){const row=node('span','pcm-snapshot-read-switch'+(script.enabled?'':' is-off'));const sw=node('span','pcm-snapshot-switch-display');sw.setAttribute('role','img');sw.setAttribute('aria-label',script.enabled?'开启':'关闭');sw.dataset.enabled=String(script.enabled);row.append(sw,node('span','',script.name||script.id));lines.append(row);}if(!scripts.length)lines.append(node('small','','没有正则'));details.append(lines);regex.append(details);
     }contextBody.append(regex);
     for (const [target, label, id, allowed] of [['character','当前角色绑定的快照',c.characterBindingId,c.canBindCharacter],['chat','当前聊天绑定的快照',c.chatBindingId,c.canBindChat]]) {
-      const row = node('div', 'pcm-snapshot-binding'); row.append(node('span', '', label+'：'+bindingName(id)));
+      const row = node('div', 'pcm-snapshot-binding'); row.append(node('span', '', label),node('span','pcm-snapshot-badge',bindingName(id)));
       if (id && allowed) row.append(button('解除绑定', () => execute('unbind', {target})));
       contextBody.append(row);
     }
@@ -66,10 +78,10 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
     }
     for (const snapshot of data.snapshots) {
       const card = node('article', 'pcm-snapshot-card'); card.dataset.snapshotId = snapshot.id;
-      const top = node('div', 'pcm-snapshot-card-title'); top.append(node('h3', '', snapshot.name));
+      const top = node('div', 'pcm-snapshot-card-title'); top.append(node('h3', '', snapshot.name),iconButton('重命名','rename',()=>execute('rename',snapshot)),iconButton('删除','delete',()=>execute('delete',snapshot)));top.lastElementChild.classList.add('pcm-snapshot-delete');
       if (snapshot.id === c.chatBindingId || snapshot.id === c.characterBindingId) top.append(node('span', 'pcm-snapshot-badge', [snapshot.id === c.chatBindingId ? '此聊天' : '', snapshot.id === c.characterBindingId ? '此角色' : ''].filter(Boolean).join(' / ')));
-      const entries = Array.isArray(snapshot.entries) ? snapshot.entries : [], groups = Array.isArray(snapshot.groups) ? snapshot.groups : [], books = Array.isArray(snapshot.worldNames) ? snapshot.worldNames : [];
-      const summary = node('p', 'pcm-snapshot-summary', (snapshot.presetName || '无效预设')+' · 条目 '+entries.filter(e => e.enabled).length+'/'+entries.length+' 开启 · 分组 '+groups.filter(g => g.enabled).length+'/'+groups.length+' 开启');
+      const books = snapshot.resources?.worlds?.global || snapshot.worldNames || [];
+      const summary = node('p', 'pcm-snapshot-summary', '当前预设：'+(snapshot.presetName || '无效预设'));
       const mounts = node('p', 'pcm-snapshot-books', books.length ? '全局世界书：'+books.join('、') : '全局世界书：不挂载');
       const actions = node('div', 'pcm-snapshot-actions');
       const apply = button('应用', () => execute('apply', snapshot)); apply.classList.add('pcm-snapshot-primary');
@@ -78,11 +90,8 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
       chat.dataset.unavailable = String(!c.canBindChat); character.dataset.unavailable = String(!c.canBindCharacter);
       actions.append(apply, chat, character);
       const manage = node('div', 'pcm-snapshot-actions');
-      manage.append(button('修改',()=>openEditor(snapshot.id)), button('重命名', () => execute('rename', snapshot)), button('删除', () => execute('delete', snapshot)));
+      manage.classList.add('pcm-snapshot-manage');manage.append(button('查看快照详情',()=>openEditor(snapshot.id)));
       card.append(top, summary, mounts);
-      if(snapshot.resources) {
-        for(const [scope,label] of [['character','角色附加'],['chat','聊天附加']])card.append(node('p','pcm-snapshot-books',label+'世界书：'+(snapshot.resources.worlds[scope].join('、')||'不挂载')));
-      }
       card.append(actions,manage);list.append(card);
     }
     setBusy(busy);
@@ -107,6 +116,7 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
     editor?.destroy();editor=null;
     for(const part of [context,toolbar,notice,status,list])part.hidden=false;
     title.textContent='设置快照';back.textContent='← 首页';
+    reload.hidden=false;
     if(result?.snapshots){data=result;refreshPending=false;render();showStatus('快照已保存');}
     else void refresh();
     element.closest('dialog')?.scrollTo(0,0);
@@ -119,7 +129,7 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
       if(disposed)return;
       editor=createSnapshotEditor({host,model,existingId:id,onCancel:()=>closeEditor(),onSaved:closeEditor,toast});
       for(const part of [context,toolbar,notice,status,list])part.hidden=true;
-      title.textContent=id?'修改快照':'创建快照';back.textContent='← 快照';element.append(editor.element);element.closest('dialog')?.scrollTo(0,0);
+      title.textContent=id?'快照详情':'创建快照';reload.hidden=true;back.textContent='← 快照';element.append(editor.element);element.closest('dialog')?.scrollTo(0,0);
     }catch(error){if(!disposed){showStatus(error.message,true);toast.error(error.message);}}
     finally{if(!disposed)setBusy(false);}
   }
