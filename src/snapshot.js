@@ -1,5 +1,6 @@
 // 设置快照纯逻辑：捕获两层开关、按稳定 ID 制定恢复计划及解析聊天/角色绑定，不访问宿主。
 import { createIdentifier } from './core.js';
+import { validateSnapshotResources } from './snapshot-resources.js';
 
 export function normalizeSnapshotName(value) {
   if (typeof value !== 'string' || !value.trim() || value.trim().length > 120) throw new Error('快照名称须为 1–120 个字符');
@@ -35,6 +36,10 @@ export function validateSnapshot(snapshot) {
   uniqueRecords(snapshot.entries, 'identifier');
   uniqueRecords(snapshot.groups, 'id');
   names(snapshot.worldNames);
+  if (snapshot.resources !== undefined) {
+    validateSnapshotResources(snapshot.resources);
+    if (JSON.stringify(snapshot.worldNames) !== JSON.stringify(snapshot.resources.worlds.global)) throw new Error('快照全局世界书记录不一致');
+  }
   return snapshot;
 }
 

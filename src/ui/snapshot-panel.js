@@ -1,23 +1,25 @@
 // 设置快照页面：保存、恢复与聊天/角色绑定，通过 iframe 通信桥调用宿主，不访问酒馆全局。
+import { createSnapshotEditor } from './snapshot-editor.js';
 export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeIcon, prompt, confirm, toast}) {
   const node = (tag, cls, text) => {const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n;};
   const element = node('main', 'pcm-snapshots');
   element.setAttribute('aria-label', '设置快照');
   const header = node('header', 'pcm-snapshot-header');
-  const back = button('← 首页', onBack), title = node('h2', '', '设置快照');
+  const back = button('← 首页', () => editor ? closeEditor() : onBack()), title = node('h2', '', '设置快照');
   const theme = button('', onCycleTheme); theme.dataset.themeToggle = ''; theme.title = '切换配色'; theme.setAttribute('aria-label', '切换配色'); theme.innerHTML = themeIcon;
   const close = button('×', onClose); close.setAttribute('aria-label', '关闭插件');
   header.append(back, title, theme, close);
-  const context = node('section', 'pcm-snapshot-context');
+  const context = node('details', 'pcm-snapshot-context');context.open=true;
+  const contextTitle=node('summary','','当前设置'),contextBody=node('div','pcm-snapshot-context-body');context.append(contextTitle,contextBody);
   const toolbar = node('div', 'pcm-snapshot-toolbar');
   const save = button('＋ 保存当前设置', () => execute('save')); save.classList.add('pcm-snapshot-primary');
-  const reload = button('刷新', () => refresh()); toolbar.append(save, reload);
-  const notice = node('p', 'pcm-snapshot-notice', '保存预设条目与分组开关、全局世界书挂载。聊天绑定优先于角色绑定。');
+  const reload = button('刷新', () => refresh()); toolbar.append(button('＋ 创建快照',()=>openEditor()), reload);
+  const notice = node('p', 'pcm-snapshot-notice', '保存预设条目与分组开关、世界书挂载及条目配置、正则开关。聊天绑定优先于角色绑定。');
   const status = node('p', 'pcm-snapshot-status'); status.setAttribute('role', 'status');
   const list = node('section', 'pcm-snapshot-list'); list.setAttribute('aria-label', '已保存快照');
   element.append(header, context, toolbar, notice, status, list);
-  let data = null, busy = false, disposed = false, revision = 0, refreshPending = false;
-  const unsubscribe = host.on('snapshots-changed', () => {if (busy) refreshPending = true; else void refresh();});
+  let data = null, busy = false, disposed = false, revision = 0, refreshPending = false, editor = null;
+  const unsubscribe = host.on('snapshots-changed', () => {if (busy || editor) refreshPending = true; else void refresh();});
 
   function button(text, action) {
     const b = node('button', '', text); b.type = 'button';
@@ -36,21 +38,30 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
   function bindingName(id) {return data.snapshots.find(s => s.id === id)?.name || (id ? '快照已删除' : '未绑定');}
   function render() {
     if (disposed || !data) return;
-    const expanded = new Set([...list.querySelectorAll('details[open]')].map(d => d.closest('[data-snapshot-id]')?.dataset.snapshotId));
-    context.replaceChildren(); list.replaceChildren();
+    const expanded = new Set([...contextBody.querySelectorAll('details[open]')].map(d => d.dataset.regexScope));
+    contextBody.replaceChildren(); list.replaceChildren();
     const c = data.context;
-    context.append(node('div', 'pcm-snapshot-current', '当前预设 · '+(c.presetName || '未选择')));
-    context.append(node('div', '', c.characterName+' · '+c.chatName));
-    for (const [target, label, id, allowed] of [['chat','此聊天',c.chatBindingId,c.canBindChat],['character','此角色',c.characterBindingId,c.canBindCharacter]]) {
+    contextBody.append(node('div', 'pcm-snapshot-current', '当前预设：'+(c.presetName || '未选择')));
+    contextBody.append(node('div', '', '当前角色：'+c.characterName),node('div','','当前聊天：'+c.chatName));
+    for(const [scope,label] of [['global','当前挂载的全局世界书'],['character','当前角色附加世界书'],['chat','当前聊天附加世界书']])contextBody.append(node('div','pcm-snapshot-context-line',label+'：'+(c.resources?.worlds?.[scope]?.join('、')||'未挂载')));
+    const regex=node('div','pcm-snapshot-current-regex');regex.append(node('strong','','当前正则'));
+    for(const [scope,label] of [['global','全局正则'],['preset','预设正则'],['character','角色正则']]) {
+      const scripts=c.resources?.regex?.[scope]||[],details=node('details','pcm-snapshot-regex-details');details.dataset.regexScope=scope;details.open=expanded.has(scope);
+      details.append(node('summary','',label+' · '+scripts.filter(s=>s.enabled).length+'/'+scripts.length+' 开启'));
+      const lines=node('div','pcm-snapshot-regex-choices');for(const script of scripts)lines.append(node('span','',(script.enabled?'开 · ':'关 · ')+(script.name||script.id)));if(!scripts.length)lines.append(node('small','','没有正则'));details.append(lines);regex.append(details);
+    }contextBody.append(regex);
+    for (const [target, label, id, allowed] of [['character','当前角色绑定的快照',c.characterBindingId,c.canBindCharacter],['chat','当前聊天绑定的快照',c.chatBindingId,c.canBindChat]]) {
       const row = node('div', 'pcm-snapshot-binding'); row.append(node('span', '', label+'：'+bindingName(id)));
       if (id && allowed) row.append(button('解除绑定', () => execute('unbind', {target})));
-      context.append(row);
+      contextBody.append(row);
     }
     const active = data.activeBinding;
-    context.append(node('small', '', active ? '进入聊天时应用：'+active.name+'（'+(active.source === 'chat' ? '聊天绑定' : '角色默认')+'）' : '当前没有自动绑定，手动切换即可。'));
+    contextBody.append(node('small', '', active ? '进入聊天时应用：'+active.name+'（'+(active.source === 'chat' ? '聊天绑定' : '角色默认')+'）' : '当前没有自动绑定，手动切换即可。'));
+    for(const warning of c.regexAuthorization||[])contextBody.append(node('small','',warning));
+    const currentActions=node('div','pcm-snapshot-actions');currentActions.append(save);contextBody.append(currentActions);
     if (!data.snapshots.length) {
       const empty = node('div', 'pcm-snapshot-empty');
-      empty.append(node('strong', '', '把常用开关存成一份快照'), node('p', '', '先在酒馆调好预设开关和全局世界书，再点击「保存当前设置」。'));
+      empty.append(node('strong', '', '把常用设置存成一份快照'), node('p', '', '保存当前设置，或点击「创建快照」自由搭配。'));
       list.append(empty);
     }
     for (const snapshot of data.snapshots) {
@@ -66,23 +77,20 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
       const character = button('绑定此角色', () => execute('bind', {...snapshot, target: 'character'}));
       chat.dataset.unavailable = String(!c.canBindChat); character.dataset.unavailable = String(!c.canBindCharacter);
       actions.append(apply, chat, character);
-      const details = node('details', 'pcm-snapshot-details'), detailsTitle = node('summary', '', '查看开关与管理');
-      details.open = expanded.has(snapshot.id);
-      const switches = node('div', 'pcm-snapshot-switches');
-      if (groups.length) switches.append(node('strong', '', '分组总开关'));
-      for (const g of groups) switches.append(node('span', g.enabled ? 'is-on' : '', (g.enabled ? '开 · ' : '关 · ')+(g.name || '未命名分组')));
-      switches.append(node('strong', '', '条目自身开关（分组关闭时仍保留）'));
-      for (const e of entries) switches.append(node('span', e.enabled ? 'is-on' : '', (e.enabled ? '开 · ' : '关 · ')+(e.name || '未命名条目')));
       const manage = node('div', 'pcm-snapshot-actions');
-      manage.append(button('用当前设置更新', () => execute('update', snapshot)), button('重命名', () => execute('rename', snapshot)), button('删除', () => execute('delete', snapshot)));
-      details.append(detailsTitle, manage, switches); card.append(top, summary, mounts, actions, details); list.append(card);
+      manage.append(button('修改',()=>openEditor(snapshot.id)), button('重命名', () => execute('rename', snapshot)), button('删除', () => execute('delete', snapshot)));
+      card.append(top, summary, mounts);
+      if(snapshot.resources) {
+        for(const [scope,label] of [['character','角色附加'],['chat','聊天附加']])card.append(node('p','pcm-snapshot-books',label+'世界书：'+(snapshot.resources.worlds[scope].join('、')||'不挂载')));
+      }
+      card.append(actions,manage);list.append(card);
     }
     setBusy(busy);
   }
 
   async function refresh() {
     if (disposed) return;
-    if (busy) {refreshPending = true; return;}
+    if (busy || editor) {refreshPending = true; return;}
     const token = ++revision;
     setBusy(true);
     try {
@@ -93,6 +101,27 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
     finally {
       if (!disposed && token === revision) {setBusy(false); if (refreshPending) {refreshPending = false; void refresh();}}
     }
+  }
+
+  function closeEditor(result) {
+    editor?.destroy();editor=null;
+    for(const part of [context,toolbar,notice,status,list])part.hidden=false;
+    title.textContent='设置快照';back.textContent='← 首页';
+    if(result?.snapshots){data=result;refreshPending=false;render();showStatus('快照已保存');}
+    else void refresh();
+    element.closest('dialog')?.scrollTo(0,0);
+  }
+  async function openEditor(id) {
+    if(busy||disposed||!data)return;
+    setBusy(true);showStatus('正在读取快照配置…');
+    try {
+      const model=await host.request('snapshot-editor',{id,contextKey:data.context.key});
+      if(disposed)return;
+      editor=createSnapshotEditor({host,model,existingId:id,onCancel:()=>closeEditor(),onSaved:closeEditor,toast});
+      for(const part of [context,toolbar,notice,status,list])part.hidden=true;
+      title.textContent=id?'修改快照':'创建快照';back.textContent='← 快照';element.append(editor.element);element.closest('dialog')?.scrollTo(0,0);
+    }catch(error){if(!disposed){showStatus(error.message,true);toast.error(error.message);}}
+    finally{if(!disposed)setBusy(false);}
   }
 
   async function execute(action, snapshot = {}) {
@@ -134,5 +163,5 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
     } catch (error) {if (!disposed) {showStatus(error.message, true); toast.error(error.message);}}
     finally {if (!disposed) {setBusy(false); if (refreshPending) {refreshPending = false; void refresh();}}}
   }
-  return {element, refresh, destroy() {disposed = true; revision++; unsubscribe(); element.remove();}};
+  return {element, refresh, destroy() {disposed = true; revision++; unsubscribe(); editor?.destroy(); element.remove();}};
 }
