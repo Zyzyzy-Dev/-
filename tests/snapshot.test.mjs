@@ -7,6 +7,19 @@ const settings = () => ({prompts:[{identifier:'a',name:'A',content:'current'},{i
 const groups = () => ({groups:[{id:'g',name:'组',enabled:false}],prompts:{a:{groupId:'g'},b:{groupId:'g'}}});
 const capture = (extra={}) => captureSnapshot({id:'s',name:' 快照 ',presetName:'预设',settings:settings(),orderCharacterId:100001,groupState:groups(),worldNames:['书'],now:123,...extra});
 
+test('snapshot display follows current editor order including ungrouped and repeated group segments',()=>{
+ const current=settings();current.prompts=['u','b','a','v','c'].map(identifier=>({identifier,name:identifier}));
+ current.prompt_order[1].order=['u','b','v','a','c'].map(identifier=>({identifier,enabled:true}));
+ const gs={groups:[{id:'g1',name:'First'},{id:'g2',name:'Second'}],prompts:{a:{groupId:'g1'},b:{groupId:'g2'},c:{groupId:'g2'}}};
+ const saved=captureSnapshot({name:'s',presetName:'p',settings:current,orderCharacterId:100001,groupState:gs,worldNames:[]});
+ saved.entries.reverse();const before=JSON.stringify(saved);
+ const view=snapshots.snapshotPresetEditor(saved,current,gs);
+ const sections=snapshots.snapshotPresetSections(saved.entries,saved.groups,view.entries);
+ assert.deepEqual(sections.map(s=>[s.groupId,s.entries.map(e=>e.identifier)]),[[null,['u']],['g2',['b']],[null,['v']],['g1',['a']],['g2',['c']]]);
+ assert.equal(JSON.stringify(saved),before);
+ assert.equal(sections[1].entries[0],saved.entries.find(e=>e.identifier==='b'));
+});
+
 test('editor display resolves live membership and content without adding either to persisted switches',()=>{
  const saved=capture(), current=settings();current.prompts[0].content='Latest body';
  const view=snapshots.snapshotPresetEditor(saved,current,groups());
@@ -15,6 +28,15 @@ test('editor display resolves live membership and content without adding either 
  assert.equal(saved.entries[0].groupId,undefined);assert.equal(saved.entries[0].content,undefined);
  current.prompts=[];
  assert.equal(snapshots.snapshotPresetEditor(saved,current,groups()).entries[0].missing,true);
+});
+
+test('display keeps missing entries and empty groups without mutating an incomplete preset',()=>{
+ const saved=capture(),current={prompts:[{identifier:'b',name:'B'}]},before=JSON.stringify(current);
+ const view=snapshots.snapshotPresetEditor(saved,current,{groups:[]});
+ const sections=snapshots.snapshotPresetSections(saved.entries,saved.groups,view.entries);
+ assert.deepEqual(sections.map(s=>[s.groupId,s.entries.map(e=>e.identifier)]),[[null,['b','a']],['g',[]]]);
+ assert.equal(JSON.stringify(current),before);
+ assert.equal(view.entries.find(e=>e.identifier==='a').missing,true);
 });
 test('capture keeps independent group and item switches, excluding content and other nodes',()=>{
  const s=capture();assert.equal(s.name,'快照');assert.deepEqual(s.entries,[{identifier:'a',name:'A',enabled:true},{identifier:'b',name:'B',enabled:false}]);assert.deepEqual(s.groups,[{id:'g',name:'组',enabled:false}]);assert.equal(s.entries[0].content,undefined);

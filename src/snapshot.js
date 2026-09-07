@@ -1,5 +1,5 @@
 // 设置快照纯逻辑：捕获两层开关、按稳定 ID 制定恢复计划及解析聊天/角色绑定，不访问宿主。
-import { createIdentifier } from './core.js';
+import { createIdentifier, findPromptOrderEntry } from './core.js';
 import { validateSnapshotResources } from './snapshot-resources.js';
 
 export function normalizeSnapshotName(value) {
@@ -58,13 +58,33 @@ export function captureSnapshot({ id = createIdentifier(), name, presetName, set
 // 编辑器辅助信息每次从当前预设读取，不属于快照备份，不参与应用或保存。
 export function snapshotPresetEditor(snapshot, settings, groupState) {
   const prompts = new Map((settings?.prompts || []).map(item => [item.identifier, item]));
+  const node = findPromptOrderEntry({prompts:settings?.prompts, prompt_order:settings?.prompt_order});
+  const ids = [...new Set([...(node?.order || []).map(item => typeof item === 'string' ? item : item?.identifier), ...prompts.keys()])];
+  const order = new Map(ids.map((id, index) => [id, index]));
   const groupIds = new Set((groupState?.groups || []).map(group => String(group.id)));
   const entries = snapshot.entries.map(item => {
     const prompt = prompts.get(item.identifier), groupId = String(groupState?.prompts?.[item.identifier]?.groupId||'');
-    return {identifier:item.identifier, name:String(prompt?.name || item.name), content:String(prompt?.content || ''), groupId:groupIds.has(groupId) ? groupId : null, missing:!prompt};
+    return {identifier:item.identifier, name:String(prompt?.name || item.name), content:String(prompt?.content || ''), groupId:groupIds.has(groupId) ? groupId : null, missing:!prompt, order:order.get(item.identifier) ?? ids.length};
   });
   const groups = snapshot.groups.map(group => ({id:group.id, name:group.name, memberIds:entries.filter(entry => entry.groupId === group.id).map(entry => entry.identifier)}));
   return {entries, groups};
+}
+
+// 与预设编辑器一样按当前顺序分段，不能按分组收拢条目；只返回草稿引用，不改变保存顺序。
+export function snapshotPresetSections(items, groups, metadata) {
+  const records = new Map(metadata.map(item => [item.identifier, item]));
+  const knownGroups = new Set(groups.map(group => String(group.id)));
+  const ordered = [...items].sort((a, b) => (records.get(a.identifier)?.order ?? Infinity) - (records.get(b.identifier)?.order ?? Infinity));
+  const sections = [];
+  for (const item of ordered) {
+    const owner = records.get(item.identifier)?.groupId;
+    const groupId = owner != null && knownGroups.has(String(owner)) ? String(owner) : null;
+    if (!sections.length || sections.at(-1).groupId !== groupId) sections.push({groupId, entries:[]});
+    sections.at(-1).entries.push(item);
+  }
+  const shown = new Set(sections.map(section => section.groupId));
+  for (const group of groups) if (!shown.has(String(group.id))) sections.push({groupId:String(group.id), entries:[]});
+  return sections;
 }
 
 export function planSnapshotRestore(snapshot, { settings, orderCharacterId, groupState, worldNames }) {

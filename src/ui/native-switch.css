@@ -12,6 +12,11 @@
 .pcm-snapshots input.pcm-native-switch:focus-visible{outline:2px solid var(--snap-accent);outline-offset:5px}
 .pcm-snapshots .is-off{opacity:.5}
 .pcm-snapshots .is-off .is-off{opacity:1}
+/* 触摸折叠标题不显示浏览器蓝色点击块，键盘导航仍保留 focus-visible。 */
+.pcm-snapshots summary,.pcm-snapshots summary *{-webkit-tap-highlight-color:transparent}
+.pcm-snapshots summary{user-select:none;-webkit-user-select:none}
+.pcm-snapshots summary:focus:not(:focus-visible){outline:none}
+.pcm-snapshots summary :is(input,select){user-select:auto;-webkit-user-select:auto}
 .pcm-snapshot-switch-display{position:relative;width:22px;height:12px;flex:none;border-radius:8px;background:#b8b8b8}
 .pcm-snapshot-switch-display::before{content:'';position:absolute;left:2px;top:2px;width:8px;height:8px;border-radius:50%;background:#fff}
 .pcm-snapshot-switch-display[data-enabled="true"]{background:#747474}

@@ -1,5 +1,6 @@
 // 快照草稿编辑页：独立编辑预设/正则分组开关与全局世界书配置，正文只读，保存前不改变宿主。
 import {regexGroupState, toggleRegexGroup} from '../snapshot-resources.js';
+import {snapshotPresetSections} from '../snapshot.js';
 export function createSnapshotEditor({host, model, existingId, onCancel, onSaved, toast}) {
   const copy=value=>JSON.parse(JSON.stringify(value));
   const draft=copy(model.draft),context=model.context;
@@ -95,25 +96,29 @@ export function createSnapshotEditor({host, model, existingId, onCancel, onSaved
       }
       return ()=>refresh.forEach(update=>update());
     }
-    for(const group of groups){
-      const members=items.filter(item=>owners.get(String(item[idKey]))===String(group.id));
+    const sections=batch?groups.map(group=>({groupId:String(group.id),entries:items.filter(item=>owners.get(String(item[idKey]))===String(group.id))})):snapshotPresetSections(items,groups,metadata);
+    if(batch&&ungrouped.length)sections.push({groupId:null,entries:ungrouped});
+    const refreshSections=[];
+    for(const {groupId,entries:members} of sections){
+      const group=groups.find(group=>String(group.id)===groupId);
+      if(!group){
+        const body=node('div','pcm-snapshot-ungrouped');
+        if(batch&&groups.length)body.append(node('p','pcm-snapshot-ungrouped-title','未分组'));
+        rows(body,members);target.append(body);continue;
+      }
       if(batch)members.sort((a,b)=>(records.get(a.id)?.order??0)-(records.get(b.id)?.order??0));
       const section=node('details','pcm-snapshot-editor-group');section.open=true;section.dataset.groupId=group.id;
       const summary=node('summary','pcm-snapshot-group-summary');
       const checkbox=makeSwitch((group.name||group.id)+' · 分组开关',batch?false:group.enabled,unavailable||(batch&&!members.length));
       const title=node('span','pcm-snapshot-group-name',group.name||group.id);
       summary.append(checkbox,title,node('small','',members.length+' 条'));
-      const updateGroup=()=>{if(batch){const state=regexGroupState(items,members.map(item=>item.id));checkbox.checked=state.checked;checkbox.indeterminate=state.mixed;checkbox.title=state.mixed?'部分开启，点击全部开启':state.checked?'关闭组内全部正则':'开启组内全部正则';summary.classList.toggle('is-off',state.enabled===0);}else summary.classList.toggle('is-off',!group.enabled);};
+      const updateGroup=()=>{if(batch){const state=regexGroupState(items,members.map(item=>item.id));checkbox.checked=state.checked;checkbox.indeterminate=state.mixed;checkbox.title=state.mixed?'部分开启，点击全部开启':state.checked?'关闭组内全部正则':'开启组内全部正则';summary.classList.toggle('is-off',state.enabled===0);}else{checkbox.checked=group.enabled;summary.classList.toggle('is-off',!group.enabled);}};
       updateGroup();
       const body=node('div','pcm-snapshot-group-body'),refresh=rows(body,members,group,updateGroup);
       if(!members.length)body.append(node('small','pcm-snapshot-notice','此组没有条目'));
-      checkbox.addEventListener('change',()=>{if(batch){const next=toggleRegexGroup(items,members.map(item=>item.id),checkbox.checked);items.forEach((item,i)=>item.enabled=next[i].enabled);}else group.enabled=checkbox.checked;updateGroup();refresh();onChange();});
+      refreshSections.push(()=>{updateGroup();refresh();});
+      checkbox.addEventListener('change',()=>{if(batch){const next=toggleRegexGroup(items,members.map(item=>item.id),checkbox.checked);items.forEach((item,i)=>item.enabled=next[i].enabled);}else group.enabled=checkbox.checked;refreshSections.forEach(update=>update());onChange();});
       section.append(summary,body);target.append(section);
-    }
-    if(ungrouped.length){
-      const body=node('div','pcm-snapshot-ungrouped');
-      if(groups.length)body.append(node('p','pcm-snapshot-ungrouped-title','未分组'));
-      rows(body,ungrouped);target.append(body);
     }
   }
   function renderRegex(){
@@ -184,6 +189,12 @@ export function createSnapshotEditor({host, model, existingId, onCancel, onSaved
     const json=node('textarea');json.rows=9;json.spellcheck=false;json.setAttribute('aria-label','全部条目配置');advanced.append(json);
     // 无效 JSON 留在原输入框，挂载/取消挂载或切换预设均不丢失尚未修正的文本。
     const syncJson=()=>{if(!json.validity.customError)json.value=JSON.stringify(entry.settings,null,2);};
+    const syncDepthAvailability=()=>{
+      const unavailable=Number(entry.settings.position??0)!==4;
+      depth.dataset.unavailable=String(unavailable);depth.disabled=busy||unavailable;
+      depth.title=unavailable?'仅指定深度插入时可设置':'深度';
+      if(unavailable){depth.value=entry.settings.depth??4;depth.setCustomValidity('');}
+    };
     const syncControls=()=>{
       const value=entry.settings;enabled.checked=!value.disable;summary.classList.toggle('is-off',!!value.disable);
       state.value=value.constant?'constant':value.vectorized?'vector':'keyword';state.dataset.state=state.value;
@@ -192,10 +203,11 @@ export function createSnapshotEditor({host, model, existingId, onCancel, onSaved
       for(const input of [depth,order,probability])input.setCustomValidity('');
       keys.value=(value.key||[]).join('\n');secondary.value=(value.keysecondary||[]).join('\n');
       for(const {key,input} of toggles)input.checked=value[key]===true;
+      syncDepthAvailability();
     };
     enabled.addEventListener('change',()=>{entry.settings.disable=!enabled.checked;summary.classList.toggle('is-off',!enabled.checked);syncJson();});
     state.addEventListener('change',()=>{entry.settings.constant=state.value==='constant';entry.settings.vectorized=state.value==='vector';state.dataset.state=state.value;syncJson();});
-    position.addEventListener('change',()=>{entry.settings.position=Number(position.value);syncJson();});
+    position.addEventListener('change',()=>{entry.settings.position=Number(position.value);syncDepthAvailability();syncJson();});
     for(const [input,key] of [[depth,'depth'],[order,'order'],[probability,'probability']])input.addEventListener('input',()=>{
       input.setCustomValidity('');
       if(input.value!==''&&Number.isFinite(input.valueAsNumber)&&input.validity.valid){entry.settings[key]=input.valueAsNumber;syncJson();}else input.setCustomValidity(key==='probability'?'概率须为 0–100 的数字':'请输入有效数字');
