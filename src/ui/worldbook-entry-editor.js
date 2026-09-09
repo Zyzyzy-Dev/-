@@ -2,12 +2,12 @@
 import {clone, diffLines, buildRows} from '../core.js';
 import {normalizeWorkbenchBook} from '../worldbook-workbench.js';
 
-export function openWorkbenchEntryEditor({parent, entry, peer, title, onSave, inline=false}) {
+export function openWorkbenchEntryEditor({parent, entry, peer, title, onSave}) {
   const node=(tag,cls='',text)=>{const el=document.createElement(tag);el.className=cls;if(text!==undefined)el.textContent=text;return el;};
-  const dialog=node(inline?'section':'dialog','pcm-wb-modal pcm-wb-entry-modal'+(inline?' pcm-wb-inline-editor':''));dialog.setAttribute('aria-label','编辑世界书条目');
+  const dialog=node('dialog','pcm-wb-modal pcm-wb-entry-modal');dialog.setAttribute('aria-label','编辑世界书条目');
   const form=node('form','pcm-wb-entry-form');form.method='dialog';
   const head=node('header','pcm-wb-modal-head');head.append(node('strong','',title));
-  const close=node('button','','取消');close.type='button';close.addEventListener('click',()=>dialog.remove());head.append(close);
+  const close=node('button','','取消');close.type='button';close.addEventListener('click',()=>dialog.close());head.append(close);
   const fields=node('div','pcm-wb-entry-fields'),error=node('p','pcm-wb-error');error.setAttribute('role','status');
   let draft=clone(entry), sync=()=>{};
   const bindings=[];
@@ -69,9 +69,9 @@ export function openWorkbenchEntryEditor({parent, entry, peer, title, onSave, in
   compare.addEventListener('toggle',()=>{if(compare.open)renderCompare();});
   json.addEventListener('input',()=>{try{const next=JSON.parse(json.value);if(String(next.uid)!==String(entry.uid))throw Error('条目UID不可修改');normalizeWorkbenchBook({entries:{[entry.uid]:next}});draft=next;json.setCustomValidity('');refresh();if(compare.open)renderCompare();}catch(e){json.setCustomValidity(e.message||'请输入有效JSON');}});
   const actions=node('div','pcm-wb-actions');const save=node('button','pcm-wb-primary','应用到草稿');save.type='submit';actions.append(save);
-  form.addEventListener('submit',e=>{e.preventDefault();if(!form.reportValidity())return;try{normalizeWorkbenchBook({entries:{[entry.uid]:draft}});onSave(clone(draft));inline?dialog.remove():dialog.close();}catch(e){error.textContent=e.message;}});
+  form.addEventListener('submit',e=>{e.preventDefault();if(!form.reportValidity())return;try{normalizeWorkbenchBook({entries:{[entry.uid]:draft}});onSave(clone(draft));dialog.close();}catch(e){error.textContent=e.message;}});
   form.addEventListener('invalid',e=>{e.target.closest('details')?.setAttribute('open','');},true);
-  dialog.addEventListener('click',e=>e.stopPropagation());dialog.addEventListener('keydown',e=>e.stopPropagation());if(!inline)dialog.addEventListener('close',()=>dialog.remove(),{once:true});
-  refresh();sync();form.append(head,fields,jsonDetails,compare,error,actions);dialog.append(form);parent.append(dialog);if(!inline)dialog.showModal();
+  dialog.addEventListener('click',e=>e.stopPropagation());dialog.addEventListener('keydown',e=>e.stopPropagation());dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+  refresh();sync();form.append(head,fields,jsonDetails,compare,error,actions);dialog.append(form);parent.append(dialog);dialog.showModal();
   return dialog;
 }
