@@ -27,7 +27,7 @@ export function createWorldbookWorkbench({host,session=createWorkbenchSession(),
     const actions=node('div','pcm-wb-actions');
     const fileLabel=node('label','pcm-wb-file','导入文件'),file=node('input');file.type='file';file.accept='.json,application/json';file.setAttribute('aria-label',names[side]+'导入世界书');fileLabel.append(file);
     file.addEventListener('change',()=>{const value=file.files[0];file.value='';if(value)void run(async()=>{const raw=JSON.parse(await value.text());const book=normalizeWorkbenchBook(raw);if(await canReplace(side))load(side,book,value.name.replace(/\.json$/i,''),null,null);});});
-    actions.append(fileLabel,button('从酒馆读取',()=>void run(()=>chooseBook(side))),button('新建',()=>void run(async()=>{const name=await prompt('新世界书名称','新世界书');if(name?.trim()&&await canReplace(side))load(side,{entries:{}},name.trim(),null,null);})),button('保存',()=>void run(()=>save(side,false)),'pcm-wb-primary'),button('另存',()=>void run(()=>save(side,true))),button('导出',()=>void run(()=>exportBook(side))));
+    actions.append(fileLabel,button('酒馆世界书',()=>void run(()=>chooseBook(side)),'pcm-wb-tavern'),button('新建',()=>void run(async()=>{const name=await prompt('新世界书名称','新世界书');if(name?.trim()&&await canReplace(side))load(side,{entries:{}},name.trim(),null,null);})),button('保存',()=>void run(()=>save(side,false)),'pcm-wb-primary'),button('另存',()=>void run(()=>save(side,true))),button('导出',()=>void run(()=>exportBook(side))));
     const tools=node('div','pcm-wb-actions');
     const add=button('＋ 条目',()=>void run(()=>{requireBook(side);const result=createWorkbenchEntry(session[side].book);edit(side,result.ids[0],result.book);}));
     const convert=button('预设 → 世界书',()=>void run(()=>openPresetConverter(side)));
@@ -40,7 +40,7 @@ export function createWorldbookWorkbench({host,session=createWorkbenchSession(),
     const all=node('input','pcm-native-switch');all.type='checkbox';all.setAttribute('aria-label',names[side]+'全选筛选结果');all.addEventListener('change',()=>{for(const {id} of visible(side))all.checked?session[side].selected.add(id):session[side].selected.delete(id);renderList(side);});
     const count=node('span','pcm-wb-selection-count');
     const placement=node('select');placement.setAttribute('aria-label',names[side]+'迁移插入位置');for(const [value,text] of [['end','插入末尾'],['start','插入最前'],['before','选中目标之前'],['after','选中目标之后']])option(placement,value,text);
-    batch.append(all,count,placement,button('迁移 → '+names[other(side)],()=>void run(()=>migrate(side))),button('删除所选',()=>void run(()=>removeSelected(side))));
+    batch.append(all,count,placement,button('对比',()=>void run(()=>compareSelected(side))),button('迁移 → '+names[other(side)],()=>void run(()=>migrate(side))),button('删除所选',()=>void run(()=>removeSelected(side))));
     const list=node('div','pcm-wb-list');list.dataset.side=side;list.setAttribute('role','list');
     panel.append(heading,source,actions,tools,searchRow,batch,list);columns.append(panel);views[side]={panel,heading,source,list,search,filter,all,count,placement,undo,add,convert};
   }
@@ -74,8 +74,6 @@ export function createWorldbookWorkbench({host,session=createWorkbenchSession(),
       const drag=button('⠿',()=>{} ,'pcm-wb-drag');drag.dataset.wbDrag='';drag.setAttribute('aria-label','拖动 '+(value.comment||'未命名条目'));drag.title='拖动把手调整位置；手机长按后拖动';
       const select=node('input','pcm-native-switch');select.type='checkbox';select.checked=s.selected.has(id);select.setAttribute('aria-label','选择 '+(value.comment||'未命名条目'));
       select.addEventListener('change',()=>{select.checked?s.selected.add(id):s.selected.delete(id);s.active=id;renderList(side);});
-      const toggle=node('input','pcm-native-switch');toggle.type='checkbox';toggle.checked=value.disable!==true;toggle.setAttribute('aria-label','启用 '+(value.comment||'未命名条目'));
-      toggle.addEventListener('change',()=>{const book=clone(s.book);book.entries[id].disable=!toggle.checked;change(side,book);});
       const name=button(value.comment||'未命名条目',()=>{s.active=id;renderList(side);edit(side,id);},'pcm-wb-entry-name');name.title=value.content?.slice(0,240)||'';
       const flag=node('span','pcm-wb-entry-state',value.constant?'🔵':value.vectorized?'🟣':'🟢');flag.title=value.constant?'常驻':value.vectorized?'向量':'关键词';
       const state=pair(side,id)?.status||'only',badge=node('span','pcm-wb-badge '+state,statusNames[state]);
@@ -85,7 +83,7 @@ export function createWorldbookWorkbench({host,session=createWorkbenchSession(),
       const migrateButton=button('迁移',()=>void run(()=>migrate(side,[id])));migrateButton.dataset.unavailable=String(!session[other(side)].book);actions.append(migrateButton);
       const peerId=pair(side,id)?.[other(side)+'Id'];if(peerId)actions.append(button('覆盖另一侧',()=>void run(async()=>{if(await confirm('用此条目的正文和配置覆盖另一侧配对条目？')){const result=transferWorldEntries(s.book,session[other(side)].book,[id],{mode:'replace',targetId:peerId});change(other(side),result.book);announce('已覆盖另一侧草稿，可撤回');}})));
       const detail=node('small','pcm-wb-entry-meta',`位置 ${value.position??0} · 深度 ${value.depth??4} · 顺序 ${value.order??100} · 概率 ${value.probability??100}%`);
-      row.append(drag,select,toggle,flag,name,badge,detail,actions);row.addEventListener('click',e=>{if(e.target.closest('button,input'))return;s.active=id;renderList(side);});v.list.append(row);
+      row.append(drag,select,flag,name,badge,detail,actions);row.addEventListener('click',e=>{if(e.target.closest('button,input'))return;s.active=id;renderList(side);});v.list.append(row);
     }
     if(!rows.length)v.list.append(node('p','pcm-wb-empty',s.book?'没有符合筛选的条目，可新增或从另一侧迁移。':'导入世界书后在这里查看条目。'));
     v.list.scrollTop=scroll;v.count.textContent=s.selected.size+' 已选 / '+rows.length+' 条';const selected=rows.filter(r=>s.selected.has(r.id)).length;v.all.checked=rows.length>0&&selected===rows.length;v.all.indeterminate=selected>0&&selected<rows.length;
@@ -93,8 +91,9 @@ export function createWorldbookWorkbench({host,session=createWorkbenchSession(),
   }
   function position(side,value){if(value==='before'||value==='after'){const anchor=session[side].active;if(!anchor)throw Error('请先在目标世界书中选择一个插入位置');return {[value==='before'?'beforeId':'afterId']:anchor};}return {placement:value};}
   function migrate(side,ids=[...session[side].selected]){requireBook(side);const target=other(side);requireBook(target);if(!ids.length)throw Error('请先勾选要迁移的条目');const result=transferWorldEntries(session[side].book,session[target].book,ids,position(target,views[side].placement.value));change(target,result.book);session[target].selected=new Set(result.ids);renderList(target);announce('已迁移 '+result.ids.length+' 条到'+names[target]+'草稿，来源保留，可撤回');}
+  function compareSelected(side){const ids=[...session[side].selected];if(ids.length!==2)throw Error('请先选择两个条目进行对比');const a=entry(side,ids[0]),b=entry(side,ids[1]);openWorkbenchEntryEditor({parent:element,entry:a,peer:b,title:'对比 · '+(a.comment||'未命名条目')+' ↔ '+(b.comment||'未命名条目')});}
   async function removeSelected(side){requireBook(side);const ids=[...session[side].selected];if(!ids.length)throw Error('请先勾选要删除的条目');if(!await confirm('从'+names[side]+'草稿删除 '+ids.length+' 条？可撤回。'))return;const book=clone(session[side].book);for(const id of ids)delete book.entries[id];change(side,book);}
-  function edit(side,id,initialBook=session[side].book){const value=workbenchEntries(initialBook).find(row=>row.id===String(id))?.entry;if(!value)return;const target=other(side),peerId=pair(side,id)?.[target+'Id']||session[target].active;const editor=openWorkbenchEntryEditor({parent:element,entry:value,peer:entry(target,peerId),title:names[side]+' · '+(value.comment||'未命名条目'),onSave(value){const book=clone(initialBook);book.entries[id]=value;change(side,normalizeWorkbenchBook(book));announce('条目修改已应用到草稿');}});activeModal=editor;editor.addEventListener('close',()=>{if(activeModal===editor)activeModal=null;},{once:true});}
+  function edit(side,id,initialBook=session[side].book){const value=workbenchEntries(initialBook).find(row=>row.id===String(id))?.entry;if(!value)return;const target=other(side),peerId=pair(side,id)?.[target+'Id']||session[target].active;const row=views[side].list.querySelector(`[data-wb-id="${CSS.escape(String(id))}"]`);const editor=openWorkbenchEntryEditor({parent:row||element,entry:value,peer:entry(target,peerId),title:names[side]+' · '+(value.comment||'未命名条目'),inline:Boolean(row),onSave(value){const book=clone(initialBook);book.entries[id]=value;change(side,normalizeWorkbenchBook(book));announce('条目修改已应用到草稿');}});if(!row){activeModal=editor;editor.addEventListener('close',()=>{if(activeModal===editor)activeModal=null;},{once:true});}}
   function modal(title){
     const dialog=node('dialog','pcm-wb-modal');dialog.setAttribute('aria-label',title);const head=node('header','pcm-wb-modal-head');head.append(node('strong','',title),button('关闭',()=>dialog.close()));
     const body=node('div','pcm-wb-modal-body'),error=node('p','pcm-wb-error'),actions=node('div','pcm-wb-actions');error.setAttribute('role','status');dialog.append(head,body,error,actions);element.append(dialog);activeModal=dialog;
@@ -102,7 +101,7 @@ export function createWorldbookWorkbench({host,session=createWorkbenchSession(),
   }
   async function chooseBook(side){
     const values=await host.request('list-worldbooks');if(disposed)return;if(!values.length)throw Error('酒馆中没有世界书，可导入文件或新建');
-    const {dialog,body,actions}=modal(names[side]+' · 读取酒馆世界书'),select=node('select');select.setAttribute('aria-label','酒馆世界书名称');for(const name of values)option(select,name,name);body.append(select);
+    const {dialog,body,actions}=modal(names[side]+' · 读取酒馆世界书'),select=node('select','pcm-wb-book-picker');select.setAttribute('aria-label','酒馆世界书名称');select.size=Math.min(10,Math.max(5,values.length));for(const name of values)option(select,name,name);body.append(select);
     actions.append(button('读取',()=>void run(async()=>{const value=await host.request('workbench-read-worldbook',{name:select.value});if(disposed||!dialog.isConnected||!dialog.open)return;const book=normalizeWorkbenchBook(value.book);if(await canReplace(side)&&dialog.open){load(side,book,value.name,value.name,clone(value.book));dialog.close();}})));
   }
   async function save(side,asNew){
