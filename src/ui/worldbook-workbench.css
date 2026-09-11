@@ -220,3 +220,22 @@
 @media(max-width:900px){.pcm-wb-workbench .pcm-wb-entry{cursor:default;grid-template-columns:15px minmax(0,1fr) auto;touch-action:pan-y}.pcm-wb-workbench .pcm-wb-drag{grid-column:2;grid-row:2;min-width:0;width:100%;align-self:stretch;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}}
 
 
+/* v1.8.11: align desktop setting headers/controls, show full editable numbers, and keep diff backdrop visible while editing. */
+@media (min-width:901px){
+  .pcm-wb-workbench .pcm-wb-entry-header,
+  .pcm-wb-workbench .pcm-wb-entry{grid-template-columns:22px 22px minmax(90px,210px) minmax(0,1fr) auto;}
+  .pcm-wb-workbench .pcm-wb-entry-header .pcm-wb-header-config,
+  .pcm-wb-workbench .pcm-wb-entry .pcm-wb-entry-config{grid-template-columns:84px 154px 58px 58px 58px auto;justify-self:stretch;}
+  .pcm-wb-workbench .pcm-wb-entry-config input[type=number]{appearance:textfield;-moz-appearance:textfield;width:100%;min-width:0;padding-inline:3px;}
+  .pcm-wb-workbench .pcm-wb-entry-config input[type=number]::-webkit-inner-spin-button,
+  .pcm-wb-workbench .pcm-wb-entry-config input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+  .pcm-wb-workbench .pcm-wb-entry-config :is(select,input){box-sizing:border-box;}
+  .pcm-wb-workbench .pcm-wb-entry-config{margin-left:0;}
+}
+.pcm-wb-compare-editor{position:relative;height:52dvh;min-height:180px;overflow:hidden;background:var(--wb-bg);}
+.pcm-wb-compare-editor .pcm-wb-diff-backdrop,.pcm-wb-compare-editor .pcm-wb-compare-input{position:absolute;inset:0;width:100%;height:100%;box-sizing:border-box;padding:10px;overflow:auto;line-height:1.65;margin:0;border:0;border-radius:0;font-family:monospace;resize:none;}
+.pcm-wb-compare-editor .pcm-wb-diff-backdrop{pointer-events:none;}
+.pcm-wb-compare-editor .pcm-wb-compare-input{z-index:1;background:transparent;color:transparent;caret-color:var(--wb-text);-webkit-text-fill-color:transparent;}
+.pcm-wb-compare-editor .pcm-wb-compare-input::selection{background:rgba(100,150,255,.35);}
+.pcm-wb-compare-preview{cursor:text;}
+@media(max-width:540px){.pcm-wb-compare-editor{height:25dvh;min-height:130px;}}
