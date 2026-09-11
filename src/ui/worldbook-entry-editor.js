@@ -40,7 +40,6 @@ export function openWorkbenchEntryEditor({parent, entry, title, onSave}) {
   field(keywords,'逻辑','selectiveLogic',{options:[[0,'任一匹配'],[1,'非全部匹配'],[2,'全不匹配'],[3,'全部匹配']],defaultValue:0});
   field(keywords,'可选过滤器','keysecondary',{defaultValue:[]});
   field(body,'内容','content',{rows:13});
-  for(const [key,text,defaultValue] of [['selective','选择性',false],['useProbability','概率',true],['excludeRecursion','不可递归（不会被其他条目激活）',false],['preventRecursion','防止进一步递归',false],['ignoreBudget','无视回复限额',false]])field(settings,text,key,{type:'checkbox',defaultValue});
   const actions=node('div','pcm-wb-actions');const save=node('button','pcm-wb-primary','确认');save.type='submit';actions.append(save);
   form.addEventListener('submit',e=>{e.preventDefault();if(!form.reportValidity())return;try{for(const bind of bindings)bind();normalizeWorkbenchBook({entries:{[entry.uid]:draft}});onSave(clone(draft));dialog.close();}catch(e){error.textContent=e.message;}});
   dialog.addEventListener('click',e=>e.stopPropagation());dialog.addEventListener('keydown',e=>e.stopPropagation());dialog.addEventListener('close',()=>dialog.remove(),{once:true});
