@@ -238,10 +238,7 @@
 /* 双栏正文采用原生 textarea 文字与纯背景差异叠层，字体/换行/内边距一致。 */
 .pcm-wb-workbench .pcm-wb-compare-modal{width:1200px;height:90dvh;max-height:calc(100dvh - 24px);gap:8px}
 .pcm-wb-compare-modal .pcm-wb-modal-head{margin-bottom:0;flex:none}
-.pcm-wb-compare-modal>.pcm-wb-actions,.pcm-wb-compare-hint{flex:none;margin:0}
-.pcm-wb-compare-hint{font-size:12px;color:var(--wb-fg)}
-.pcm-wb-compare-toggle{display:flex;align-items:center;gap:5px;font-size:13px}
-.pcm-wb-workbench .pcm-wb-compare-toggle input{appearance:auto;width:16px;height:16px;margin:0}
+.pcm-wb-compare-modal>.pcm-wb-actions{flex:none;margin:0}
 .pcm-wb-compare-modal>.pcm-wb-diff-columns{flex:1;min-height:0;overflow:hidden}
 .pcm-wb-compare-column h4{flex:none}
 .pcm-wb-compare-modal .pcm-wb-compare-editor{position:relative;min-height:0;overflow:hidden}
@@ -252,3 +249,8 @@
 .pcm-wb-compare-backdrop .pcm-wb-removed{background:#d65b4d55}.pcm-wb-compare-backdrop .pcm-wb-added{background:#49ae7955}
 .pcm-wb-compare-modal>.pcm-wb-error:empty{display:none}
 @media(max-width:540px){.pcm-wb-workbench .pcm-wb-compare-modal{height:94dvh;padding:10px}.pcm-wb-compare-modal>.pcm-wb-diff-columns{flex-direction:column}.pcm-wb-compare-column h4{padding:6px 10px}}
+
+/* 外层主题对所有 textarea 使用 !important；叠层编辑器必须保持透明和零边框。 */
+.pcm-dialog .pcm-wb-workbench .pcm-wb-compare-modal textarea.pcm-wb-compare-input{background:transparent!important;border:0!important;color:var(--wb-fg)!important;-webkit-text-fill-color:var(--wb-fg)!important;caret-color:var(--wb-fg)!important}
+.pcm-wb-workbench button.pcm-wb-compare-toggle[aria-pressed=true]{background:var(--wb-soft);border-color:#7999b3;box-shadow:inset 0 0 0 1px #7999b3;font-weight:700}
+.pcm-wb-workbench button.pcm-wb-compare-toggle[aria-pressed=false]{background:var(--wb-card);border-color:var(--wb-line);box-shadow:none;font-weight:400}

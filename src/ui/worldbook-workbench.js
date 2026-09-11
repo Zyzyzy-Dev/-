@@ -96,9 +96,10 @@ export function createWorldbookWorkbench({host,session=createWorkbenchSession(),
     if(!compareMode){session[side].active=id;renderList(side);edit(side,id);return;}
     if(!compareFirst){compareFirst={side,id};render();announce('已选 '+(entry(side,id)?.comment||'未命名条目')+'，请选择第二个条目');return;}
     if(compareFirst.side===side&&compareFirst.id===id){compareFirst=null;render();announce('已取消选择，请选择第一个条目');return;}
-    const selections=[compareFirst,{side,id}],originals=selections.map(item=>entry(item.side,item.id));
+    // 跨侧对比固定左书在前；同侧对比保留选择顺序，保存映射使用相同顺序。
+    const selections=[compareFirst,{side,id}].sort((a,b)=>(a.side==='right')-(b.side==='right')),originals=selections.map(item=>entry(item.side,item.id));
     if(originals.some(value=>!value)){compareFirst=null;render();return;}
-    const editor=openWorldbookContentCompare({parent:element,items:selections.map((item,index)=>({title:(item.side==='left'?'左侧':'右侧')+' · '+session[item.side].name+' · '+(originals[index].comment||'未命名条目'),content:originals[index].content||''})),onSave(contents){
+    const editor=openWorldbookContentCompare({parent:element,items:selections.map((item,index)=>({title:(session[item.side].source?'酒馆':'导入')+' · '+session[item.side].name+' · '+(originals[index].comment||'未命名条目'),content:originals[index].content||''})),onSave(contents){
       const books=new Map();
       selections.forEach((item,index)=>{const current=entry(item.side,item.id);if(!current||current.content!==originals[index].content)throw Error('条目正文已变化，请重新选择对比');if(contents[index]===(current.content||''))return;if(!books.has(item.side))books.set(item.side,clone(session[item.side].book));books.get(item.side).entries[item.id].content=contents[index];});
       for(const book of books.values())normalizeWorkbenchBook(book);

@@ -7,8 +7,7 @@ export function openWorldbookContentCompare({parent,items,onSave,onClose}) {
   const head=node('header','pcm-wb-modal-head');head.append(node('strong','','世界书正文对比'));
   const close=node('button','','取消');close.type='button';close.addEventListener('click',()=>dialog.close());head.append(close);
   const actions=node('div','pcm-wb-actions'),save=node('button','pcm-wb-primary','确认');save.type='button';actions.append(save);
-  const toggle=node('label','pcm-wb-compare-toggle'),checkbox=node('input');checkbox.type='checkbox';checkbox.checked=true;toggle.append(checkbox,node('span','','正文差异'));actions.append(toggle);
-  const hint=node('p','pcm-wb-compare-hint','红色为第一条独有内容，绿色为第二条独有内容。点击正文即可编辑；确认后保存到对应草稿，点击世界书“保存”写回酒馆。');
+  const toggle=node('button','pcm-wb-compare-toggle','正文差异');toggle.type='button';let showDiff=true;toggle.setAttribute('aria-pressed','true');actions.append(toggle);
   const columns=node('div','pcm-wb-diff-columns'),editors=[],backdrops=[],initialValues=[];
   const sync=index=>{const area=editors[index],bd=backdrops[index];bd.style.width=area.clientWidth+'px';bd.style.height=area.clientHeight+'px';bd.scrollTop=area.scrollTop;bd.scrollLeft=area.scrollLeft;};
   items.forEach((item,index)=>{
@@ -21,7 +20,7 @@ export function openWorldbookContentCompare({parent,items,onSave,onClose}) {
     input.addEventListener('input',render);input.addEventListener('scroll',()=>sync(index));
   });
   function render(){
-    const rows=checkbox.checked?buildRows(diffLines(editors[0].value,editors[1].value)):[];
+    const rows=showDiff?buildRows(diffLines(editors[0].value,editors[1].value)):[];
     backdrops.forEach((bd,index)=>{
       bd.replaceChildren();
       for(const row of rows){
@@ -36,11 +35,11 @@ export function openWorldbookContentCompare({parent,items,onSave,onClose}) {
       sync(index);
     });
   }
-  checkbox.addEventListener('change',render);
+  toggle.addEventListener('click',()=>{showDiff=!showDiff;toggle.setAttribute('aria-pressed',String(showDiff));render();});
   const error=node('p','pcm-wb-error');error.setAttribute('role','status');
   save.addEventListener('click',()=>{try{onSave(editors.map((el,index)=>el.value===initialValues[index]?items[index].content:el.value));dialog.close();}catch(e){error.textContent=e.message;}});
   const observer=new ResizeObserver(()=>editors.forEach((_,index)=>sync(index)));
   dialog.addEventListener('click',e=>e.stopPropagation());dialog.addEventListener('keydown',e=>e.stopPropagation());
   dialog.addEventListener('close',()=>{observer.disconnect();dialog.remove();onClose?.();},{once:true});
-  dialog.append(head,actions,hint,columns,error);parent.append(dialog);dialog.showModal();editors.forEach(area=>observer.observe(area));render();return dialog;
+  dialog.append(head,actions,columns,error);parent.append(dialog);dialog.showModal();editors.forEach(area=>observer.observe(area));render();return dialog;
 }
