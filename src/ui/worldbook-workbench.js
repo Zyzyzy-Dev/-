@@ -197,7 +197,7 @@ export function createWorldbookWorkbench({host,session=createWorkbenchSession(),
     const result=fromSide===toSide?reorderWorldEntries(session[fromSide].book,ids,at):transferWorldEntries(session[fromSide].book,session[toSide].book,ids,at);
     change(toSide,result.book);renderList(toSide);announce(fromSide===toSide?'显示顺序已调整，可撤回':'已迁移到'+names[toSide]+'草稿，来源保留');
   })});
-  async function requestClose(){if(busy)return;if((session.left.dirty||session.right.dirty)&&!await confirm('世界书工作台有未保存修改，仍要关闭插件？'))return;onClose();}
+  async function requestClose(){if(busy)return;onClose();}
   render();
   return {element,requestClose,hasDirty:()=>session.left.dirty||session.right.dirty,destroy(){disposed=true;drag.destroy();activeModal?.remove();element.remove();}};
 }

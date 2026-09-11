@@ -81,7 +81,6 @@ async function requestPanelClose(){
   if(worldbookWorkbench){await worldbookWorkbench.requestClose();return;}
   panelClosePending=true;
   try{
-    if(Object.values(worldbookSession).some(side=>side.dirty)&&!await pcmConfirm('世界书工作台有未保存修改，仍要关闭插件？'))return;
     document.getElementById(APP_ID+'-dialog')?.close();
   }finally{panelClosePending=false;}
 }
