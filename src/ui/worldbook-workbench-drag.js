@@ -22,9 +22,10 @@ export function installWorkbenchDrag(element,{canDrag,onDrop}) {
   }
   function start(){if(!gesture)return;gesture.active=true;element.classList.add('is-dragging');draw();}
   element.addEventListener('pointerdown',event=>{
-    const dragZone=event.target.closest('.pcm-wb-drag');const row=event.target.closest('[data-wb-id]');if(!dragZone||!row||event.button!==0||gesture)return;
+    const dragZone=event.target.closest('.pcm-wb-drag');const row=event.target.closest('[data-wb-id]');if(!row||event.button!==0||gesture)return;
     if(event.target.closest('input,select,button,textarea,a,[contenteditable=true]'))return;
-    const handle=dragZone,side=row.closest('[data-side]')?.dataset.side;
+    if(!dragZone&&event.pointerType==='touch')return;
+    const handle=dragZone||row,side=row.closest('[data-side]')?.dataset.side;
     if(!row||!canDrag(side,row.dataset.wbId))return;
     gesture={id:event.pointerId,fromSide:side,idValue:row.dataset.wbId,x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,active:false,touch:event.pointerType==='touch'};
     if(event.pointerType==='touch')event.preventDefault();
@@ -51,4 +52,5 @@ export function installWorkbenchDrag(element,{canDrag,onDrop}) {
   window.addEventListener('keydown',event=>{if(event.key==='Escape'&&gesture){event.preventDefault();event.stopImmediatePropagation();clear();}},{...options,capture:true});
   return {cancel:clear,destroy(){clear();controller.abort();}};
 }
+
 

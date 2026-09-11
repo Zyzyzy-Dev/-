@@ -212,10 +212,11 @@
 @media(min-width:901px){.pcm-wb-workbench .pcm-wb-entry{grid-template-columns:22px 22px minmax(130px,260px) minmax(0,1fr) auto}.pcm-wb-workbench .pcm-wb-entry-name{width:100%}}
 @media(max-width:900px){.pcm-wb-workbench .pcm-wb-entry{grid-template-columns:18px 15px minmax(0,1fr);border-radius:7px;margin:4px 0;padding:5px 6px}.pcm-wb-workbench .pcm-wb-drag{grid-column:1;grid-row:2}}
 
-/* v1.8.8: compact desktop controls and isolated mobile list gestures. */
+/* v1.8.9: desktop card blank-area drag and isolated mobile list gestures. */
 .pcm-wb-workbench .pcm-wb-list{overscroll-behavior:contain;touch-action:pan-y}
-.pcm-wb-workbench .pcm-wb-entry{cursor:default}
+.pcm-wb-workbench .pcm-wb-entry{cursor:grab}
 .pcm-wb-workbench .pcm-wb-drag{touch-action:none;cursor:grab}
 @media(min-width:901px){.pcm-wb-workbench .pcm-wb-entry{grid-template-columns:22px 22px minmax(130px,260px) auto auto}.pcm-wb-workbench .pcm-wb-entry-config{justify-self:start}}
-@media(max-width:900px){.pcm-wb-workbench .pcm-wb-entry{grid-template-columns:15px minmax(0,1fr) auto;touch-action:pan-y}.pcm-wb-workbench .pcm-wb-drag{grid-column:2;grid-row:2;min-width:0;width:100%;align-self:stretch;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}}
+@media(max-width:900px){.pcm-wb-workbench .pcm-wb-entry{cursor:default;grid-template-columns:15px minmax(0,1fr) auto;touch-action:pan-y}.pcm-wb-workbench .pcm-wb-drag{grid-column:2;grid-row:2;min-width:0;width:100%;align-self:stretch;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}}
+
 
