@@ -1,4 +1,4 @@
-﻿/* 世界书工作台独立样式：三主题、桌面双栏与手机上下列表，条目编辑和正文差异。 */
+/* 世界书工作台独立样式：三主题、桌面双栏与手机上下列表，条目编辑和正文差异。 */
 .pcm-wb-workbench{--wb-bg:var(--SmartThemeBlurTintColor,#282828);--wb-fg:var(--SmartThemeBodyColor,#ebdbb2);--wb-card:color-mix(in srgb,var(--wb-bg) 93%,var(--wb-fg));--wb-line:color-mix(in srgb,var(--wb-fg) 40%,var(--wb-bg));--wb-soft:color-mix(in srgb,var(--wb-bg) 83%,var(--wb-fg));color:var(--wb-fg);background:var(--wb-bg);padding:20px 24px 30px;min-height:100%;line-height:1.45;overflow-wrap:anywhere}
 .pcm-theme-day .pcm-wb-workbench{--wb-bg:#faf6ec;--wb-fg:#594735;--wb-card:#fffdf5;--wb-line:#c3ad91;--wb-soft:#eee6d7}
 .pcm-theme-night .pcm-wb-workbench{--wb-bg:#282828;--wb-fg:#ebdbb2;--wb-card:#32302f;--wb-line:#928374;--wb-soft:#504945}
@@ -232,3 +232,23 @@
   .pcm-wb-workbench .pcm-wb-entry-config :is(select,input){box-sizing:border-box;}
   .pcm-wb-workbench .pcm-wb-entry-config{margin-left:0;}
 }
+/* 对比弹窗正文差异。 */
+.pcm-wb-live-diff{margin:8px 0;max-height:180px;overflow:auto;border:1px solid var(--wb-line);border-radius:6px;background:var(--wb-soft);font:12px/1.55 monospace;white-space:pre-wrap;overflow-wrap:anywhere}.pcm-wb-diff-line{padding:1px 8px}.pcm-wb-diff-line.is-added{background:#49997724}.pcm-wb-diff-line.is-removed{background:#ba4f4024}.pcm-wb-diff-empty{padding:8px;color:var(--wb-muted)}
+
+/* 双栏正文采用原生 textarea 文字与纯背景差异叠层，字体/换行/内边距一致。 */
+.pcm-wb-workbench .pcm-wb-compare-modal{width:1200px;height:90dvh;max-height:calc(100dvh - 24px);gap:8px}
+.pcm-wb-compare-modal .pcm-wb-modal-head{margin-bottom:0;flex:none}
+.pcm-wb-compare-modal>.pcm-wb-actions,.pcm-wb-compare-hint{flex:none;margin:0}
+.pcm-wb-compare-hint{font-size:12px;color:var(--wb-fg)}
+.pcm-wb-compare-toggle{display:flex;align-items:center;gap:5px;font-size:13px}
+.pcm-wb-workbench .pcm-wb-compare-toggle input{appearance:auto;width:16px;height:16px;margin:0}
+.pcm-wb-compare-modal>.pcm-wb-diff-columns{flex:1;min-height:0;overflow:hidden}
+.pcm-wb-compare-column h4{flex:none}
+.pcm-wb-compare-modal .pcm-wb-compare-editor{position:relative;min-height:0;overflow:hidden}
+.pcm-wb-workbench .pcm-wb-compare-modal :is(.pcm-wb-compare-input,.pcm-wb-compare-backdrop){position:absolute;inset:0;width:100%;height:100%;min-height:0;margin:0;border:0;border-radius:0;padding:10px;box-sizing:border-box;font:13px/1.65 monospace;letter-spacing:normal;white-space:pre-wrap;overflow-wrap:break-word;word-break:normal;tab-size:4;text-align:left}
+.pcm-wb-workbench .pcm-wb-compare-modal .pcm-wb-compare-input{z-index:1;background:transparent;color:var(--wb-fg);-webkit-text-fill-color:var(--wb-fg);caret-color:var(--wb-fg);resize:none;overflow:auto}
+.pcm-wb-workbench .pcm-wb-compare-modal .pcm-wb-compare-backdrop{pointer-events:none;color:transparent;overflow:hidden;background:var(--wb-bg)}
+.pcm-wb-compare-line.is-removed{background:#ba4f4024}.pcm-wb-compare-line.is-added{background:#49997724}
+.pcm-wb-compare-backdrop .pcm-wb-removed{background:#d65b4d55}.pcm-wb-compare-backdrop .pcm-wb-added{background:#49ae7955}
+.pcm-wb-compare-modal>.pcm-wb-error:empty{display:none}
+@media(max-width:540px){.pcm-wb-workbench .pcm-wb-compare-modal{height:94dvh;padding:10px}.pcm-wb-compare-modal>.pcm-wb-diff-columns{flex-direction:column}.pcm-wb-compare-column h4{padding:6px 10px}}
