@@ -204,3 +204,10 @@
 }
 @media(max-width:900px){.pcm-wb-entry-header .pcm-wb-header-config .pcm-wb-col-setting{white-space:normal;overflow:visible;line-height:1.2;overflow-wrap:anywhere}}
 @media(max-width:900px){.pcm-wb-workbench .pcm-wb-entry-config .pcm-wb-entry-trigger{appearance:none;-webkit-appearance:none;text-align:center;padding-inline:1px;cursor:pointer}}
+
+/* v1.8.7: closed entry cards and blank-area drag source. */
+.pcm-wb-workbench .pcm-wb-list{scrollbar-width:none;-ms-overflow-style:none}.pcm-wb-workbench .pcm-wb-list::-webkit-scrollbar{display:none}
+.pcm-wb-workbench .pcm-wb-entry{border:1px solid var(--wb-line);border-radius:7px;margin:4px 0;padding:5px 6px;cursor:grab;background:var(--wb-card)}
+.pcm-wb-workbench .pcm-wb-entry:active{cursor:grabbing}.pcm-wb-workbench .pcm-wb-drag{display:block;min-width:14px;min-height:20px;cursor:grab}
+@media(min-width:901px){.pcm-wb-workbench .pcm-wb-entry{grid-template-columns:22px 22px minmax(130px,260px) minmax(0,1fr) auto}.pcm-wb-workbench .pcm-wb-entry-name{width:100%}}
+@media(max-width:900px){.pcm-wb-workbench .pcm-wb-entry{grid-template-columns:18px 15px minmax(0,1fr);border-radius:7px;margin:4px 0;padding:5px 6px}.pcm-wb-workbench .pcm-wb-drag{grid-column:1;grid-row:2}}

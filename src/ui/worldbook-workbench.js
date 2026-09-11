@@ -70,7 +70,7 @@ export function createWorldbookWorkbench({host,session=createWorkbenchSession(),
     const ids=new Set(workbenchEntries(s.book||{entries:{}}).map(r=>r.id));if(s.active&&!ids.has(s.active))s.active=null;
     for(const {id,entry:value} of rows){
       const row=node('article','pcm-wb-entry');row.dataset.wbId=id;row.setAttribute('role','listitem');row.classList.toggle('is-off',value.disable===true);row.classList.toggle('is-active',s.active===id);row.classList.toggle('is-compare-selected',compareMode&&compareFirst?.side===side&&compareFirst.id===id);
-      const drag=button('⠿',()=>{} ,'pcm-wb-drag');drag.dataset.wbDrag='';drag.setAttribute('aria-label','拖动 '+(value.comment||'未命名条目'));drag.title='拖动把手调整位置；手机长按后拖动';
+      const drag=node('span','pcm-wb-drag');drag.dataset.wbDrag='';drag.setAttribute('aria-label','拖动 '+(value.comment||'未命名条目'));drag.title='按住条目空白处拖动';
       const enabled=node('input','pcm-native-switch');enabled.type='checkbox';enabled.checked=!value.disable;enabled.setAttribute('aria-label','启用 '+(value.comment||'未命名条目'));
       enabled.addEventListener('change',()=>void run(()=>{const book=clone(s.book);book.entries[id].disable=!enabled.checked;change(side,book);}));
       const name=node('input','pcm-wb-entry-name');name.type='text';name.value=value.comment||'';name.placeholder='未命名条目';name.setAttribute('aria-label','标题（备忘） '+(value.comment||'未命名条目'));name.title=value.content?.slice(0,240)||'';name.addEventListener('change',()=>{const next=name.value.trim()||'未命名条目';if(next!==(value.comment||'未命名条目'))updateEntry(side,id,entry=>{entry.comment=next;});});

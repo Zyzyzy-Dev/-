@@ -22,8 +22,9 @@ export function installWorkbenchDrag(element,{canDrag,onDrop}) {
   }
   function start(){if(!gesture)return;gesture.active=true;element.classList.add('is-dragging');draw();}
   element.addEventListener('pointerdown',event=>{
-    const handle=event.target.closest('[data-wb-drag]');if(!handle||event.button!==0||gesture)return;
-    const row=handle.closest('[data-wb-id]'),side=row?.closest('[data-side]')?.dataset.side;
+    const row=event.target.closest('[data-wb-id]');if(!row||event.button!==0||gesture)return;
+    if(event.target.closest('input,select,button,textarea,a,[contenteditable=true]'))return;
+    const handle=row,side=row.closest('[data-side]')?.dataset.side;
     if(!row||!canDrag(side,row.dataset.wbId))return;
     gesture={id:event.pointerId,fromSide:side,idValue:row.dataset.wbId,x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,active:false,touch:event.pointerType==='touch'};
     handle.setPointerCapture?.(event.pointerId);
