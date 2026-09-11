@@ -4,7 +4,12 @@
 .pcm-theme-night .pcm-wb-workbench{--wb-bg:#282828;--wb-fg:#ebdbb2;--wb-card:#32302f;--wb-line:#928374;--wb-soft:#504945}
 .pcm-wb-workbench *{box-sizing:border-box}
 .pcm-wb-header{display:flex;gap:8px;align-items:center;margin-bottom:10px}
-.pcm-wb-header h2{font-size:19px;margin:0 auto 0 0;line-height:1.3}
+.pcm-wb-header h2{font-size:19px;margin:0;line-height:1.3}
+.pcm-wb-header-space{margin-left:auto}
+.pcm-wb-icon{display:inline-grid;place-items:center;padding:5px}
+.pcm-wb-header .pcm-wb-icon{width:33px;height:30px;flex:none}
+.pcm-wb-header .pcm-wb-icon svg{width:17px;height:17px}
+.pcm-wb-icon svg{width:100%;height:100%}
 .pcm-wb-header [data-theme-toggle]{width:33px;height:30px;padding:6px}
 .pcm-wb-header svg{width:100%;height:100%}
 .pcm-wb-workbench :is(button,.pcm-wb-file){border:1px solid var(--wb-line);border-radius:6px;color:var(--wb-fg);background:var(--wb-card);padding:5px 8px;font:inherit;font-size:12px;line-height:1.4;cursor:pointer;min-height:28px;box-shadow:none}
@@ -27,16 +32,25 @@
 .pcm-wb-actions{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin:4px 0}
 .pcm-wb-file{position:relative;display:inline-flex;align-items:center;overflow:hidden;margin:0}
 .pcm-wb-file input[type=file]{position:absolute;inset:0;opacity:0;width:100%;cursor:pointer;padding:0}
-.pcm-wb-search{display:flex;gap:5px;margin:8px 0 4px}
-.pcm-wb-search input{flex:1;width:0}
+.pcm-wb-search{display:flex;align-items:flex-start;gap:5px;margin:8px 0 4px}
+.pcm-wb-search>.pcm-wb-actions{flex:0 1 auto;min-width:0;margin:0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.pcm-wb-search>.pcm-wb-actions::-webkit-scrollbar{display:none}
+.pcm-wb-search>.pcm-wb-actions button{white-space:nowrap}
+.pcm-wb-search input[type=search]{flex:1;width:0;min-width:70px}
 .pcm-wb-search select{max-width:105px}
 .pcm-wb-batch{font-size:11px;padding-bottom:8px;border-bottom:1px solid var(--wb-line);margin-bottom:0}
 .pcm-wb-selection-count{margin-right:auto}
 .pcm-wb-list{height:clamp(280px,calc(100dvh - 330px),650px);overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;min-height:160px;padding:6px 0;position:relative}
-.pcm-wb-entry{display:grid;grid-template-columns:22px 22px 18px minmax(0,1fr) auto;gap:5px;align-items:center;border:1px solid transparent;border-bottom-color:var(--wb-line);padding:6px 3px;min-width:0}
+.pcm-wb-entry{display:grid;grid-template-columns:22px 22px minmax(0,1fr) auto;gap:5px;align-items:center;border:1px solid transparent;border-bottom-color:var(--wb-line);padding:5px 3px;min-width:0}
 .pcm-wb-entry.is-active{border-color:#7999b3;background:var(--wb-soft);border-radius:5px}
-.pcm-wb-entry.is-off :is(.pcm-wb-entry-name,.pcm-wb-entry-state,.pcm-wb-entry-meta){opacity:.5}
-.pcm-wb-workbench .pcm-wb-entry-name{border:0;background:transparent;min-height:25px;padding:0;text-align:left;font-weight:650;white-space:normal;overflow:hidden;overflow-wrap:anywhere}
+.pcm-wb-entry.is-off :is(.pcm-wb-entry-name,.pcm-wb-entry-config){opacity:.55}
+.pcm-wb-workbench .pcm-wb-entry-name{min-width:0;height:27px;padding:3px 6px;text-align:left;font-weight:650}
+.pcm-wb-entry-config{display:flex;align-items:center;gap:3px;min-width:0}
+.pcm-wb-entry-trigger{width:84px;flex:none}
+.pcm-wb-entry-placement{width:104px;flex:none}
+.pcm-wb-entry-number{width:58px;padding-inline:3px;text-align:center;flex:none}
+.pcm-wb-entry-config .pcm-wb-badge{flex:none}
+.pcm-wb-row-icon{width:25px;height:25px;min-height:25px;padding:4px;flex:none}
 .pcm-wb-workbench .pcm-wb-drag{padding:0;min-width:22px;border:0;background:transparent;touch-action:none;cursor:grab;font-size:18px;user-select:none}
 .pcm-wb-entry-state{font-size:11px}
 .pcm-wb-badge{font-size:10px;white-space:nowrap;border-radius:3px;padding:2px 4px;background:var(--wb-soft)}
@@ -75,7 +89,7 @@
 .pcm-wb-preset-list{max-height:40dvh;overflow:auto;overscroll-behavior:contain;margin:10px 0;border-block:1px solid var(--wb-line)}
 .pcm-wb-preset-entry{display:flex;align-items:flex-start;gap:10px;padding:10px 4px;border-bottom:1px solid var(--wb-line);font-size:12px}
 .pcm-wb-preset-entry details{min-width:0;flex:1}.pcm-wb-preset-entry pre{white-space:pre-wrap;font:12px/1.5 inherit;overflow-wrap:anywhere}
-@media(max-width:900px){.pcm-wb-workbench{padding:12px 10px 24px}.pcm-wb-columns{grid-template-columns:minmax(0,1fr);gap:12px}.pcm-wb-list{height:32dvh;min-height:190px}.pcm-wb-entry-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.pcm-wb-header h2{font-size:16px}.pcm-wb-workbench .pcm-wb-modal{max-width:calc(100vw - 12px);padding:10px;max-height:calc(100dvh - 24px)}.pcm-wb-entry{gap:4px}.pcm-wb-workbench .pcm-wb-actions button{padding:4px 6px}.pcm-wb-diff-columns{gap:5px}}
+@media(max-width:900px){.pcm-wb-workbench{padding:12px 10px 24px}.pcm-wb-columns{grid-template-columns:minmax(0,1fr);gap:12px}.pcm-wb-list{height:32dvh;min-height:190px}.pcm-wb-entry-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.pcm-wb-header h2{font-size:16px}.pcm-wb-workbench .pcm-wb-modal{max-width:calc(100vw - 12px);padding:10px;max-height:calc(100dvh - 24px)}.pcm-wb-entry{gap:4px}.pcm-wb-entry-config{grid-column:3/-1;flex-wrap:wrap;justify-content:flex-start}.pcm-wb-entry-trigger{width:68px}.pcm-wb-entry-placement{width:88px}.pcm-wb-entry-number{width:42px}.pcm-wb-workbench .pcm-wb-actions button{padding:4px 6px}.pcm-wb-search{flex-wrap:nowrap}.pcm-wb-diff-columns{gap:5px}}
 
 .pcm-wb-workbench [hidden]{display:none!important}
 .pcm-wb-workbench .pcm-wb-book-choice{text-align:left;padding:11px 14px;font-size:14px;border-radius:10px;flex-shrink:0;overflow-wrap:anywhere}
@@ -88,7 +102,7 @@
 .pcm-wb-field-toggle{flex-direction:row;align-items:center;justify-content:flex-start;gap:8px}
 .pcm-wb-field-toggle input{order:-1}
 .pcm-wb-entry-body textarea{min-height:230px;height:34dvh;line-height:1.6}
-.pcm-wb-entry-keywords textarea{min-height:56px}
+.pcm-wb-entry-keywords input{min-width:0}
 .pcm-wb-entry-form>.pcm-wb-actions{position:sticky;bottom:-15px;background:var(--wb-card);padding:10px 0;margin:0}
 .pcm-wb-workbench .pcm-wb-compare-modal{width:1120px}
 .pcm-wb-compare-column{min-width:0;border:1px solid var(--wb-line);border-radius:8px;overflow:hidden;background:var(--wb-bg)}

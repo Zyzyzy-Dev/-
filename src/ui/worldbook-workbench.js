@@ -16,9 +16,9 @@ export function createWorldbookWorkbench({host,session=createWorkbenchSession(),
   const views={};
   function button(text,action,cls=''){const b=node('button',cls,text);b.type='button';b.addEventListener('click',e=>{e.stopPropagation();action();});return b;}
   function option(select,value,text){const op=node('option','',text);op.value=value;select.append(op);}
-  const header=node('header','pcm-wb-header');const back=button('← 首页',onBack),title=node('h2','','世界书工作台');
+  const header=node('header','pcm-wb-header');const back=button('',onBack);back.classList.add('pcm-wb-icon');back.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 12 3l9 8"/><path d="M5 10v10h14V10"/></svg>';back.setAttribute('aria-label','返回首页');back.title='首页';const title=node('h2','','世界书工作台');
   const theme=button('',onCycleTheme);theme.innerHTML=themeIcon;theme.dataset.themeToggle='';theme.setAttribute('aria-label','切换配色');
-  const close=button('×',()=>requestClose());close.setAttribute('aria-label','关闭插件');const compareToggle=button('对比',()=>{compareMode=!compareMode;compareFirst=null;compareToggle.setAttribute('aria-pressed',String(compareMode));render();announce(compareMode?'请选择第一个条目，再选择另一个条目对比正文':'已退出对比');});compareToggle.setAttribute('aria-pressed','false');header.append(back,title,compareToggle,theme,close);
+  const close=button('×',()=>requestClose());close.setAttribute('aria-label','关闭插件');const compareToggle=button('对比',()=>{compareMode=!compareMode;compareFirst=null;compareToggle.setAttribute('aria-pressed',String(compareMode));render();announce(compareMode?'请选择第一个条目，再选择另一个条目对比正文':'已退出对比');});compareToggle.setAttribute('aria-pressed','false');header.append(back,title,compareToggle,node('span','pcm-wb-header-space'),theme,close);
   const intro=node('p','pcm-wb-hint','开启“对比”后依次点选两个条目。拖动 ⠿ 到另一份世界书的指定位置，手机长按后拖动。修改保存后才写回酒馆。');
   const status=node('p','pcm-wb-status');status.setAttribute('role','status');
   const columns=node('div','pcm-wb-columns');element.append(header,intro,status,columns);
@@ -36,11 +36,11 @@ export function createWorldbookWorkbench({host,session=createWorkbenchSession(),
     tools.append(add,convert,undo);
     const searchRow=node('div','pcm-wb-search');const search=node('input');search.type='search';search.placeholder='搜索名称、正文、关键词';search.setAttribute('aria-label',names[side]+'搜索');search.value=session[side].query;
     search.addEventListener('input',()=>{session[side].query=search.value;renderList(side);});
-    const filter=node('select');filter.setAttribute('aria-label',names[side]+'筛选');for(const [value,text] of [['all','全部'],['different','所有差异'],['same','相同'],['content','正文不同'],['settings','配置不同'],['only','独有'],['enabled','已开启'],['disabled','已关闭']])option(filter,value,text);filter.value=session[side].filter;filter.addEventListener('change',()=>{session[side].filter=filter.value;renderList(side);});searchRow.append(search,filter);
+    const filter=node('select');filter.setAttribute('aria-label',names[side]+'筛选');for(const [value,text] of [['all','全部'],['different','所有差异'],['same','相同'],['content','正文不同'],['settings','配置不同'],['only','独有'],['enabled','已开启'],['disabled','已关闭']])option(filter,value,text);filter.value=session[side].filter;filter.addEventListener('change',()=>{session[side].filter=filter.value;renderList(side);});searchRow.append(search,filter,tools);
     const batch=node('div','pcm-wb-actions pcm-wb-batch');
     const count=node('span','pcm-wb-selection-count');batch.append(count);
     const list=node('div','pcm-wb-list');list.dataset.side=side;list.setAttribute('role','list');
-    panel.append(heading,source,actions,tools,searchRow,batch,list);columns.append(panel);views[side]={panel,heading,source,list,search,filter,count,undo,add,convert};
+    panel.append(heading,source,actions,searchRow,batch,list);columns.append(panel);views[side]={panel,heading,source,list,search,filter,count,undo,add,convert};
   }
   function announce(message,error=false){status.textContent=message;status.classList.toggle('is-error',error);}
   function setBusy(value){busy=value;element.setAttribute('aria-busy',String(value));for(const control of element.querySelectorAll('button,input,select,textarea'))control.disabled=value||control.dataset.unavailable==='true';}
@@ -64,6 +64,10 @@ export function createWorldbookWorkbench({host,session=createWorkbenchSession(),
       v.undo.dataset.unavailable=String(!s.history.length);v.add.dataset.unavailable=v.convert.dataset.unavailable=String(!s.book);renderList(side);
     }setBusy(busy);
   }
+  function entryPositionValue(entry){return Number(entry.position??0)===4?'4:'+Number(entry.role??0):String(entry.position??0);}
+  function updateEntry(side,id,mutate){return void run(()=>{const book=clone(session[side].book);mutate(book.entries[id]);change(side,book);});}
+  function iconButton(paths,label,action){const item=node('button','pcm-wb-icon pcm-wb-row-icon');item.type='button';item.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+paths+'</svg>';item.setAttribute('aria-label',label);item.title=label;item.addEventListener('click',e=>{e.stopPropagation();action();});return item;}
+  const positionOptions=[['0','角色定义前'],['1','角色定义后'],['2','作者注释前'],['3','作者注释后'],['4:0','[系统]@D'],['4:1','[用户]@D'],['4:2','[助手]@D'],['5','示例消息前'],['6','示例消息后'],['7','出口']];
   function renderList(side){
     const s=session[side],v=views[side],rows=visible(side),scroll=v.list.scrollTop;v.list.replaceChildren();
     const ids=new Set(workbenchEntries(s.book||{entries:{}}).map(r=>r.id));if(s.active&&!ids.has(s.active))s.active=null;
@@ -72,14 +76,18 @@ export function createWorldbookWorkbench({host,session=createWorkbenchSession(),
       const drag=button('⠿',()=>{} ,'pcm-wb-drag');drag.dataset.wbDrag='';drag.setAttribute('aria-label','拖动 '+(value.comment||'未命名条目'));drag.title='拖动把手调整位置；手机长按后拖动';
       const enabled=node('input','pcm-native-switch');enabled.type='checkbox';enabled.checked=!value.disable;enabled.setAttribute('aria-label','启用 '+(value.comment||'未命名条目'));
       enabled.addEventListener('change',()=>void run(()=>{const book=clone(s.book);book.entries[id].disable=!enabled.checked;change(side,book);}));
-      const name=button(value.comment||'未命名条目',()=>selectEntry(side,id),'pcm-wb-entry-name');name.title=value.content?.slice(0,240)||'';
-      const flag=node('span','pcm-wb-entry-state',value.constant?'🔵':value.vectorized?'🟣':'🟢');flag.title=value.constant?'常驻':value.vectorized?'向量':'关键词';
+      const name=node('input','pcm-wb-entry-name');name.type='text';name.value=value.comment||'';name.placeholder='未命名条目';name.setAttribute('aria-label','条目名称 '+(value.comment||'未命名条目'));name.title=value.content?.slice(0,240)||'';name.addEventListener('change',()=>{const next=name.value.trim()||'未命名条目';if(next!==(value.comment||'未命名条目'))updateEntry(side,id,entry=>{entry.comment=next;});});
+      const trigger=node('select','pcm-wb-entry-trigger');trigger.setAttribute('aria-label','触发策略 '+(value.comment||'未命名条目'));const triggerValue=value.constant?'constant':value.vectorized?'vector':'keyword';for(const [optionValue,text] of [['constant','🔵 常驻'],['keyword','🟢 关键词'],['vector','🟣 向量']]){const op=node('option','',text);op.value=optionValue;if(optionValue===triggerValue)op.selected=true;trigger.append(op);}
+      trigger.addEventListener('change',()=>updateEntry(side,id,entry=>{entry.constant=trigger.value==='constant';entry.vectorized=trigger.value==='vector';}));
+      const placement=node('select','pcm-wb-entry-placement');placement.setAttribute('aria-label','插入位置 '+(value.comment||'未命名条目'));for(const [optionValue,text] of positionOptions){const op=node('option','',text);op.value=optionValue;if(optionValue===entryPositionValue(value))op.selected=true;placement.append(op);}
+      placement.addEventListener('change',()=>updateEntry(side,id,entry=>{const [position,role]=placement.value.split(':').map(Number);entry.position=position;if(position===4)entry.role=role;}));
+      const numeric=(key,label,min,max,def)=>{const input=node('input','pcm-wb-entry-number');input.type='number';input.inputMode='numeric';input.value=value[key]??def;input.min=String(min);if(max!==undefined)input.max=String(max);input.setAttribute('aria-label',label+' '+(value.comment||'未命名条目'));input.addEventListener('change',()=>{const next=Number(input.value);if(Number.isFinite(next)&&next>=min&&(max===undefined||next<=max)&&next!==Number(value[key]??def))updateEntry(side,id,entry=>{entry[key]=next;});else input.value=value[key]??def;});return input;};
+      const depth=numeric('depth','深度',0,undefined,4);depth.disabled=Number(value.position??0)!==4;
       const state=pair(side,id)?.status||'only',badge=node('span','pcm-wb-badge '+state,statusNames[state]);
-      const actions=node('div','pcm-wb-row-actions');
-      actions.append(button('复制',()=>void run(()=>{const result=transferWorldEntries(s.book,s.book,[id],{afterId:id});change(side,result.book);})));
-      actions.append(button('删除',()=>void run(async()=>{if(await confirm('删除此条目？可撤回。')){const book=clone(s.book);delete book.entries[id];change(side,book);}})));
-      const detail=node('small','pcm-wb-entry-meta',`位置 ${value.position??0} · 深度 ${value.depth??4} · 顺序 ${value.order??100} · 概率 ${value.probability??100}%`);
-      row.append(drag,enabled,flag,name,badge,detail,actions);row.addEventListener('click',e=>{if(e.target.closest('button,input'))return;selectEntry(side,id);});v.list.append(row);
+      const config=node('div','pcm-wb-entry-config');config.append(trigger,placement,depth,numeric('order','顺序',0,undefined,100),numeric('probability','触发概率',0,100,100),badge);
+      config.append(iconButton('<path d="M16 4h4v4"/><path d="M20 4 10 14"/><path d="M18 14v6H4V6h6"/>','复制条目',()=>void run(()=>{const result=transferWorldEntries(s.book,s.book,[id],{afterId:id});change(side,result.book);})));
+      config.append(iconButton('<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/>','删除条目',()=>void run(async()=>{if(await confirm('删除此条目？可撤回。')){const book=clone(s.book);delete book.entries[id];change(side,book);}})));
+      row.append(drag,enabled,name,config);row.addEventListener('click',e=>{if(e.target.closest('button,input'))return;selectEntry(side,id);});v.list.append(row);
     }
     if(!rows.length)v.list.append(node('p','pcm-wb-empty',s.book?'没有符合筛选的条目，可新增或从另一侧迁移。':'导入世界书后在这里查看条目。'));
     v.list.scrollTop=scroll;v.count.textContent=rows.length+' 条';

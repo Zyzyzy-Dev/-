@@ -19,14 +19,14 @@ export function openWorkbenchEntryEditor({parent, entry, title, onSave}) {
     else if(rows){input.rows=rows;input.spellcheck=false;}else input.type=type;
     if(min!==undefined)input.min=String(min);if(max!==undefined)input.max=String(max);if(type==='number')input.step='any';
     if(type==='checkbox'){input.classList.add('pcm-native-switch');label.classList.add('pcm-wb-field-toggle');}
-    const value=draft[key]??defaultValue;if(type==='checkbox')input.checked=Boolean(value);else input.value=Array.isArray(value)?value.join('\n'):String(value);
+    const value=draft[key]??defaultValue;if(type==='checkbox')input.checked=Boolean(value);else input.value=Array.isArray(value)?value.join(', '):String(value);
     const initialInputValue=input.value;
     // Read controls only on save: typing does not normalize untouched optional metadata.
-    bindings.push(()=>{if(type==='checkbox'){if(input.checked!==Boolean(value))draft[key]=input.checked;}else if(input.value!==initialInputValue){draft[key]=type==='number'||options?Number(input.value):key==='key'||key==='keysecondary'?input.value.split('\n').map(s=>s.trim()).filter(Boolean):input.value;}});
+    bindings.push(()=>{if(type==='checkbox'){if(input.checked!==Boolean(value))draft[key]=input.checked;}else if(input.value!==initialInputValue){draft[key]=type==='number'||options?Number(input.value):key==='key'||key==='keysecondary'?input.value.split(/[,，]/).map(s=>s.trim()).filter(Boolean):input.value;}});
     label.append(input);parent.append(label);return {input,label};
   }
   field(basic,'条目名称','comment').label.classList.add('pcm-wb-entry-title');
-  const trigger=node('label','pcm-wb-field');trigger.append(node('span','','触发方式'));const triggerInput=node('select');triggerInput.setAttribute('aria-label','触发方式');
+  const trigger=node('label','pcm-wb-field');trigger.append(node('span','','触发策略'));const triggerInput=node('select');triggerInput.setAttribute('aria-label','触发策略');
   for(const [value,text] of [['constant','🔵 常驻'],['keyword','🟢 关键词'],['vector','🟣 向量']]){const option=node('option','',text);option.value=value;triggerInput.append(option);}trigger.append(triggerInput);basic.append(trigger);
   triggerInput.value=draft.constant?'constant':draft.vectorized?'vector':'keyword';
   triggerInput.addEventListener('change',()=>{draft.constant=triggerInput.value==='constant';draft.vectorized=triggerInput.value==='vector';});
@@ -36,12 +36,12 @@ export function openWorkbenchEntryEditor({parent, entry, title, onSave}) {
   const depth=field(basic,'深度','depth',{type:'number',defaultValue:4,min:0});field(basic,'顺序','order',{type:'number',defaultValue:100});field(basic,'触发概率 %','probability',{type:'number',defaultValue:100,min:0,max:100});
   const syncPosition=()=>{depth.input.disabled=Number(draft.position??0)!==4;depth.input.dataset.unavailable=String(depth.input.disabled);};
   positionInput.addEventListener('change',()=>{const [position,role]=positionInput.value.split(':').map(Number);draft.position=position;if(position===4)draft.role=role;syncPosition();});syncPosition();
-  field(keywords,'主要关键词（每行一个）','key',{rows:2,defaultValue:[]});
-  field(keywords,'匹配逻辑','selectiveLogic',{options:[[0,'任一匹配'],[1,'非全部匹配'],[2,'全不匹配'],[3,'全部匹配']],defaultValue:0});
-  field(keywords,'辅助关键词（每行一个）','keysecondary',{rows:2,defaultValue:[]});
+  field(keywords,'主要关键词','key',{defaultValue:[]});
+  field(keywords,'逻辑','selectiveLogic',{options:[[0,'任一匹配'],[1,'非全部匹配'],[2,'全不匹配'],[3,'全部匹配']],defaultValue:0});
+  field(keywords,'可选过滤器','keysecondary',{defaultValue:[]});
   field(body,'条目正文','content',{rows:13});
   for(const [key,text,defaultValue] of [['selective','启用辅助关键词',false],['useProbability','启用概率',true],['excludeRecursion','排除递归',false],['preventRecursion','阻止后续递归',false],['ignoreBudget','忽略预算',false]])field(settings,text,key,{type:'checkbox',defaultValue});
-  const actions=node('div','pcm-wb-actions');const save=node('button','pcm-wb-primary','应用到草稿');save.type='submit';actions.append(save);
+  const actions=node('div','pcm-wb-actions');const save=node('button','pcm-wb-primary','确认');save.type='submit';actions.append(save);
   form.addEventListener('submit',e=>{e.preventDefault();if(!form.reportValidity())return;try{for(const bind of bindings)bind();normalizeWorkbenchBook({entries:{[entry.uid]:draft}});onSave(clone(draft));dialog.close();}catch(e){error.textContent=e.message;}});
   dialog.addEventListener('click',e=>e.stopPropagation());dialog.addEventListener('keydown',e=>e.stopPropagation());dialog.addEventListener('close',()=>dialog.remove(),{once:true});
   form.append(head,fields,error,actions);dialog.append(form);parent.append(dialog);dialog.showModal();return dialog;
