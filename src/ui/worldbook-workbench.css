@@ -1,4 +1,4 @@
-/* 世界书工作台独立样式：三主题、桌面双栏与手机上下列表，条目编辑和正文差异。 */
+﻿/* 世界书工作台独立样式：三主题、桌面双栏与手机上下列表，条目编辑和正文差异。 */
 .pcm-wb-workbench{--wb-bg:var(--SmartThemeBlurTintColor,#282828);--wb-fg:var(--SmartThemeBodyColor,#ebdbb2);--wb-card:color-mix(in srgb,var(--wb-bg) 93%,var(--wb-fg));--wb-line:color-mix(in srgb,var(--wb-fg) 40%,var(--wb-bg));--wb-soft:color-mix(in srgb,var(--wb-bg) 83%,var(--wb-fg));color:var(--wb-fg);background:var(--wb-bg);padding:20px 24px 30px;min-height:100%;line-height:1.45;overflow-wrap:anywhere}
 .pcm-theme-day .pcm-wb-workbench{--wb-bg:#faf6ec;--wb-fg:#594735;--wb-card:#fffdf5;--wb-line:#c3ad91;--wb-soft:#eee6d7}
 .pcm-theme-night .pcm-wb-workbench{--wb-bg:#282828;--wb-fg:#ebdbb2;--wb-card:#32302f;--wb-line:#928374;--wb-soft:#504945}
@@ -80,7 +80,7 @@
 .pcm-wb-json,.pcm-wb-comparison{margin:14px 0;border:1px solid var(--wb-line);border-radius:6px;padding:8px}
 .pcm-wb-workbench summary{cursor:pointer;-webkit-tap-highlight-color:transparent}
 .pcm-wb-json textarea{margin-top:8px;font-family:monospace}
-.pcm-wb-diff-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.pcm-wb-diff-columns{display:flex;gap:8px;align-items:stretch}
 .pcm-wb-diff-text{font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;font-family:monospace}
 .pcm-wb-diff-line.is-removed{background:#ba4f4024}.pcm-wb-diff-line.is-added{background:#49997724}
 .pcm-wb-removed{background:#ba4f4055}.pcm-wb-added{background:#49997755}
@@ -104,12 +104,12 @@
 .pcm-wb-entry-body textarea{min-height:230px;height:34dvh;line-height:1.6}
 .pcm-wb-entry-keywords input{min-width:0}
 .pcm-wb-entry-form>.pcm-wb-actions{position:sticky;bottom:-15px;background:var(--wb-card);padding:10px 0;margin:0}
-.pcm-wb-workbench .pcm-wb-compare-modal{width:1120px}
-.pcm-wb-compare-column{min-width:0;border:1px solid var(--wb-line);border-radius:8px;overflow:hidden;background:var(--wb-bg)}
+.pcm-wb-workbench .pcm-wb-compare-modal{width:1120px;max-height:90dvh;display:flex;flex-direction:column;overflow:hidden}
+.pcm-wb-compare-column{min-width:0;border:1px solid var(--wb-line);border-radius:8px;overflow:hidden;background:var(--wb-bg);display:flex;flex-direction:column;flex:1 1 0}
 .pcm-wb-compare-column h4{font-size:13px;margin:0;padding:10px;border-bottom:1px solid var(--wb-line);background:var(--wb-soft)}
-.pcm-wb-compare-column .pcm-wb-diff-text,.pcm-wb-workbench .pcm-wb-compare-input{padding:10px;height:52dvh;min-height:180px;overflow:auto;overscroll-behavior:contain;line-height:1.65;margin:0;border:0;border-radius:0;font-family:monospace;resize:vertical}
+.pcm-wb-compare-editor{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}.pcm-wb-compare-column .pcm-wb-diff-text,.pcm-wb-workbench .pcm-wb-compare-input{padding:10px;flex:1 1 auto;height:auto;min-height:0;overflow:auto;overscroll-behavior:contain;line-height:1.65;margin:0;border:0;border-radius:0;font-family:monospace;resize:none;color:var(--wb-fg);background:var(--wb-bg)}
 @media(max-width:900px){.pcm-wb-entry-basic{grid-template-columns:repeat(3,minmax(0,1fr))}.pcm-wb-entry-title{grid-column:span 2}.pcm-wb-entry-position{grid-column:span 2}.pcm-wb-entry-keywords{grid-template-columns:minmax(0,1fr) 110px}.pcm-wb-entry-keywords>.pcm-wb-field:last-child{grid-column:1/-1}.pcm-wb-entry-form>.pcm-wb-actions{bottom:-10px}.pcm-wb-entry-body textarea{height:30dvh;min-height:150px}}
-@media(max-width:540px){.pcm-wb-workbench .pcm-wb-compare-modal .pcm-wb-diff-columns{grid-template-columns:minmax(0,1fr)}.pcm-wb-compare-column .pcm-wb-diff-text,.pcm-wb-workbench .pcm-wb-compare-input{height:25dvh;min-height:130px}.pcm-wb-entry-settings{gap:12px}.pcm-wb-header{flex-wrap:wrap}.pcm-wb-entry-basic{gap:8px 6px}}
+@media(max-width:540px){.pcm-wb-workbench .pcm-wb-compare-modal .pcm-wb-diff-columns{flex-direction:column}.pcm-wb-compare-column .pcm-wb-diff-text,.pcm-wb-workbench .pcm-wb-compare-input{height:auto;min-height:130px}.pcm-wb-entry-settings{gap:12px}.pcm-wb-header{flex-wrap:wrap}.pcm-wb-entry-basic{gap:8px 6px}}
 
 /* v1.8.5：标题与操作同行、列表列头对齐、普通复选框、隐藏滚动与移动端紧凑布局。 */
 .pcm-wb-title-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 8px}
@@ -232,10 +232,3 @@
   .pcm-wb-workbench .pcm-wb-entry-config :is(select,input){box-sizing:border-box;}
   .pcm-wb-workbench .pcm-wb-entry-config{margin-left:0;}
 }
-.pcm-wb-compare-editor{position:relative;height:52dvh;min-height:180px;overflow:hidden;background:var(--wb-bg);}
-.pcm-wb-compare-editor .pcm-wb-diff-backdrop,.pcm-wb-compare-editor .pcm-wb-compare-input{position:absolute;inset:0;width:100%;height:100%;box-sizing:border-box;padding:10px;overflow:auto;line-height:1.65;margin:0;border:0;border-radius:0;font-family:monospace;resize:none;}
-.pcm-wb-compare-editor .pcm-wb-diff-backdrop{pointer-events:none;}
-.pcm-wb-compare-editor .pcm-wb-compare-input{z-index:1;background:transparent;color:transparent;caret-color:var(--wb-text);-webkit-text-fill-color:transparent;}
-.pcm-wb-compare-editor .pcm-wb-compare-input::selection{background:rgba(100,150,255,.35);}
-.pcm-wb-compare-preview{cursor:text;}
-@media(max-width:540px){.pcm-wb-compare-editor{height:25dvh;min-height:130px;}}
