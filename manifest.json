@@ -5,9 +5,10 @@
   "optional": [],
   "js": "index.js",
   "author": "Codex",
-  "version": "1.8.8",
+  "version": "1.8.9",
   "auto_update": true,
   "hooks": {
     "update": "reloadAfterUpdate"
   }
 }
+
