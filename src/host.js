@@ -1566,43 +1566,72 @@ class AppHost {
 
 let apiEntrySync = null;
 async function installApiEntries(controller) {
-  const {extension_settings} = await import('/scripts/extensions.js');
+  const { extension_settings } = await import('/scripts/extensions.js');
   let preferences = extension_settings.preset_compare_api_entries || {};
-  const qrId = `${APP_ID}-api-qr`, ballId = `${APP_ID}-api-ball`;
-  const open = event => {event.preventDefault();event.stopPropagation();controller.open(true);};
-  const make = id => {
-    const button = document.createElement('button');button.type='button';button.id=id;button.textContent='API快切';button.title='打开 API 快切';button.setAttribute('aria-label','打开 API 快切');button.addEventListener('click',open);return button;
+  const qrId = APP_ID + '-api-qr', ballId = APP_ID + '-api-ball', railId = APP_ID + '-api-rail';
+  let position = null, drag = null, moved = false;
+  const make = (id, text) => {
+    const button = document.createElement('button'); button.id = id; button.type = 'button'; button.textContent = text;
+    button.title = '打开 API 快切'; button.setAttribute('aria-label', '打开 API 快切');
+    applyImportantStyles(button, { display:'inline-flex', visibility:'visible', opacity:'1', 'align-items':'center', 'justify-content':'center',
+      'box-sizing':'border-box', margin:'0', padding:'5px 10px', width:'auto', height:'30px', 'min-width':'0', 'min-height':'30px',
+      border:'1px solid var(--SmartThemeBorderColor, #888)', 'border-radius':'8px', background:'var(--SmartThemeBlurTintColor, #333)',
+      color:'var(--SmartThemeBodyColor, #eee)', font:'13px system-ui', 'white-space':'nowrap', cursor:'pointer', 'pointer-events':'auto' });
+    button.addEventListener('click', event => {
+      event.preventDefault(); event.stopPropagation();
+      if (id === ballId && moved) { moved = false; return; }
+      controller.open(true);
+    }); return button;
+  };
+  const placeBall = () => {
+    const button = document.getElementById(ballId); if (!button) return;
+    const viewport = window.visualViewport;
+    const left = viewport?.offsetLeft || 0, top = viewport?.offsetTop || 0;
+    const width = viewport?.width || innerWidth, height = viewport?.height || innerHeight;
+    const x = Math.max(left + 8, Math.min(left + width - 56, position?.x ?? left + width - 64));
+    const y = Math.max(top + 8, Math.min(top + height - 56, position?.y ?? top + height - 160));
+    applyImportantStyles(button, {left:x+'px', top:y+'px', right:'auto', bottom:'auto'});
   };
   const sync = () => {
-    if (!preferences.quickReply) {
-      document.getElementById(qrId)?.remove();
-      const owned=document.querySelector('[data-pcm-api-qr-bar]');
-      if(owned && !owned.querySelector('button,.qr--button'))owned.remove();
-    } else if (!document.getElementById(qrId)) {
-      const form=document.getElementById('send_form');
-      if(form){
-        let bar=form.querySelector('[id="qr--bar"]');
-        if(!bar){bar=document.createElement('div');bar.id='qr--bar';bar.className='flex-container flexGap5';bar.dataset.pcmApiQrBar='';form.prepend(bar);}
-        let holder=bar.querySelector('.qr--buttons');
-        if(!holder){holder=document.createElement('div');holder.className='qr--buttons';bar.append(holder);}
-        const button=make(qrId);button.className='qr--button menu_button interactable';holder.append(button);
+    if (!preferences.quickReply) document.getElementById(railId)?.remove();
+    else {
+      const form = document.getElementById('send_form');
+      if (form && !document.getElementById(railId)) {
+        // Own a separate row: native QR visibility/popout/rebuild must not hide this extension's entry.
+        const rail = document.createElement('div'); rail.id = railId;
+        applyImportantStyles(rail, {display:'flex', visibility:'visible', opacity:'1', 'justify-content':'center',
+          'flex':'0 0 100%', 'grid-column':'1 / -1', order:'-1', width:'100%', 'min-height':'34px', padding:'2px', position:'relative', 'box-sizing':'border-box'});
+        rail.append(make(qrId, 'API快切')); form.prepend(rail);
       }
     }
-    if(!preferences.floating)document.getElementById(ballId)?.remove();
-    else if(!document.getElementById(ballId)){
-      const button=make(ballId);button.textContent='API';
-      Object.assign(button.style,{position:'fixed',right:'16px',bottom:'max(140px, env(safe-area-inset-bottom))',width:'48px',height:'48px',borderRadius:'50%',zIndex:'29999',border:'1px solid var(--SmartThemeBorderColor)',background:'var(--SmartThemeBlurTintColor)',color:'var(--SmartThemeBodyColor)',boxShadow:'0 3px 12px #0004',cursor:'pointer',touchAction:'none'});
-      let drag=null,moved=false;
-      button.addEventListener('pointerdown',event=>{if(event.button!==0)return;const rect=button.getBoundingClientRect();drag={x:event.clientX,y:event.clientY,left:rect.left,top:rect.top};moved=false;button.setPointerCapture(event.pointerId);});
-      button.addEventListener('pointermove',event=>{if(!drag)return;const dx=event.clientX-drag.x,dy=event.clientY-drag.y;if(Math.hypot(dx,dy)>5)moved=true;if(!moved)return;Object.assign(button.style,{left:Math.max(0,Math.min(innerWidth-48,drag.left+dx))+'px',top:Math.max(0,Math.min(innerHeight-48,drag.top+dy))+'px',right:'auto',bottom:'auto'});});
-      button.addEventListener('pointerup',()=>{drag=null;});button.addEventListener('pointercancel',()=>{drag=null;moved=false;});
-      button.addEventListener('click',event=>{if(moved){event.stopImmediatePropagation();event.preventDefault();moved=false;}},true);
-      document.body.append(button);
+    if (!preferences.floating) { document.getElementById(ballId)?.remove(); position = null; }
+    else if (!document.getElementById(ballId)) {
+      const button = make(ballId, 'API');
+      applyImportantStyles(button, {position:'fixed', width:'48px', height:'48px', 'border-radius':'50%', 'z-index':'29999',
+        'box-shadow':'0 3px 12px #0004', 'touch-action':'none', transform:'none', 'max-width':'48px', 'max-height':'48px'});
+      button.addEventListener('pointerdown', event => {
+        if (event.button !== 0) return;
+        const rect = button.getBoundingClientRect(); drag = { x:event.clientX, y:event.clientY, left:rect.left, top:rect.top }; moved = false;
+        button.setPointerCapture(event.pointerId);
+      });
+      button.addEventListener('pointermove', event => {
+        if (!drag) return;
+        const dx = event.clientX-drag.x, dy = event.clientY-drag.y;
+        if (Math.hypot(dx,dy)>5) moved = true;
+        if (moved) { position = {x:drag.left+dx,y:drag.top+dy}; placeBall(); }
+      });
+      button.addEventListener('pointerup', () => {drag=null;});
+      button.addEventListener('pointercancel', () => {drag=null;moved=false;});
+      document.body.append(button); placeBall();
     }
   };
-  apiEntrySync = next => {preferences=next;sync();};
-  const observer=new MutationObserver(()=>{if(preferences.quickReply||preferences.floating)sync();});
-  observer.observe(document.body,{childList:true,subtree:true});sync();
+  apiEntrySync = next => { preferences=next; sync(); };
+  const observer = new MutationObserver(() => {if(preferences.quickReply||preferences.floating) sync();});
+  observer.observe(document.body, {childList:true,subtree:true});
+  window.addEventListener('resize', placeBall);
+  window.visualViewport?.addEventListener('resize', placeBall);
+  window.visualViewport?.addEventListener('scroll', placeBall);
+  sync();
 }
 
 function addMenu(controller) {

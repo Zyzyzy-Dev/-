@@ -47,24 +47,24 @@ export function createApiPanel({ host, onBack, onClose, onCycleTheme, themeIcon,
     const result = await host.request('api-manager-import', { data: input }); await refresh(); message(`已导入 ${result.count} 个方案；密钥引用需属于当前酒馆`);
   }));
   element.append(header, current, toolbar,
-    node('p', 'pcm-snapshot-notice', '切换方案同时应用 URL、密钥和模型，预设、正则、世界书与生成参数保持原样。'),
     status, modal, list, file);
   function message(text, error = false) { if (disposed) return; const target = modal.open ? editor.querySelector('.pcm-api-editor-status') : status; if (target) { target.textContent = text; target.classList.toggle('is-error', error); } }
   function lock(value) { busy = value; element.setAttribute('aria-busy', String(value)); for (const el of element.querySelectorAll('button,input,select')) el.disabled = value; }
   async function run(task) { if (busy || disposed) return; lock(true); try { await task(); } catch (error) { message(error.message || '操作失败', true); } finally { if (!disposed) lock(false); } }
   async function refresh() { const next = await host.request('api-manager-list'); if (disposed) return; data = next; render(); }
+  function connectionLine(profile) {
+    const url = profile.connection.custom_url || '';
+    let address = url;
+    try { address = new URL(url).host; } catch {}
+    const line = node('p', 'pcm-api-connection-line', (address || '未填写 URL') + ' / ' + (profile.model || '未选择模型'));
+    line.title = url + ' / ' + (profile.model || ''); return line;
+  }
   function render() {
     for(const key of Object.keys(checks)) { checks[key].setAttribute('aria-pressed', String(!!data.preferences?.[key])); checks[key].title = (data.preferences?.[key] ? '关闭' : '启用') + (key === 'quickReply' ? '快速回复' : '悬浮球'); }
-    const currentHead = node('div', 'pcm-api-current-head'); currentHead.append(node('strong', '', '当前设置'));
+    const currentHead = node('div', 'pcm-api-current-head'); currentHead.append(node('strong', '', '当前设置'), saveCurrent);
     current.replaceChildren(currentHead);
-    const details = node('dl', 'pcm-api-details');
-    const activeKey = data.keys.find(key => key.id === data.current.secretId);
-    for (const [label,value] of [['URL', data.current.connection.custom_url || '未填写'], ['密钥', activeKey?.masked || '未设置'], ['模型', data.current.model || '未选择']]) {
-      details.append(node('dt', '', label), node('dd', '', value));
-    }
-    if (data.supported) current.append(details);
+    if (data.supported) current.append(connectionLine(data.current));
     else current.append(node('p', '', '请先在酒馆选择“聊天补全 → 自定义（兼容 OpenAI）”'));
-    const currentActions = node('div', 'pcm-api-current-actions'); currentActions.append(saveCurrent); current.append(currentActions);
     list.replaceChildren();
     if (!data.profiles.length) list.append(node('p', 'pcm-snapshot-empty', '还没有方案。新建一个，或保存酒馆当前连接。'));
     for (const profile of data.profiles) {
@@ -76,7 +76,7 @@ export function createApiPanel({ host, onBack, onClose, onCycleTheme, themeIcon,
         await host.request('api-manager-save',{capture:true,id:profile.id,name:profile.name}); await refresh(); message('已覆盖方案');
       })); overwrite.title='用当前设置覆盖此方案';
       actions.append(cut, overwrite, iconButton('编辑方案', 'm14 5 5 5M4 20l4-1L20 7a2 2 0 0 0-3-3L5 16l-1 4Z',()=>edit(profile)),iconButton('删除方案','M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7',()=>run(async()=>{if(!await confirm('删除方案“'+profile.name+'”？'))return;await host.request('api-manager-delete',{id:profile.id});await refresh();})));
-      card.append(top,node('p','pcm-snapshot-summary',profile.connection.custom_url),node('p','pcm-api-profile-model',profile.model)); list.append(card);
+      card.append(top, connectionLine(profile)); list.append(card);
 
     }
   }
