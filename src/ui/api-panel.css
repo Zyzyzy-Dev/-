@@ -22,3 +22,7 @@
 .pcm-api-editor-status{font-size:12px;line-height:1.5}.pcm-api-editor-status:empty{display:none}.pcm-api-editor-status.is-error{border-left:3px solid #ca967b;padding-left:8px}
 .pcm-api-editor>.pcm-snapshot-actions{justify-content:flex-end;margin-top:20px}
 @media(max-width:650px){.pcm-api-modal .pcm-api-editor{padding:16px}.pcm-api-details{gap:8px 10px}.pcm-api-manager .pcm-snapshot-header{gap:6px}}
+.pcm-api-profile-head{display:flex;align-items:center;gap:8px}.pcm-api-profile-head h3{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pcm-api-profile-actions{display:flex;flex:0 0 auto;gap:4px}.pcm-api-manager .pcm-api-profile-actions button{display:grid;place-items:center;width:28px;height:28px;min-height:28px;flex:0 0 28px;padding:4px;font-size:12px}.pcm-api-profile-actions svg{width:15px;height:15px}
+.pcm-api-profile-model{margin:6px 0 0;font-size:13px}.pcm-api-entry-settings{display:flex;flex-wrap:wrap;gap:16px;margin:12px 0}.pcm-api-entry-settings label{display:flex;align-items:center;gap:7px;font-size:13px}.pcm-api-manager .pcm-api-entry-settings input{width:16px;min-height:16px;accent-color:var(--snap-accent)}
+.pcm-api-quick .pcm-snapshot-list{grid-template-columns:minmax(0,1fr)}.pcm-api-quick{padding:16px}.pcm-api-quick .pcm-snapshot-header{margin-bottom:14px}.pcm-api-quick .pcm-snapshot-card{padding:12px}

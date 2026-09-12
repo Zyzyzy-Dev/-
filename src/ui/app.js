@@ -96,11 +96,11 @@ function showWorldbookWorkbench(){
   worldbookWorkbench=createWorldbookWorkbench({host,session:worldbookSession,onBack:showToolbox,onClose:()=>dialog.close(),onCycleTheme:cycleUiTheme,themeIcon:UI_THEME_ICONS[state.uiTheme]||'',prompt:pcmPrompt,confirm:pcmConfirm,toast:pcmToastr});
   dialog.append(worldbookWorkbench.element);dialog.scrollTop=0;
 }
-function showApiManager(){
+function showApiManager(quick=false){
   const dialog=document.getElementById(APP_ID+'-dialog');if(!dialog)return;
   closeSnapshotPanel();closeWorldbookWorkbench();closeApiPanel();toolboxView='api';paneLayout?.cancel();
   dialog.querySelector('.pcm-toolbox-home')?.classList.add('pcm-view-hidden');dialog.querySelector('.pcm-app')?.classList.add('pcm-view-hidden');
-  apiPanel=createApiPanel({host,onBack:showToolbox,onClose:()=>void requestPanelClose(),onCycleTheme:cycleUiTheme,themeIcon:UI_THEME_ICONS[state.uiTheme]||'',prompt:pcmPrompt,confirm:pcmConfirm});
+  apiPanel=createApiPanel({quick,host,onBack:showToolbox,onClose:()=>void requestPanelClose(),onCycleTheme:cycleUiTheme,themeIcon:UI_THEME_ICONS[state.uiTheme]||'',prompt:pcmPrompt,confirm:pcmConfirm});
   dialog.append(apiPanel.element);dialog.scrollTop=0;void apiPanel.refresh();
 }
 function showSnapshots(){
@@ -786,7 +786,7 @@ async function startApplication(){
   await host.ready();
   await loadUiPrefs();
   watchTavernPresetEvents();
-  host.on('open',()=>{try{const dialog=shell();openDialogSafe(dialog);showToolbox();}catch(error){console.error('[preset-compare-migrator] init failed',error);pcmToastr.error(error.message,APP_TITLE+'启动失败');}});
+  host.on('open',payload=>{try{const dialog=shell();openDialogSafe(dialog);if(payload?.apiQuick)showApiManager(true);else showToolbox();}catch(error){console.error('[preset-compare-migrator] init failed',error);pcmToastr.error(error.message,APP_TITLE+'启动失败');}});
   host.on('host-closed',()=>{const dialog=document.getElementById(APP_ID+'-dialog');if(!dialog)return;if(dialog.open)dialog.close();else destroyPanel(dialog);});
   await host.notify('ready');
 }

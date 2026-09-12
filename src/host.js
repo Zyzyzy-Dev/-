@@ -202,6 +202,12 @@ async function handleApiManagerRequest(method, payload) {
     extensions.extension_settings[API_STORE_KEY] = { version: 1, profiles };
     script.saveSettingsDebounced();
   };
+  if(method==='api-manager-preferences'){
+    const old=extensions.extension_settings.preset_compare_api_entries||{};
+    const next={quickReply:!!old.quickReply,floating:!!old.floating};
+    for(const key of ['quickReply','floating']) if(typeof payload[key]==='boolean')next[key]=payload[key];
+    extensions.extension_settings.preset_compare_api_entries=next;script.saveSettingsDebounced();apiEntrySync?.(next);return next;
+  }
   const current = keys => ({ source: settings.chat_completion_source, model: settings.custom_model || '', connection: { custom_url: settings.custom_url || '' }, secretId: activeId(keys) });
   if (method === 'api-manager-models') {
     const profile = normalizeApiProfile({ name: '模型查询', model: 'query', connection: { custom_url: payload.url } });
@@ -227,7 +233,7 @@ async function handleApiManagerRequest(method, payload) {
   }
   if (method === 'api-manager-list') {
     const keys = await readKeys();
-    return { profiles: clone(store.profiles), keys, current: current(keys), supported: script.main_api === 'openai' && settings.chat_completion_source === 'custom' };
+    return { preferences: clone(extensions.extension_settings.preset_compare_api_entries || {}), profiles: clone(store.profiles), keys, current: current(keys), supported: script.main_api === 'openai' && settings.chat_completion_source === 'custom' };
   }
   if (method === 'api-manager-import') {
     const imported = importApiProfiles(payload.data);
@@ -1298,7 +1304,8 @@ class AppHost {
     this.tauriLayoutCleanup = null;
   }
 
-  open() {
+  open(apiQuick = false) {
+    this.apiQuick = apiQuick;
     this.openRequested = true;
     if (!this.dialog?.isConnected) this.mount();
     try {
@@ -1307,7 +1314,8 @@ class AppHost {
       console.error(`[${APP_ID}] open host dialog failed`, error);
       this.dialog.setAttribute('open', '');
     }
-    if (this.uiReady) this.sendEvent('open');
+    applyImportantStyles(this.dialog, apiQuick ? {width:'min(600px, 96vw)',height:'min(780px, 92dvh)',margin:'auto','border-radius':'16px'} : {width:'100vw',height:'100dvh',margin:'0','border-radius':'0'});
+    if (this.uiReady) this.sendEvent('open', {apiQuick:this.apiQuick});
   }
 
   close() {
@@ -1429,7 +1437,7 @@ class AppHost {
       this.uiReady = true;
       this.bindTavernEvents();
       this.sendEnvironment();
-      if (this.openRequested) this.sendEvent('open');
+      if (this.openRequested) this.sendEvent('open', {apiQuick:this.apiQuick});
     } else if (message.name === 'close') {
       this.close();
     }
@@ -1531,6 +1539,47 @@ class AppHost {
   }
 }
 
+let apiEntrySync = null;
+async function installApiEntries(controller) {
+  const {extension_settings} = await import('/scripts/extensions.js');
+  let preferences = extension_settings.preset_compare_api_entries || {};
+  const qrId = `${APP_ID}-api-qr`, ballId = `${APP_ID}-api-ball`;
+  const open = event => {event.preventDefault();event.stopPropagation();controller.open(true);};
+  const make = id => {
+    const button = document.createElement('button');button.type='button';button.id=id;button.textContent='API快切';button.title='打开 API 快切';button.setAttribute('aria-label','打开 API 快切');button.addEventListener('click',open);return button;
+  };
+  const sync = () => {
+    if (!preferences.quickReply) {
+      document.getElementById(qrId)?.remove();
+      const owned=document.querySelector('[data-pcm-api-qr-bar]');
+      if(owned && !owned.querySelector('button,.qr--button'))owned.remove();
+    } else if (!document.getElementById(qrId)) {
+      const form=document.getElementById('send_form');
+      if(form){
+        let bar=form.querySelector('[id="qr--bar"]');
+        if(!bar){bar=document.createElement('div');bar.id='qr--bar';bar.className='flex-container flexGap5';bar.dataset.pcmApiQrBar='';form.prepend(bar);}
+        let holder=bar.querySelector('.qr--buttons');
+        if(!holder){holder=document.createElement('div');holder.className='qr--buttons';bar.append(holder);}
+        const button=make(qrId);button.className='qr--button menu_button interactable';holder.append(button);
+      }
+    }
+    if(!preferences.floating)document.getElementById(ballId)?.remove();
+    else if(!document.getElementById(ballId)){
+      const button=make(ballId);button.textContent='API';
+      Object.assign(button.style,{position:'fixed',right:'16px',bottom:'max(140px, env(safe-area-inset-bottom))',width:'48px',height:'48px',borderRadius:'50%',zIndex:'29999',border:'1px solid var(--SmartThemeBorderColor)',background:'var(--SmartThemeBlurTintColor)',color:'var(--SmartThemeBodyColor)',boxShadow:'0 3px 12px #0004',cursor:'pointer',touchAction:'none'});
+      let drag=null,moved=false;
+      button.addEventListener('pointerdown',event=>{if(event.button!==0)return;const rect=button.getBoundingClientRect();drag={x:event.clientX,y:event.clientY,left:rect.left,top:rect.top};moved=false;button.setPointerCapture(event.pointerId);});
+      button.addEventListener('pointermove',event=>{if(!drag)return;const dx=event.clientX-drag.x,dy=event.clientY-drag.y;if(Math.hypot(dx,dy)>5)moved=true;if(!moved)return;Object.assign(button.style,{left:Math.max(0,Math.min(innerWidth-48,drag.left+dx))+'px',top:Math.max(0,Math.min(innerHeight-48,drag.top+dy))+'px',right:'auto',bottom:'auto'});});
+      button.addEventListener('pointerup',()=>{drag=null;});button.addEventListener('pointercancel',()=>{drag=null;moved=false;});
+      button.addEventListener('click',event=>{if(moved){event.stopImmediatePropagation();event.preventDefault();moved=false;}},true);
+      document.body.append(button);
+    }
+  };
+  apiEntrySync = next => {preferences=next;sync();};
+  const observer=new MutationObserver(()=>{if(preferences.quickReply||preferences.floating)sync();});
+  observer.observe(document.body,{childList:true,subtree:true});sync();
+}
+
 function addMenu(controller) {
   const menu = document.getElementById('extensionsMenu');
   if (!menu || document.getElementById(`${APP_ID}-button`)) return false;
@@ -1557,6 +1606,7 @@ function addMenu(controller) {
 
 export function installPresetCompareHost() {
   const controller = new AppHost();
+  void installApiEntries(controller).catch(error => console.warn(`[${APP_ID}] API entries unavailable`, error));
   void installApiQuickCommand().catch(error => console.warn(`[${APP_ID}] API quick command unavailable`, error));
   void installSnapshotBindings(controller).catch(error => console.warn(`[${APP_ID}] snapshot bindings unavailable`, error));
   const installMenu = () => {
