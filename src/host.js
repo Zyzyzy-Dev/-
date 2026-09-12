@@ -293,7 +293,7 @@ async function handleApiManagerRequest(method, payload) {
     let fieldsApplied = false;
     lockGeneration();
     try {
-      if (payload.mode !== 'model') script.cancelStatusCheck?.('酒馆盒子独立切换 API');
+      script.cancelStatusCheck?.('酒馆盒子独立切换 API');
       if (target !== null) {
         if (!target && previous) {
           const result = await post('write', { key, value: '', label: '酒馆盒子 · 无密钥' });
@@ -320,8 +320,33 @@ async function handleApiManagerRequest(method, payload) {
         }
       }
       script.saveSettingsDebounced();
-      if (payload.mode !== 'model') script.setOnlineStatus?.('API 配置已切换（未验证连接）');
-      return { mode: payload.mode };
+      // Check the new connection once without native model-selection events or preset reapplication.
+      // A network failure does not undo the user's successful configuration switch.
+      const applied = JSON.stringify(settings), connectionKey = target === null ? previous : target;
+      const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 15000);
+      let connection;
+      try {
+        const response = await fetch('/api/backends/chat-completions/status', {
+          method: 'POST', headers: script.getRequestHeaders(), signal: controller.signal, cache: 'no-cache',
+          body: JSON.stringify({ chat_completion_source: 'custom', custom_url: settings.custom_url,
+            custom_include_headers: settings.custom_include_headers || '', secret_id: connectionKey || undefined }),
+        });
+        if (!response.ok) throw new Error('连接检查失败（'+response.status+'），请检查地址和密钥');
+        const result = await response.json();
+        if (!result || result.error) throw new Error('连接检查失败，请检查地址和密钥');
+        connection = result.bypass ? { ok: true, message: '已执行连接，服务端跳过验证', status: 'Status check bypassed' }
+          : { ok: true, message: '连接检查通过', status: 'Valid' };
+      } catch (error) {
+        connection = { ok: false, message: error.name === 'AbortError' ? '连接检查超时，可稍后重试' : '连接检查失败，请检查地址、密钥或网络', status: 'no_connection' };
+      } finally { clearTimeout(timer); }
+      // Do not let a late response overwrite the status of a connection changed outside this plugin.
+      if (script.main_api === 'openai' && JSON.stringify(settings) === applied) {
+        try {
+          if (activeId(await readKeys()) === connectionKey && script.main_api === 'openai' && JSON.stringify(settings) === applied) script.setOnlineStatus?.(connection.status);
+          else connection = { ok: false, message: '连接已被外部修改，请刷新核对' };
+        } catch { connection = { ok: false, message: '无法核对当前密钥，请刷新核对连接' }; }
+      } else connection = { ok: false, message: '连接已被外部修改，请刷新核对' };
+      return { mode: payload.mode, connection };
     } catch (error) {
       // Roll back only our own field writes; leave any external edits intact.
       if (fieldsApplied) for (const [field, value] of Object.entries(plan.patch)) if (settings[field] === value) settings[field] = before[field];
@@ -337,7 +362,7 @@ async function handleApiManagerRequest(method, payload) {
         } catch { throw new Error('切换未完成且密钥恢复失败，请在酒馆密钥管理器核对当前密钥后重试'); }
       }
       script.saveSettingsDebounced();
-      if (payload.mode !== 'model' && previousStatus !== undefined) script.setOnlineStatus?.(previousStatus);
+      if (previousStatus !== undefined) script.setOnlineStatus?.(previousStatus);
       throw error;
     } finally { unlockGeneration(); }
   }

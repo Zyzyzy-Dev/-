@@ -14,15 +14,20 @@ export function createApiPanel({ host, onBack, onClose, onCycleTheme, themeIcon,
   const refreshPath = 'M20 7v5h-5M4 17v-5h5M6.1 7a7 7 0 0 1 11.5-1L20 9M4 15l2.4 3A7 7 0 0 0 18 17';
   heading.append(iconButton('刷新当前设置', refreshPath, () => run(refresh)));
   const theme = button('', onCycleTheme); theme.innerHTML = themeIcon; theme.dataset.themeToggle = ''; theme.setAttribute('aria-label', '切换配色');
-  if(!quick) header.append(button('← 首页', onBack)); header.append(heading, theme, button('×', onClose));
+  if(!quick) header.append(iconButton('首页', 'm3 10 9-7 9 7M5 9v12h5v-7h4v7h5V9', onBack));
   const current = node('section', 'pcm-snapshot-context pcm-api-current'); current.setAttribute('aria-label', '当前设置');
   const toolbar = node('div', 'pcm-snapshot-toolbar');
   const preferences = node('div','pcm-api-entry-settings');
   const checks = {};
-  for(const [key,labelText] of [['quickReply','启用快速回复'],['floating','启用悬浮球']]){
-    const label=node('label'),input=node('input');input.type='checkbox';checks[key]=input;label.append(input,node('span','',labelText));preferences.append(label);
-    input.addEventListener('change',()=>void run(async()=>{try{await host.request('api-manager-preferences',{[key]:input.checked});}finally{await refresh();}}));
+  for (const [key, labelText, text] of [['quickReply', '启用快速回复', '快速回复'], ['floating', '启用悬浮球', '悬浮球']]) {
+    const toggle = button(text, () => run(async () => {
+      try { await host.request('api-manager-preferences', { [key]: !data.preferences?.[key] }); }
+      finally { await refresh(); }
+    }));
+    toggle.className = 'pcm-api-entry-toggle'; toggle.setAttribute('aria-label', labelText);
+    toggle.setAttribute('aria-pressed', 'false'); checks[key] = toggle; preferences.append(toggle);
   }
+  header.append(heading, preferences, theme, button('×', onClose));
   const status = node('p', 'pcm-snapshot-status'); status.setAttribute('role', 'status');
   const list = node('section', 'pcm-snapshot-list');
   const modal = node('dialog', 'pcm-api-modal'); modal.setAttribute('aria-label', 'API 方案编辑');
@@ -41,7 +46,7 @@ export function createApiPanel({ host, onBack, onClose, onCycleTheme, themeIcon,
     const input = JSON.parse(await selected.text());
     const result = await host.request('api-manager-import', { data: input }); await refresh(); message(`已导入 ${result.count} 个方案；密钥引用需属于当前酒馆`);
   }));
-  element.append(header, current, toolbar, preferences,
+  element.append(header, current, toolbar,
     node('p', 'pcm-snapshot-notice', '切换方案同时应用 URL、密钥和模型，预设、正则、世界书与生成参数保持原样。'),
     status, modal, list, file);
   function message(text, error = false) { if (disposed) return; const target = modal.open ? editor.querySelector('.pcm-api-editor-status') : status; if (target) { target.textContent = text; target.classList.toggle('is-error', error); } }
@@ -49,7 +54,7 @@ export function createApiPanel({ host, onBack, onClose, onCycleTheme, themeIcon,
   async function run(task) { if (busy || disposed) return; lock(true); try { await task(); } catch (error) { message(error.message || '操作失败', true); } finally { if (!disposed) lock(false); } }
   async function refresh() { const next = await host.request('api-manager-list'); if (disposed) return; data = next; render(); }
   function render() {
-    for(const key of Object.keys(checks)) checks[key].checked=!!data.preferences?.[key];
+    for(const key of Object.keys(checks)) { checks[key].setAttribute('aria-pressed', String(!!data.preferences?.[key])); checks[key].title = (data.preferences?.[key] ? '关闭' : '启用') + (key === 'quickReply' ? '快速回复' : '悬浮球'); }
     const currentHead = node('div', 'pcm-api-current-head'); currentHead.append(node('strong', '', '当前设置'));
     current.replaceChildren(currentHead);
     const details = node('dl', 'pcm-api-details');
@@ -65,7 +70,7 @@ export function createApiPanel({ host, onBack, onClose, onCycleTheme, themeIcon,
     for (const profile of data.profiles) {
       const card = node('article', 'pcm-snapshot-card pcm-api-profile'), actions = node('div', 'pcm-api-profile-actions');
       const top = node('div', 'pcm-api-profile-head'); top.append(node('h3', '', profile.name), actions);
-      const cut = button('切', () => run(async () => { await host.request('api-manager-apply', {id:profile.id,mode:'both'}); await refresh(); message('已切换至：'+profile.name); })); cut.title='切换至此方案';
+      const cut = button('切', () => run(async () => { const result = await host.request('api-manager-apply', {id:profile.id,mode:'both'}); await refresh(); message('已切换至：'+profile.name+'。'+result.connection.message, !result.connection.ok); })); cut.title='切换至此方案';
       const overwrite = button('覆', () => run(async () => {
         if(!await confirm('用当前 URL、密钥和模型覆盖“'+profile.name+'”？')) return;
         await host.request('api-manager-save',{capture:true,id:profile.id,name:profile.name}); await refresh(); message('已覆盖方案');
@@ -85,16 +90,15 @@ export function createApiPanel({ host, onBack, onClose, onCycleTheme, themeIcon,
     const name = field('方案名称', profile?.name); name.required = true; name.maxLength = 100;
     const url = field('API 地址', profile?.connection.custom_url || '', 'url'); url.placeholder = 'https://example.com/v1'; url.required = true;
 
-    const label = node('label', 'pcm-api-field'), secret = node('select'); secret.setAttribute('aria-label', '酒馆密钥'); label.append(node('span', '', '酒馆密钥'), secret);
-    secret.add(new Option('无密钥', ''));
-    for (const key of data.keys) secret.add(new Option(`${key.label || '已保存密钥'} · ${key.masked || '••••••••'}`, key.id));
-    if (profile?.secretId && !data.keys.some(key => key.id === profile.secretId)) secret.add(new Option('已失效的密钥引用（请重新选择）', profile.secretId));
-    secret.value = profile?.secretId || ''; editor.append(label);
-    const newSecret = field('新密钥（可选，填写后存入酒馆密钥库）', '', 'password'); newSecret.autocomplete = 'new-password';
-    const secretRow = node('div', 'pcm-api-input-row'); newSecret.replaceWith(secretRow); secretRow.append(newSecret);
-    const eye = iconButton('显示新密钥', 'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6', () => {
-      const show = newSecret.type === 'password'; newSecret.type = show ? 'text' : 'password'; eye.setAttribute('aria-label', show ? '隐藏新密钥' : '显示新密钥'); eye.title = show ? '隐藏新密钥' : '显示新密钥'; eye.setAttribute('aria-pressed', String(show));
-    }); secretRow.append(eye);
+    // Keep the vault reference until the user replaces the masked field; never submit the mask as a key.
+    const savedId = profile?.secretId || '';
+    const masked = savedId ? (data.keys.find(key => key.id === savedId)?.masked || '••••••••') : '';
+    const secret = field('密钥', masked, 'password'); secret.autocomplete = 'new-password';
+    secret.placeholder = '输入 API 密钥（可留空）';
+    secret.addEventListener('focus', () => { if (secret.value === masked) secret.select(); });
+    const credentials = () => secret.value === masked
+      ? { secretId: savedId, newSecret: '' }
+      : { secretId: '', newSecret: secret.value.trim() };
     const model = field('默认模型', profile?.model || ''); model.required = true; model.placeholder = '搜索或输入中转站模型名称';
     const modelRow = node('div', 'pcm-api-input-row'); model.replaceWith(modelRow); modelRow.append(model);
     const modelMenu = node('div', 'pcm-api-model-menu'); modelMenu.hidden = true; modelMenu.setAttribute('role', 'group'); modelMenu.setAttribute('aria-label', '可用模型');
@@ -107,18 +111,18 @@ export function createApiPanel({ host, onBack, onClose, onCycleTheme, themeIcon,
     };
     model.addEventListener('input', renderModels); model.addEventListener('focus', renderModels);
     modelRow.append(iconButton('拉取模型', refreshPath, () => run(async () => {
-      models = await host.request('api-manager-models', { url: url.value.trim(), secretId: secret.value, newSecret: newSecret.value.trim() });
+      models = await host.request('api-manager-models', { url: url.value.trim(), ...credentials() });
       renderModels(); message(models.length ? '已拉取 '+models.length+' 个模型，点击选择或搜索' : '未返回模型，可手动填写');
     })));
     modelRow.parentElement.append(modelMenu);
     const clearModels = () => { models = []; modelMenu.hidden = true; modelMenu.replaceChildren(); };
-    url.addEventListener('input', clearModels); secret.addEventListener('change', clearModels); newSecret.addEventListener('input', clearModels);
+    url.addEventListener('input', clearModels); secret.addEventListener('input', clearModels);
     const editorStatus = node('p', 'pcm-api-editor-status'); editorStatus.setAttribute('role', 'status'); editor.append(editorStatus);
     const actions = node('div', 'pcm-snapshot-actions');
     const save = node('button', '', '保存方案'); save.type = 'submit'; actions.append(save, button('取消', closeEditor)); editor.append(actions);
     editor.onsubmit = event => { event.preventDefault(); void run(async () => {
-      await host.request('api-manager-save', { profile: { id: editing?.id, name: name.value, source: 'custom', model: model.value, connection: { custom_url: url.value }, secretId: secret.value }, newSecret: newSecret.value });
-      newSecret.value = ''; modal.close(); editor.hidden = true; editor.replaceChildren(); editing = null; await refresh(); message('方案已保存，当前连接保持原样');
+      await host.request('api-manager-save', { profile: { id: editing?.id, name: name.value, source: 'custom', model: model.value, connection: { custom_url: url.value }, secretId: credentials().secretId }, newSecret: credentials().newSecret });
+      secret.value = ''; modal.close(); editor.hidden = true; editor.replaceChildren(); editing = null; await refresh(); message('方案已保存，当前连接保持原样');
     }); };
     modal.showModal(); name.focus();
   }
