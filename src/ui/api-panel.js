@@ -1,5 +1,6 @@
 // API 管理页面：方案编辑、旧脚本数据导入与独立切换，所有宿主操作均通过通信桥。
-export function createApiPanel({ host, onBack, onClose, onCycleTheme, themeIcon, prompt, confirm, quick = false }) {
+import { chooseApiSnapshotBinding } from './api-snapshot-bind.js';
+export function createApiPanel({ host, onBack, onClose, onCycleTheme, themeIcon, prompt, confirm, quick = false, onSnapshots }) {
   const node = (tag, cls, text) => { const el = document.createElement(tag); el.className = cls || ''; if (text !== undefined) el.textContent = text; return el; };
   const element = node('main', 'pcm-snapshots pcm-api-manager');
   element.setAttribute('aria-label', quick ? 'API 快切' : 'API 管理'); if(quick) element.classList.add('pcm-api-quick');
@@ -46,7 +47,9 @@ export function createApiPanel({ host, onBack, onClose, onCycleTheme, themeIcon,
     const input = JSON.parse(await selected.text());
     const result = await host.request('api-manager-import', { data: input }); await refresh(); message(`已导入 ${result.count} 个方案；密钥引用需属于当前酒馆`);
   }));
-  element.append(header, current, toolbar,
+  const tabs = node('div','pcm-snapshot-toolbar pcm-quick-tabs');
+  if (onSnapshots) {tabs.append(button('设置快照',onSnapshots));}
+  element.append(header, tabs, current, toolbar,
     status, modal, list, file);
   function message(text, error = false) { if (disposed) return; const target = modal.open ? editor.querySelector('.pcm-api-editor-status') : status; if (target) { target.textContent = text; target.classList.toggle('is-error', error); } }
   function lock(value) { busy = value; element.setAttribute('aria-busy', String(value)); for (const el of element.querySelectorAll('button,input,select')) el.disabled = value; }
@@ -69,13 +72,16 @@ export function createApiPanel({ host, onBack, onClose, onCycleTheme, themeIcon,
     if (!data.profiles.length) list.append(node('p', 'pcm-snapshot-empty', '还没有方案。新建一个，或保存酒馆当前连接。'));
     for (const profile of data.profiles) {
       const card = node('article', 'pcm-snapshot-card pcm-api-profile'), actions = node('div', 'pcm-api-profile-actions');
+      card.classList.toggle('is-active', data.activeIds?.includes(profile.id));
       const top = node('div', 'pcm-api-profile-head'); top.append(node('h3', '', profile.name), actions);
-      const cut = button('切', () => run(async () => { const result = await host.request('api-manager-apply', {id:profile.id,mode:'both'}); await refresh(); message('已切换至：'+profile.name+'。'+result.connection.message, !result.connection.ok); })); cut.title='切换至此方案';
+      if(data.activeIds?.includes(profile.id)) top.querySelector('h3').append(node('span','pcm-api-active-badge','已启用'));
+      if(data.links?.some(link=>link.apiId===profile.id)) card.title='已绑定设置快照';
+      const cut = button('切', () => run(async () => { let result = await host.request('api-manager-apply', {id:profile.id,mode:'both'}); if(result.needsConfirmation){if(!await confirm('绑定快照缺少世界书：'+result.missingWorldNames.join('、')+'。继续应用其余部分？'))return;result=await host.request('api-manager-apply',{id:profile.id,mode:'both',allowMissingWorlds:true});} await refresh(); message('已切换至：'+profile.name+'。'+result.connection.message+(result.warnings?.length?'；'+result.warnings.join('；'):''), !result.connection.ok); })); cut.title='切换至此方案';
       const overwrite = button('覆', () => run(async () => {
         if(!await confirm('用当前 URL、密钥和模型覆盖“'+profile.name+'”？')) return;
         await host.request('api-manager-save',{capture:true,id:profile.id,name:profile.name}); await refresh(); message('已覆盖方案');
       })); overwrite.title='用当前设置覆盖此方案';
-      actions.append(cut, overwrite, iconButton('编辑方案', 'm14 5 5 5M4 20l4-1L20 7a2 2 0 0 0-3-3L5 16l-1 4Z',()=>edit(profile)),iconButton('删除方案','M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7',()=>run(async()=>{if(!await confirm('删除方案“'+profile.name+'”？'))return;await host.request('api-manager-delete',{id:profile.id});await refresh();})));
+      actions.append(cut, button('绑',()=>run(async()=>{await chooseApiSnapshotBinding({host,parent:element,apiId:profile.id});await refresh();})), overwrite, iconButton('编辑方案', 'm14 5 5 5M4 20l4-1L20 7a2 2 0 0 0-3-3L5 16l-1 4Z',()=>edit(profile)),iconButton('删除方案','M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7',()=>run(async()=>{if(!await confirm('删除方案“'+profile.name+'”？'))return;await host.request('api-manager-delete',{id:profile.id});await refresh();})));
       card.append(top, connectionLine(profile)); list.append(card);
 
     }

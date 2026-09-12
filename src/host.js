@@ -1,4 +1,5 @@
 // 预设更新编辑器 · 酒馆宿主桥：唯一可接触 SillyTavern 主 document/API 的模块。
+import { API_BINDINGS_KEY, bindApiSnapshot, isApiProfileActive } from './api-bindings.js';
 // 扩展菜单入口、外层 dialog/iframe 外壳、preset-manager/openai 动态读取与保存、
 // PRESET_CHANGED 订阅转发、主题变量与 TauriTavern IME 高度转发。
 import { applyPresetToMemory, shouldRefreshActivePreset } from './core.js';
@@ -107,7 +108,16 @@ async function listTavernPresets() {
 }
 
 async function handleRequest(method, payload) {
-  if (method.startsWith('api-manager-')) return snapshotSerial(() => handleApiManagerRequest(method, payload || {}));
+  if (method === 'api-manager-apply' && payload?.mode === 'both') return snapshotSerial(async () => {
+    const {extension_settings} = await import('/scripts/extensions.js');
+    const link = (extension_settings[API_BINDINGS_KEY] || []).find(item => item.apiId === payload.id);
+    if (!link) return handleApiManagerRequest(method, payload);
+    const env = await snapshotEnvironment();
+    const snapshot = snapshotStore(env).snapshots.find(item => item.id === link.snapshotId);
+    if (!snapshot) throw new Error('绑定快照已删除，请取消绑定后重试');
+    return applyLinkedSnapshot(env, snapshot, {...payload, contextKey:snapshotContext(env).key}, false);
+  });
+  if (method.startsWith('api-manager-')) return snapshotSerial(() => handleApiManagerRequest(method, payload || {}), !['api-manager-list','api-manager-links','api-manager-models','api-manager-preflight'].includes(method));
   if (method === 'workbench-read-worldbook' || method === 'workbench-save-worldbook') {
     // Share the resource queue with snapshot writes so the two features cannot overwrite each other.
     return snapshotSerial(() => handleWorkbenchWorldbook(method, payload || {}));
@@ -202,6 +212,21 @@ async function handleApiManagerRequest(method, payload) {
     extensions.extension_settings[API_STORE_KEY] = { version: 1, profiles };
     script.saveSettingsDebounced();
   };
+  if (method === 'api-manager-links') {
+    const snapshots = extensions.extension_settings[SNAPSHOT_KEY]?.snapshots || [];
+    return {preferences:clone(extensions.extension_settings.preset_compare_api_entries || {}), links:clone(extensions.extension_settings[API_BINDINGS_KEY] || []), snapshots:snapshots.map(({id,name})=>({id,name})), profiles:store.profiles.map(({id,name})=>({id,name}))};
+  }
+  if (method === 'api-manager-bind') {
+    const links = extensions.extension_settings[API_BINDINGS_KEY] || [];
+    let next;
+    if (payload.cancel) next = links.filter(link => payload.apiId ? link.apiId !== payload.apiId : link.snapshotId !== payload.snapshotId);
+    else {
+      if (!store.profiles.some(item=>item.id===payload.apiId)) throw new Error('API 方案已删除');
+      if (!(extensions.extension_settings[SNAPSHOT_KEY]?.snapshots || []).some(item=>item.id===payload.snapshotId)) throw new Error('快照已删除');
+      next = bindApiSnapshot(links, payload.apiId, payload.snapshotId);
+    }
+    extensions.extension_settings[API_BINDINGS_KEY] = next; script.saveSettingsDebounced(); return {links:clone(next)};
+  }
   if(method==='api-manager-preferences'){
     const old=extensions.extension_settings.preset_compare_api_entries||{};
     const next={quickReply:!!old.quickReply,floating:!!old.floating};
@@ -233,7 +258,7 @@ async function handleApiManagerRequest(method, payload) {
   }
   if (method === 'api-manager-list') {
     const keys = await readKeys();
-    return { preferences: clone(extensions.extension_settings.preset_compare_api_entries || {}), profiles: clone(store.profiles), keys, current: current(keys), supported: script.main_api === 'openai' && settings.chat_completion_source === 'custom' };
+    return { preferences: clone(extensions.extension_settings.preset_compare_api_entries || {}), profiles: clone(store.profiles), activeIds:store.profiles.filter(profile=>isApiProfileActive(profile,current(keys))).map(profile=>profile.id), links:clone(extensions.extension_settings[API_BINDINGS_KEY] || []), keys, current: current(keys), supported: script.main_api === 'openai' && settings.chat_completion_source === 'custom' };
   }
   if (method === 'api-manager-import') {
     const imported = importApiProfiles(payload.data);
@@ -242,6 +267,7 @@ async function handleApiManagerRequest(method, payload) {
     return { count: imported.length };
   }
   if (method === 'api-manager-delete') {
+    extensions.extension_settings[API_BINDINGS_KEY] = (extensions.extension_settings[API_BINDINGS_KEY] || []).filter(link=>link.apiId!==payload.id);
     await persist(store.profiles.filter(item => item.id !== payload.id));
     return true;
   }
@@ -275,7 +301,7 @@ async function handleApiManagerRequest(method, payload) {
     await persist(profiles);
     return { id: profile.id };
   }
-  if (method === 'api-manager-apply') {
+  if (method === 'api-manager-apply' || method === 'api-manager-preflight') {
     ready();
     const profile = store.profiles.find(item => item.id === payload.id);
     if (!profile) throw new Error('API 方案不存在，请刷新列表');
@@ -288,6 +314,7 @@ async function handleApiManagerRequest(method, payload) {
     if (JSON.stringify(settings) !== JSON.stringify(before)) throw new Error('酒馆设置已变化，请重试');
     if (payload.mode !== 'model' && String(document.querySelector('#api_key_custom')?.value || '').trim()) throw new Error('原生 API 密钥输入框有未保存内容，请先保存或清空后再切换');
     if (payload.mode !== 'model' && before.custom_url !== plan.patch.custom_url && String(settings.custom_include_headers || '').trim()) throw new Error('当前连接使用自定义请求头。第一版尚不管理请求头，请先在酒馆清空或迁移其中的认证信息后再跨地址切换');
+    if (method === 'api-manager-preflight') return true;
     // Abort pending native model discovery before it can choose a default model on response.
     const previousStatus = script.online_status;
     let fieldsApplied = false;
@@ -905,11 +932,11 @@ async function applySnapshotResources(env, prepared, context, journal) {
   return warnings;
 }
 
-function snapshotSerial(action) {
+function snapshotSerial(action, notify = true) {
   const run = snapshotQueue.then(async () => {
     snapshotBusy++;
     try { return await action(); }
-    finally { snapshotBusy--; snapshotNotify(); }
+    finally { snapshotBusy--; if (notify) snapshotNotify(); }
   });
   snapshotQueue = run.catch(() => {});
   return run;
@@ -1123,6 +1150,24 @@ async function applySettingsSnapshot(env, snapshot, payload, automatic = false) 
   return {warnings};
 }
 
+// Called only inside the shared queue; invoke low-level operations to avoid recursive binding/queue deadlock.
+async function applyLinkedSnapshot(env, snapshot, payload, automatic = false) {
+  const link = (env.extensions.extension_settings[API_BINDINGS_KEY] || []).find(item=>item.snapshotId===snapshot.id);
+  if (!link) return applySettingsSnapshot(env,snapshot,payload,automatic);
+  const scope = snapshotContext(env).scope;
+  await handleApiManagerRequest('api-manager-preflight', {id:link.apiId, mode:'both'});
+  const result = await applySettingsSnapshot(env,snapshot,payload,automatic);
+  if (result.needsConfirmation) return result;
+  try {
+    assertSnapshotScope(env, scope);
+    const api = await handleApiManagerRequest('api-manager-apply', {id:link.apiId, mode:'both'});
+    if (!api.connection.ok) result.warnings.push(api.connection.message);
+    return {...result, ...api};
+  } catch (error) {
+    throw new Error('快照已应用，但绑定 API 未完成：'+error.message+'。请核对当前设置后重试');
+  }
+}
+
 async function handleSnapshotRequest(method, payload) {
   if (method === 'snapshot-list') {await snapshotQueue; return snapshotList(await snapshotEnvironment());}
   if (['snapshot-editor','snapshot-draft-preset','snapshot-draft-worlds'].includes(method)) {await snapshotQueue;return readSnapshotEditor(await snapshotEnvironment(),payload);}
@@ -1135,7 +1180,7 @@ async function handleSnapshotRequest(method, payload) {
       assertSnapshotContext(env, payload.contextKey);
       snapshotAutoPending = false;
       snapshotAutoToken++;
-      return applySettingsSnapshot(env, existing, payload);
+      return applyLinkedSnapshot(env, existing, payload);
     }
     if (method === 'snapshot-save' || method === 'snapshot-save-draft') {
       assertSnapshotContext(env, payload.contextKey);
@@ -1183,9 +1228,11 @@ async function handleSnapshotRequest(method, payload) {
     } else if (method === 'snapshot-delete') {
       if (!existing) throw new Error('快照已删除');
       const before = clone(store);
+      const previousLinks = env.extensions.extension_settings[API_BINDINGS_KEY];
+      env.extensions.extension_settings[API_BINDINGS_KEY] = (previousLinks || []).filter(link=>link.snapshotId!==payload.id);
       store.snapshots = store.snapshots.filter(s => s.id !== payload.id);
       for (const key of Object.keys(store.characterBindings)) if (store.characterBindings[key] === payload.id) delete store.characterBindings[key];
-      try {await saveSnapshotSettings(env);} catch (error) {Object.assign(store, before); throw error;}
+      try {await saveSnapshotSettings(env);} catch (error) {Object.assign(store, before); env.extensions.extension_settings[API_BINDINGS_KEY]=previousLinks; throw error;}
       // 其他聊天的引用在加载时视为失效；不遍历或改写用户的聊天文件。
     } else if (method === 'snapshot-bind') {
       assertSnapshotContext(env, payload.contextKey);
@@ -1248,7 +1295,7 @@ async function installSnapshotBindings(controller) {
         const latestContext = snapshotContext(env);
         const latest = resolveSnapshotBinding(snapshotStore(env), latestContext.chatBindingId, latestContext.characterKey);
         if (!latest) return;
-        const result = await applySettingsSnapshot(env, latest.snapshot, {contextKey: latestContext.key}, true);
+        const result = await applyLinkedSnapshot(env, latest.snapshot, {contextKey: latestContext.key}, true);
         if (result.warnings.length) globalThis.toastr?.warning?.(result.warnings.join('\n'), '设置快照');
         else globalThis.toastr?.success?.('已应用「'+latest.snapshot.name+'」', '设置快照');
       });
@@ -1593,6 +1640,14 @@ async function installApiEntries(controller) {
     applyImportantStyles(button, {left:x+'px', top:y+'px', right:'auto', bottom:'auto'});
   };
   const sync = () => {
+    // QR Assistant's public third-party registry (uhhhh15/QR); preserve all other extensions' entries.
+    if (!window.qrAssistantExtensionApi) window.qrAssistantExtensionApi = [];
+    const registry = window.qrAssistantExtensionApi;
+    if (Array.isArray(registry)) {
+      const index = registry.findIndex(entry=>entry.dom_id===qrId);
+      if (preferences.quickReply && index < 0) registry.push({dom_id:qrId, group_name:'酒馆盒子', button_name:'API / 设置快照'});
+      if (!preferences.quickReply && index >= 0) registry.splice(index,1);
+    }
     if (!preferences.quickReply) document.getElementById(railId)?.remove();
     else {
       const form = document.getElementById('send_form');

@@ -54,3 +54,14 @@
 .pcm-api-entry-toggle::before{width:4px;height:4px}
 }
 @media(max-width:350px){.pcm-api-manager .pcm-snapshot-header{gap:3px}.pcm-api-manager .pcm-snapshot-header h2{font-size:13px}.pcm-api-manager .pcm-snapshot-header .pcm-api-icon,.pcm-api-manager .pcm-snapshot-header [data-theme-toggle],.pcm-api-manager .pcm-snapshot-header>button:last-child{width:22px;flex-basis:22px}.pcm-api-manager .pcm-api-entry-toggle{padding:4px 3px;gap:2px}}
+
+/* 单行连接无边框；活动状态只依据实际连接核对。 */
+.pcm-api-connection-line{border:0;background:none;padding:0;margin-top:6px}
+.pcm-api-profile.is-active{background:color-mix(in srgb,var(--snap-accent) 18%,var(--snap-card));border-color:var(--snap-accent)}
+.pcm-api-active-badge{display:inline-block;font-size:9px;font-weight:500;border-radius:7px;margin-left:5px;padding:2px 4px;background:color-mix(in srgb,var(--snap-accent) 30%,var(--snap-bg));vertical-align:middle}
+.pcm-quick-tabs:empty{display:none}.pcm-quick-tabs{margin-top:0;margin-bottom:10px}
+.pcm-snapshot-manager .pcm-snapshot-card-title{flex-wrap:nowrap;align-items:center;gap:5px}
+.pcm-snapshot-manager .pcm-snapshot-card-title>button{width:28px;min-height:28px;height:28px;padding:4px;font-size:12px}
+.pcm-snapshot-manager .pcm-snapshot-card-title h3{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pcm-snapshot-manager .pcm-snapshot-manage:empty{display:none}
+.pcm-dialog:has(>.pcm-snapshot-manager),.pcm-dialog:has(>.pcm-api-manager){overflow-y:auto!important;overflow-x:hidden!important}

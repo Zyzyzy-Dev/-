@@ -64,7 +64,7 @@
 @media(min-width:901px){.pcm-home-content{margin-left:0;margin-right:auto}}
 
 /* 首页固定在可视区域内：插图作为居中背景，不参与内容高度。 */
-.pcm-dialog:has(>.pcm-toolbox-home:not([hidden])){overflow:hidden!important}
+.pcm-dialog:has(>.pcm-toolbox-home:not([hidden]):not(.pcm-view-hidden)){overflow:hidden!important}
 .pcm-toolbox-home{height:100%;min-height:0;padding-bottom:22px;overflow:hidden}
 .pcm-home-top{position:relative;z-index:1;flex:none;margin-bottom:clamp(12px,4vh,40px)}
 .pcm-home-content{flex:1;min-height:0;max-height:580px;align-items:stretch;gap:clamp(8px,1.6vh,16px)}

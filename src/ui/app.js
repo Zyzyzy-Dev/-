@@ -100,15 +100,15 @@ function showApiManager(quick=false){
   const dialog=document.getElementById(APP_ID+'-dialog');if(!dialog)return;
   closeSnapshotPanel();closeWorldbookWorkbench();closeApiPanel();toolboxView='api';paneLayout?.cancel();
   dialog.querySelector('.pcm-toolbox-home')?.classList.add('pcm-view-hidden');dialog.querySelector('.pcm-app')?.classList.add('pcm-view-hidden');
-  apiPanel=createApiPanel({quick,host,onBack:showToolbox,onClose:()=>void requestPanelClose(),onCycleTheme:cycleUiTheme,themeIcon:UI_THEME_ICONS[state.uiTheme]||'',prompt:pcmPrompt,confirm:pcmConfirm});
+  apiPanel=createApiPanel({quick,host,onSnapshots:()=>showSnapshots(quick),onBack:showToolbox,onClose:()=>void requestPanelClose(),onCycleTheme:cycleUiTheme,themeIcon:UI_THEME_ICONS[state.uiTheme]||'',prompt:pcmPrompt,confirm:pcmConfirm});
   dialog.append(apiPanel.element);dialog.scrollTop=0;void apiPanel.refresh();
 }
-function showSnapshots(){
+function showSnapshots(quick=false){
   const dialog=document.getElementById(APP_ID+'-dialog');if(!dialog)return;
   closeSnapshotPanel();closeWorldbookWorkbench();closeApiPanel();toolboxView='snapshots';paneLayout?.cancel();
   dialog.querySelector('.pcm-toolbox-home')?.classList.add('pcm-view-hidden');
   dialog.querySelector('.pcm-app')?.classList.add('pcm-view-hidden');
-  snapshotPanel=createSnapshotPanel({host,onBack:showToolbox,onClose:()=>void requestPanelClose(),onCycleTheme:cycleUiTheme,themeIcon:UI_THEME_ICONS[state.uiTheme]||'',prompt:pcmPrompt,confirm:pcmConfirm,toast:pcmToastr});
+  snapshotPanel=createSnapshotPanel({quick,host,onApi:()=>showApiManager(quick),onBack:showToolbox,onClose:()=>void requestPanelClose(),onCycleTheme:cycleUiTheme,themeIcon:UI_THEME_ICONS[state.uiTheme]||'',prompt:pcmPrompt,confirm:pcmConfirm,toast:pcmToastr});
   dialog.append(snapshotPanel.element);dialog.scrollTop=0;void snapshotPanel.refresh();
 }
 // 页面切换清掉外层滚动，避免矮屏首页/详情的滚动偏移把新页面头部推入安全区。
