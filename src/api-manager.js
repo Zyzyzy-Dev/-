@@ -2,6 +2,10 @@
 import { createIdentifier } from './core.js';
 
 export const API_STORE_KEY = 'preset_compare_api_manager';
+export function maskApiSecret(value) {
+  const text = typeof value === 'string' ? value : '';
+  return text.length > 10 ? `••••••••${text.slice(-3)}` : '••••••••';
+}
 export const API_SOURCES = Object.freeze({
   custom: { label: '自定义（兼容 OpenAI）', model: 'custom_model', selector: '#custom_model_id', secret: 'api_key_custom', fields: ['custom_url'] },
 });

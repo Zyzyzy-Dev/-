@@ -6,7 +6,7 @@ import { captureSnapshot, normalizeSnapshotName, planSnapshotRestore, resolveSna
 import { captureWorldEntries, restoreWorldEntries, captureRegexSwitches, restoreRegexSwitches, validateSnapshotResources, normalizeSnapshotResources, regexEditor } from './snapshot-resources.js';
 import { createIdentifier } from './core.js';
 import { normalizeWorkbenchBook } from './worldbook-workbench.js';
-import { API_STORE_KEY, normalizeApiProfile, planApiSwitch, importApiProfiles } from './api-manager.js';
+import { API_STORE_KEY, normalizeApiProfile, planApiSwitch, importApiProfiles, maskApiSecret } from './api-manager.js';
 
 // Track native worldbook writes from module startup, not only after a workbench window opens.
 // Other URLs, the fetch receiver/arguments, and the exact returned Promise are left untouched.
@@ -174,7 +174,7 @@ async function handleApiManagerRequest(method, payload) {
     const list = state[key];
     if (list != null && !Array.isArray(list)) throw new Error('当前酒馆不支持多密钥管理，请升级酒馆');
     // Never return the value field: it may be unmasked when the server allows key exposure.
-    return (list || []).map(item => ({ id: item.id, label: item.label, active: !!item.active }));
+    return (list || []).map(item => ({ id: item.id, label: item.label, active: !!item.active, masked: maskApiSecret(item.value) }));
   };
   const activeId = list => list.find(item => item.active)?.id || '';
   let generationLocked = false;
@@ -203,6 +203,28 @@ async function handleApiManagerRequest(method, payload) {
     script.saveSettingsDebounced();
   };
   const current = keys => ({ source: settings.chat_completion_source, model: settings.custom_model || '', connection: { custom_url: settings.custom_url || '' }, secretId: activeId(keys) });
+  if (method === 'api-manager-models') {
+    const profile = normalizeApiProfile({ name: '模型查询', model: 'query', connection: { custom_url: payload.url } });
+    const body = { chat_completion_source: 'openai', reverse_proxy: profile.connection.custom_url, proxy_password: String(payload.newSecret || '') };
+    if (!payload.newSecret && payload.secretId) {
+      if (!(await readKeys()).some(item => item.id === payload.secretId)) throw new Error('所选密钥已不存在，请重新选择');
+      // Native /status can address a vault entry without rotating the active key or exposing its value.
+      delete body.reverse_proxy; delete body.proxy_password;
+      Object.assign(body, { chat_completion_source: 'custom', custom_url: profile.connection.custom_url, secret_id: String(payload.secretId) });
+    }
+    const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 15000);
+    try {
+      const response = await fetch('/api/backends/chat-completions/status', { method: 'POST', headers: script.getRequestHeaders(), body: JSON.stringify(body), signal: controller.signal });
+      if (!response.ok) throw new Error(`拉取模型失败（${response.status}），请检查地址和密钥`);
+      const result = await response.json(), models = result?.data ?? result?.models;
+      if (!Array.isArray(models) || result?.error) throw new Error('未取得模型列表，请检查地址和密钥，或手动填写模型名称');
+      return [...new Set(models.map(item => typeof item === 'string' ? item : item?.id).filter(item => typeof item === 'string' && item.length > 0 && item.length <= 500))].sort();
+    } catch (error) {
+      if (error.name === 'AbortError') throw new Error('拉取模型超时，请重试或手动填写');
+      if (error instanceof TypeError) throw new Error('拉取模型网络失败，请检查连接');
+      throw error;
+    } finally { clearTimeout(timer); }
+  }
   if (method === 'api-manager-list') {
     const keys = await readKeys();
     return { profiles: clone(store.profiles), keys, current: current(keys), supported: script.main_api === 'openai' && settings.chat_completion_source === 'custom' };

@@ -1,7 +1,13 @@
 // API 字段隔离、导入白名单与输入校验回归，不包含真实地址或用户密钥。
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeApiProfile, planApiSwitch, importApiProfiles } from '../src/api-manager.js';
+import { normalizeApiProfile, planApiSwitch, importApiProfiles, maskApiSecret } from '../src/api-manager.js';
+test('密钥无论服务器是否开放明文均强制打码，短密钥不暴露任何字符', () => {
+  assert.equal(maskApiSecret('sk-sensitive-example'), '••••••••ple');
+  assert.equal(maskApiSecret('abc'), '••••••••');
+  assert.equal(maskApiSecret('********xyz'), '••••••••xyz');
+  assert.equal(maskApiSecret(undefined), '••••••••');
+});
 const profile = { id: 'scheme-a', name: '测试 API', source: 'custom', model: 'new-model', connection: { custom_url: 'https://example.com/v1' }, secretId: 'key-a' };
 const settings = { chat_completion_source: 'custom', custom_model: 'old-model', custom_url: 'https://old.example/v1', preset_settings_openai: '保留预设', temp_openai: 1.2, prompts: [{ content: '不可变更' }], custom_include_body: '保留' };
 test('仅 API 只生成地址与密钥变更，模型及预设不变', () => {

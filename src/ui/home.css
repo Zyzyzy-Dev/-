@@ -60,3 +60,5 @@
 }
 @media(max-width:350px){.pcm-home-brand h1{font-size:18px}.pcm-toolbox-card{gap:7px;padding:12px 10px}.pcm-toolbox-card-icon{flex-basis:54px;width:54px;height:54px}.pcm-toolbox-card-copy strong{font-size:18px;line-height:1.15}.pcm-toolbox-card-copy small{font-size:9px;line-height:1.15;margin-top:2px}.pcm-home-card-go{flex-basis:25px;width:25px;height:25px}}
 @media(prefers-reduced-motion:reduce){.pcm-toolbox-card,.pcm-home-flip-inner{transition:none}.pcm-toolbox-card:hover{transform:none}}
+/* 宽屏功能入口贴齐左侧内容边距，避免大面积空白；窄屏保持原单列尺寸。 */
+@media(min-width:901px){.pcm-home-content{margin-left:0;margin-right:auto}}

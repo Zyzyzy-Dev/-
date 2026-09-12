@@ -5,3 +5,20 @@
 .pcm-api-manager button{min-height:38px}.pcm-api-manager button:disabled{opacity:.55;cursor:wait}
 .pcm-api-commands{display:grid;gap:8px;margin-top:12px}.pcm-api-commands input{font-size:12px}
 @media(max-width:650px){.pcm-api-manager input,.pcm-api-manager select{font-size:16px}.pcm-api-editor{padding:12px}.pcm-api-manager .pcm-snapshot-toolbar{flex-wrap:wrap}}
+.pcm-api-manager .pcm-api-icon{display:inline-grid;place-items:center;flex:0 0 34px;width:34px;height:34px;min-height:34px;padding:7px;border:1px solid var(--snap-border);border-radius:9px;background:var(--snap-card);color:var(--snap-fg);cursor:pointer}
+.pcm-api-icon svg{display:block;width:18px;height:18px}
+.pcm-api-current-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.pcm-api-details{display:grid;grid-template-columns:48px minmax(0,1fr);gap:9px 16px;margin:16px 0}
+.pcm-api-details dt{opacity:.7}.pcm-api-details dd{margin:0;overflow-wrap:anywhere;white-space:pre-wrap}
+.pcm-api-current-actions{display:flex;justify-content:flex-end;margin-top:10px}
+.pcm-api-modal{box-sizing:border-box;width:min(540px,calc(100vw - 24px));max-height:calc(100dvh - 32px);padding:0;border:1px solid var(--snap-border);border-radius:16px;background:var(--snap-card);color:var(--snap-fg);overflow:auto;overscroll-behavior:contain}
+.pcm-api-modal::backdrop{background:#0008}
+.pcm-api-modal .pcm-api-editor{border:0;margin:0;padding:22px;max-width:none}
+.pcm-api-editor-head{display:flex;justify-content:space-between;align-items:center;gap:10px}.pcm-api-editor-head h3{margin:0;font-size:19px}
+.pcm-api-input-row{display:flex;gap:8px;align-items:center;min-width:0}.pcm-api-input-row input{flex:1}
+.pcm-api-model-menu{max-height:190px;overflow:auto;border:1px solid var(--snap-border);border-radius:8px;margin-top:6px;background:var(--snap-bg)}
+.pcm-api-model-menu button{display:block;text-align:left;white-space:normal;overflow-wrap:anywhere;width:100%;border:0;border-radius:0;background:transparent;padding:9px 12px;color:var(--snap-fg)}
+.pcm-api-model-menu button:hover,.pcm-api-model-menu button:focus-visible{background:var(--snap-card)}
+.pcm-api-editor-status{font-size:12px;line-height:1.5}.pcm-api-editor-status:empty{display:none}.pcm-api-editor-status.is-error{border-left:3px solid #ca967b;padding-left:8px}
+.pcm-api-editor>.pcm-snapshot-actions{justify-content:flex-end;margin-top:20px}
+@media(max-width:650px){.pcm-api-modal .pcm-api-editor{padding:16px}.pcm-api-details{gap:8px 10px}.pcm-api-manager .pcm-snapshot-header{gap:6px}}
