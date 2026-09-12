@@ -21,7 +21,11 @@ function option(select, value, text) {
   select.append(element);
 }
 
-export function openWorldbookPanel({ dialog, title, onApply, onPick }) {
+export function createWorldbookImportSession() {
+  return { books: new Map(), selected: new Set(), query: '', filter: 'all', keepDisabled: true };
+}
+
+export function openWorldbookPanel({ dialog, title, onApply, onPick, session = createWorldbookImportSession() }) {
   dialog.querySelector('[data-worldbook-panel]')?.remove();
   const panel = node('section', 'pcm-picker open');
   panel.dataset.worldbookPanel = '';
@@ -44,9 +48,9 @@ export function openWorldbookPanel({ dialog, title, onApply, onPick }) {
   const status = node('p', 'pcm-worldbook-status');
   status.setAttribute('role', 'status');
   const report = error => { status.textContent = error.message || String(error); status.classList.add('pcm-worldbook-error'); };
-  const books = new Map();
-  const selected = new Set();
-  let items = [];
+  const { books, selected } = session;
+  let items = [...books.values()].flat();
+  if (books.size) status.textContent = `已加载 ${books.size} 本世界书`;
   let busy = false;
   const applyButtons = [];
   const keyOf = item => JSON.stringify([item.source, item.key]);
@@ -60,11 +64,10 @@ export function openWorldbookPanel({ dialog, title, onApply, onPick }) {
     }
     for (const entry of books.get(source) || []) selected.delete(keyOf(entry));
     books.set(source, entries);
-    for (const entry of entries) selected.add(keyOf(entry));
     items = [...books.values()].flat();
     status.classList.remove('pcm-worldbook-error');
     status.textContent = `已加载 ${books.size} 本世界书`;
-    search.value = ''; filter.value = 'all';
+    search.value = session.query = ''; filter.value = session.filter = 'all';
     render();
   }
   async function runBusy(control, work) {
@@ -111,6 +114,7 @@ export function openWorldbookPanel({ dialog, title, onApply, onPick }) {
   search.setAttribute('aria-label', '搜索世界书条目');
   const filter = node('select'); filter.setAttribute('aria-label', '世界书条目状态');
   option(filter, 'all', '全部状态'); option(filter, 'enabled', '仅启用'); option(filter, 'disabled', '仅禁用');
+  search.value = session.query; filter.value = session.filter;
   filters.append(search, filter);
   const count = node('span', 'pcm-worldbook-count');
   const visibleItems = () => {
@@ -135,7 +139,7 @@ export function openWorldbookPanel({ dialog, title, onApply, onPick }) {
       const heading = node('strong', 'pcm-worldbook-source-title', sourceName);
       heading.title = source;
       const actions = node('div', 'pcm-worldbook-source-actions');
-      actions.append(button('全选筛选结果', () => { for (const item of visibleItems().filter(item => item.source === source)) selected.add(keyOf(item)); render(); }),
+      actions.append(button('全选', () => { for (const item of visibleItems().filter(item => item.source === source)) selected.add(keyOf(item)); render(); }),
         button('取消选择', () => { for (const item of entries) selected.delete(keyOf(item)); render(); }),
         button('清空来源', () => {
           for (const item of entries) selected.delete(keyOf(item));
@@ -168,10 +172,12 @@ export function openWorldbookPanel({ dialog, title, onApply, onPick }) {
     }
     updateCount();
   }
-  search.addEventListener('input', render); filter.addEventListener('change', render);
+  search.addEventListener('input', () => { session.query = search.value; render(); });
+  filter.addEventListener('change', () => { session.filter = filter.value; render(); });
   const footer = node('footer', 'pcm-worldbook-footer');
   const keepLabel = node('label', 'pcm-worldbook-check');
-  const keep = node('input'); keep.type = 'checkbox'; keep.checked = true;
+  const keep = node('input'); keep.type = 'checkbox'; keep.checked = session.keepDisabled;
+  keep.addEventListener('change', () => { session.keepDisabled = keep.checked; });
   keepLabel.append(keep, document.createTextNode('保留禁用状态'));
   const positions = node('div', 'pcm-worldbook-positions');
   for (const [label, placement] of [['注入预设最前', 'start'], ['注入预设末尾', 'end'], ['注入指定位置', 'pick']]) {
