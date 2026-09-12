@@ -43,6 +43,21 @@ export function openWorldbookPanel({ dialog, title, onApply, onPick }) {
   bookSelect.setAttribute('aria-label', '酒馆世界书');
   bookSelect.hidden = true;
   option(bookSelect, '', '先读取酒馆世界书列表');
+  const bookSearch = node('input');
+  bookSearch.type = 'search'; bookSearch.placeholder = '搜索世界书名称';
+  bookSearch.setAttribute('aria-label', '搜索世界书名称');
+  bookSearch.hidden = true;
+  let bookNames = [];
+  function renderBookOptions() {
+    const query = bookSearch.value.trim().toLocaleLowerCase();
+    const visible = bookNames.filter(name => name.toLocaleLowerCase().includes(query));
+    bookSelect.replaceChildren();
+    option(bookSelect, '', !bookNames.length ? '酒馆中没有世界书' : visible.length ? '选择世界书' : '没有匹配的世界书');
+    for (const name of visible) option(bookSelect, name, name);
+    // 筛选只影响候选列表，已加载来源和条目选择保持不变。
+    bookSelect.value = visible.includes(currentTavernName) ? currentTavernName : '';
+  }
+  bookSearch.addEventListener('input', renderBookOptions);
   const status = node('p', 'pcm-worldbook-status');
   status.setAttribute('role', 'status');
   const report = error => { status.textContent = error.message || String(error); status.classList.add('pcm-worldbook-error'); };
@@ -84,10 +99,9 @@ export function openWorldbookPanel({ dialog, title, onApply, onPick }) {
   const loadBooks = button('酒馆世界书', () => runBusy(loadBooks, async () => {
     const names = await host.request('list-worldbooks');
     if (!panel.isConnected) return;
-    bookSelect.replaceChildren(); option(bookSelect, '', names.length ? '选择世界书' : '酒馆中没有世界书');
-    for (const name of names) option(bookSelect, name, name);
-    bookSelect.hidden = false;
-    bookSelect.value = names.includes(currentTavernName) ? currentTavernName : '';
+    bookNames = names;
+    renderBookOptions();
+    bookSelect.hidden = false; bookSearch.hidden = false;
     status.classList.remove('pcm-worldbook-error'); status.textContent = '';
   }));
   bookSelect.addEventListener('change', () => runBusy(bookSelect, async () => {
@@ -99,9 +113,9 @@ export function openWorldbookPanel({ dialog, title, onApply, onPick }) {
       if (!panel.isConnected) return;
       addBook(data, `酒馆：${name}`, true);
       currentTavernName = name;
-    } catch (error) { bookSelect.value = currentTavernName; throw error; }
+    } catch (error) { renderBookOptions(); throw error; }
   }));
-  sources.append(fileLabel, loadBooks, bookSelect);
+  sources.append(fileLabel, loadBooks, bookSearch, bookSelect);
   file.addEventListener('change', () => {
     const files = [...file.files]; file.value = '';
     runBusy(file, async () => {
