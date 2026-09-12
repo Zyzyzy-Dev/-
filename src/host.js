@@ -6,6 +6,7 @@ import { captureSnapshot, normalizeSnapshotName, planSnapshotRestore, resolveSna
 import { captureWorldEntries, restoreWorldEntries, captureRegexSwitches, restoreRegexSwitches, validateSnapshotResources, normalizeSnapshotResources, regexEditor } from './snapshot-resources.js';
 import { createIdentifier } from './core.js';
 import { normalizeWorkbenchBook } from './worldbook-workbench.js';
+import { API_STORE_KEY, normalizeApiProfile, planApiSwitch, importApiProfiles } from './api-manager.js';
 
 // Track native worldbook writes from module startup, not only after a workbench window opens.
 // Other URLs, the fetch receiver/arguments, and the exact returned Promise are left untouched.
@@ -106,6 +107,7 @@ async function listTavernPresets() {
 }
 
 async function handleRequest(method, payload) {
+  if (method.startsWith('api-manager-')) return snapshotSerial(() => handleApiManagerRequest(method, payload || {}));
   if (method === 'workbench-read-worldbook' || method === 'workbench-save-worldbook') {
     // Share the resource queue with snapshot writes so the two features cannot overwrite each other.
     return snapshotSerial(() => handleWorkbenchWorldbook(method, payload || {}));
@@ -149,6 +151,169 @@ async function handleRequest(method, payload) {
     return clone(readPresetByName(manager, name));
   }
   throw new Error(`未知宿主请求：${method}`);
+}
+
+async function handleApiManagerRequest(method, payload) {
+  const [openai, script, extensions, secrets] = await Promise.all([
+    import('/scripts/openai.js'), import('/script.js'), import('/scripts/extensions.js'), import('/scripts/secrets.js'),
+  ]);
+  const settings = openai.oai_settings;
+  const store = extensions.extension_settings[API_STORE_KEY] ?? { version: 1, profiles: [] };
+  if (store.version !== 1 || !Array.isArray(store.profiles)) throw new Error('API 方案库格式不受支持，请更新插件');
+  const key = 'api_key_custom';
+  const post = async (action, body) => {
+    const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const response = await fetch(`/api/secrets/${action}`, { method: 'POST', headers: script.getRequestHeaders(), body: JSON.stringify(body), signal: controller.signal });
+      if (!response.ok) throw new Error(`密钥管理请求失败（${response.status}），请核对酒馆密钥管理器`);
+      return action === 'read' || action === 'write' ? await response.json() : null;
+    } finally { clearTimeout(timer); }
+  };
+  const readKeys = async () => {
+    const state = await post('read', {});
+    const list = state[key];
+    if (list != null && !Array.isArray(list)) throw new Error('当前酒馆不支持多密钥管理，请升级酒馆');
+    // Never return the value field: it may be unmasked when the server allows key exposure.
+    return (list || []).map(item => ({ id: item.id, label: item.label, active: !!item.active }));
+  };
+  const activeId = list => list.find(item => item.active)?.id || '';
+  let generationLocked = false;
+  const idle = () => {
+    if (generationLocked) return;
+    if (script.isGenerating?.() || script.is_send_press) throw new Error('正在生成，请结束生成后再操作 API');
+  };
+  const lockGeneration = () => {
+    idle();
+    if (typeof script.setSendButtonState !== 'function') throw new Error('当前酒馆缺少生成保护接口，请更新酒馆');
+    script.setSendButtonState(true); generationLocked = true;
+  };
+  const unlockGeneration = () => { if (generationLocked) { script.setSendButtonState(false); generationLocked = false; } };
+  const ready = () => {
+    idle();
+    if (script.main_api !== 'openai' || settings.chat_completion_source !== 'custom') throw new Error('第一版支持自定义兼容 API，请先在酒馆选择“聊天补全 → 自定义（兼容 OpenAI）”');
+  };
+  const rotate = async id => {
+    await post('rotate', { key, id });
+    if (activeId(await readKeys()) !== id) throw new Error('密钥切换未生效，请检查密钥是否已被删除');
+    await secrets.readSecretState();
+    if (Array.isArray(secrets.secret_state?.[key]) && activeId(secrets.secret_state[key]) !== id) throw new Error('原生密钥显示未同步，请刷新后核对');
+  };
+  const persist = async profiles => {
+    extensions.extension_settings[API_STORE_KEY] = { version: 1, profiles };
+    script.saveSettingsDebounced();
+  };
+  const current = keys => ({ source: settings.chat_completion_source, model: settings.custom_model || '', connection: { custom_url: settings.custom_url || '' }, secretId: activeId(keys) });
+  if (method === 'api-manager-list') {
+    const keys = await readKeys();
+    return { profiles: clone(store.profiles), keys, current: current(keys), supported: script.main_api === 'openai' && settings.chat_completion_source === 'custom' };
+  }
+  if (method === 'api-manager-import') {
+    const imported = importApiProfiles(payload.data);
+    if (store.profiles.length + imported.length > 500) throw new Error('最多保存 500 个 API 方案');
+    await persist([...store.profiles, ...imported]);
+    return { count: imported.length };
+  }
+  if (method === 'api-manager-delete') {
+    await persist(store.profiles.filter(item => item.id !== payload.id));
+    return true;
+  }
+  if (method === 'api-manager-save') {
+    idle();
+    const keys = await readKeys();
+    if (payload.capture) ready();
+    const profile = normalizeApiProfile(payload.capture ? { ...current(keys), name: payload.name, id: payload.id } : payload.profile);
+    if (!payload.newSecret?.trim() && profile.secretId && !keys.some(item => item.id === profile.secretId)) throw new Error('所选密钥已不存在，请重新选择');
+    if (store.profiles.length >= 500 && !store.profiles.some(item => item.id === profile.id)) throw new Error('最多保存 500 个 API 方案');
+    // New keys go only to the native vault. Restore its previous active key before saving the profile.
+    if (typeof payload.newSecret === 'string' && payload.newSecret.trim()) {
+      ready();
+      lockGeneration();
+      let previous = activeId(keys);
+      try {
+        if (!previous) previous = (await post('write', { key, value: '', label: '酒馆盒子 · 无密钥' })).id;
+        if (!previous) throw new Error('无法保存原密钥状态');
+        const result = await post('write', { key, value: payload.newSecret.trim(), label: profile.name });
+        if (!result.id) throw new Error('密钥保存失败');
+        profile.secretId = result.id;
+      } finally {
+        try { if (previous) await rotate(previous); }
+        catch { throw new Error('新密钥操作后恢复原活动密钥失败，请先在酒馆密钥管理器核对当前密钥；方案尚未保存'); }
+        finally { unlockGeneration(); }
+      }
+    }
+    profile.updatedAt = Date.now();
+    const profiles = [...store.profiles], index = profiles.findIndex(item => item.id === profile.id);
+    if (index < 0) profiles.push(profile); else profiles[index] = profile;
+    await persist(profiles);
+    return { id: profile.id };
+  }
+  if (method === 'api-manager-apply') {
+    ready();
+    const profile = store.profiles.find(item => item.id === payload.id);
+    if (!profile) throw new Error('API 方案不存在，请刷新列表');
+    const plan = planApiSwitch(settings, profile, payload.mode);
+    const before = clone(settings), keys = await readKeys();
+    let previous = activeId(keys), target = plan.secretId;
+    if (target !== null && keys.length && !previous) throw new Error('原生密钥库没有活动密钥，请先在酒馆密钥管理器选择一个');
+    if (target && !keys.some(item => item.id === target)) throw new Error('方案引用的密钥已被删除或不属于当前酒馆，请编辑方案重新选择');
+    ready();
+    if (JSON.stringify(settings) !== JSON.stringify(before)) throw new Error('酒馆设置已变化，请重试');
+    if (payload.mode !== 'model' && String(document.querySelector('#api_key_custom')?.value || '').trim()) throw new Error('原生 API 密钥输入框有未保存内容，请先保存或清空后再切换');
+    if (payload.mode !== 'model' && before.custom_url !== plan.patch.custom_url && String(settings.custom_include_headers || '').trim()) throw new Error('当前连接使用自定义请求头。第一版尚不管理请求头，请先在酒馆清空或迁移其中的认证信息后再跨地址切换');
+    // Abort pending native model discovery before it can choose a default model on response.
+    const previousStatus = script.online_status;
+    let fieldsApplied = false;
+    lockGeneration();
+    try {
+      if (payload.mode !== 'model') script.cancelStatusCheck?.('酒馆盒子独立切换 API');
+      if (target !== null) {
+        if (!target && previous) {
+          const result = await post('write', { key, value: '', label: '酒馆盒子 · 无密钥' });
+          target = result.id;
+          if (!target) throw new Error('无法启用无密钥连接');
+        }
+        if (target && target !== previous) await rotate(target);
+      }
+      ready();
+      if (JSON.stringify(settings) !== JSON.stringify(before)) throw new Error('切换期间酒馆设置已被外部修改，未覆盖新设置');
+      Object.assign(settings, plan.patch);
+      fieldsApplied = true;
+      // Assign DOM values without input/change: those events can reapply presets or clamp generation parameters.
+      for (const [field, selector] of [['custom_url', '#custom_api_url_text'], ['custom_model', '#custom_model_id']]) {
+        if (Object.hasOwn(plan.patch, field)) { const control = document.querySelector(selector); if (control) control.value = settings[field]; }
+      }
+      if (payload.mode !== 'model') {
+        if (Array.isArray(openai.model_list)) openai.model_list.splice(0);
+        for (const select of document.querySelectorAll('.model_custom_select')) select.replaceChildren(new Option(settings.custom_model, settings.custom_model, true, true));
+      } else {
+        for (const select of document.querySelectorAll('.model_custom_select')) {
+          if (![...select.options].some(option => option.value === settings.custom_model)) select.add(new Option(settings.custom_model, settings.custom_model));
+          select.value = settings.custom_model;
+        }
+      }
+      script.saveSettingsDebounced();
+      if (payload.mode !== 'model') script.setOnlineStatus?.('API 配置已切换（未验证连接）');
+      return { mode: payload.mode };
+    } catch (error) {
+      // Roll back only our own field writes; leave any external edits intact.
+      if (fieldsApplied) for (const [field, value] of Object.entries(plan.patch)) if (settings[field] === value) settings[field] = before[field];
+      for (const [field, selector] of [['custom_url', '#custom_api_url_text'], ['custom_model', '#custom_model_id']]) {
+        const control = document.querySelector(selector); if (control && Object.hasOwn(plan.patch, field)) control.value = settings[field];
+      }
+      if (target && target !== previous) {
+        try {
+          if (activeId(await readKeys()) === target) {
+            if (previous) await rotate(previous);
+            else { await post('delete', { key, id: target }); await secrets.readSecretState(); }
+          }
+        } catch { throw new Error('切换未完成且密钥恢复失败，请在酒馆密钥管理器核对当前密钥后重试'); }
+      }
+      script.saveSettingsDebounced();
+      if (payload.mode !== 'model' && previousStatus !== undefined) script.setOnlineStatus?.(previousStatus);
+      throw error;
+    } finally { unlockGeneration(); }
+  }
+  throw new Error('未知 API 管理操作');
 }
 
 function workbenchWorldName(value) {
@@ -1370,6 +1535,7 @@ function addMenu(controller) {
 
 export function installPresetCompareHost() {
   const controller = new AppHost();
+  void installApiQuickCommand().catch(error => console.warn(`[${APP_ID}] API quick command unavailable`, error));
   void installSnapshotBindings(controller).catch(error => console.warn(`[${APP_ID}] snapshot bindings unavailable`, error));
   const installMenu = () => {
     if (addMenu(controller)) return;
@@ -1381,6 +1547,22 @@ export function installPresetCompareHost() {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', installMenu, { once: true });
   else installMenu();
   return controller;
+}
+
+async function installApiQuickCommand() {
+  const [{ SlashCommandParser }, { SlashCommand }, { SlashCommandArgument, SlashCommandNamedArgument, ARGUMENT_TYPE }] = await Promise.all([
+    import('/scripts/slash-commands/SlashCommandParser.js'), import('/scripts/slash-commands/SlashCommand.js'), import('/scripts/slash-commands/SlashCommandArgument.js'),
+  ]);
+  SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+    name: 'box-api',
+    callback: async (args, value) => {
+      await handleRequest('api-manager-apply', { id: String(value || '').trim(), mode: String(args.mode || 'both') });
+      return '';
+    },
+    namedArgumentList: [SlashCommandNamedArgument.fromProps({ name: 'mode', description: 'api 仅切 API / model 仅切模型 / both 两者', typeList: [ARGUMENT_TYPE.STRING], defaultValue: 'both' })],
+    unnamedArgumentList: [SlashCommandArgument.fromProps({ description: '酒馆盒子 API 方案 ID', typeList: [ARGUMENT_TYPE.STRING], isRequired: true })],
+    helpString: '切换酒馆盒子的自定义兼容 API 方案，保留预设、正则、世界书及生成参数。可用于原生快速回复按钮。',
+  }));
 }
 
 // 扩展更新 hook（ST 官方约定，manifest.hooks.update 指向本导出）：

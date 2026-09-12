@@ -1,0 +1,7 @@
+/* API 管理表单与快切命令：复用快照主题变量，适配窄屏与输入法。 */
+.pcm-api-editor{padding:16px;border:1px solid var(--snap-border);border-radius:14px;background:var(--snap-card);margin:16px auto;max-width:1000px}
+.pcm-api-field{display:flex;flex-direction:column;gap:6px;margin:12px 0;min-width:0}
+.pcm-api-manager input,.pcm-api-manager select{box-sizing:border-box;width:100%;min-width:0;min-height:40px;padding:9px;border:1px solid var(--snap-border);border-radius:8px;background:var(--snap-bg);color:var(--snap-fg);font:inherit}
+.pcm-api-manager button{min-height:38px}.pcm-api-manager button:disabled{opacity:.55;cursor:wait}
+.pcm-api-commands{display:grid;gap:8px;margin-top:12px}.pcm-api-commands input{font-size:12px}
+@media(max-width:650px){.pcm-api-manager input,.pcm-api-manager select{font-size:16px}.pcm-api-editor{padding:12px}.pcm-api-manager .pcm-snapshot-toolbar{flex-wrap:wrap}}
