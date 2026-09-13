@@ -1380,6 +1380,16 @@ class AppHost {
     const mounted = createHostDialog();
     this.dialog = mounted.dialog;
     this.iframe = mounted.iframe;
+    let backdropPointer = false;
+    const outside = event => {
+      const rect = this.dialog.getBoundingClientRect();
+      return event.target === this.dialog && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom);
+    };
+    this.dialog.addEventListener('pointerdown', event => { backdropPointer = outside(event); });
+    this.dialog.addEventListener('click', event => {
+      if (this.apiQuick && backdropPointer && outside(event)) this.close();
+      backdropPointer = false;
+    });
     this.dialog.addEventListener('close', () => {
       this.openRequested = false;
       this.sendEvent('host-closed');
