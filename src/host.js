@@ -8,7 +8,7 @@ import { captureSnapshot, normalizeSnapshotName, planSnapshotRestore, resolveSna
 import { captureWorldEntries, restoreWorldEntries, captureRegexSwitches, restoreRegexSwitches, validateSnapshotResources, normalizeSnapshotResources, regexEditor } from './snapshot-resources.js';
 import { createIdentifier } from './core.js';
 import { normalizeWorkbenchBook } from './worldbook-workbench.js';
-import { API_STORE_KEY, normalizeApiProfile, planApiSwitch, importApiProfiles, maskApiSecret } from './api-manager.js';
+import { API_STORE_KEY, normalizeApiProfile, planApiSwitch, readNativeApiProfiles, maskApiSecret } from './api-manager.js';
 
 // Track native worldbook writes from module startup, not only after a workbench window opens.
 // Other URLs, the fetch receiver/arguments, and the exact returned Promise are left untouched.
@@ -114,7 +114,7 @@ async function handleRequest(method, payload) {
     if (!snapshot) throw new Error('绑定快照已删除，请取消绑定后重试');
     return applyLinkedSnapshot(env, snapshot, {...payload, contextKey:snapshotContext(env).key}, false);
   });
-  if (method.startsWith('api-manager-')) return snapshotSerial(() => handleApiManagerRequest(method, payload || {}), !['api-manager-list','api-manager-links','api-manager-models','api-manager-preflight'].includes(method));
+  if (method.startsWith('api-manager-')) return snapshotSerial(() => handleApiManagerRequest(method, payload || {}), !['api-manager-native-list','api-manager-list','api-manager-links','api-manager-models','api-manager-preflight'].includes(method));
   if (method === 'workbench-read-worldbook' || method === 'workbench-save-worldbook') {
     // Share the resource queue with snapshot writes so the two features cannot overwrite each other.
     return snapshotSerial(() => handleWorkbenchWorldbook(method, payload || {}));
@@ -257,11 +257,18 @@ async function handleApiManagerRequest(method, payload) {
     const keys = await readKeys();
     return { preferences: clone(extensions.extension_settings.preset_compare_api_entries || {}), profiles: clone(store.profiles), activeIds:store.profiles.filter(profile=>isApiProfileActive(profile,current(keys))).map(profile=>profile.id), links:clone(extensions.extension_settings[API_BINDINGS_KEY] || []), keys, current: current(keys), supported: script.main_api === 'openai' && settings.chat_completion_source === 'custom' };
   }
-  if (method === 'api-manager-import') {
-    const imported = importApiProfiles(payload.data);
-    if (store.profiles.length + imported.length > 500) throw new Error('最多保存 500 个 API 方案');
-    await persist([...store.profiles, ...imported]);
-    return { count: imported.length };
+  if (method === 'api-manager-native-list' || method === 'api-manager-native-import') {
+    const entries = readNativeApiProfiles(extensions.extension_settings.connectionManager?.profiles ?? [], await readKeys());
+    if (method === 'api-manager-native-list') return entries;
+    if (!Array.isArray(payload.ids) || !payload.ids.length || payload.ids.length > 500) throw new Error('请选择要导入的酒馆方案（最多 500 个）');
+    const selected = [...new Set(payload.ids)].map(id => {
+      const entry = entries.find(item => item.id === id);
+      if (!entry || entry.error) throw new Error('酒馆方案已改变或无法导入，请重新打开列表：' + (entry?.error || '方案已删除'));
+      return entry.profile;
+    });
+    if (store.profiles.length + selected.length > 500) throw new Error('最多保存 500 个 API 方案');
+    await persist([...store.profiles, ...selected]);
+    return { count: selected.length };
   }
   if (method === 'api-manager-delete') {
     extensions.extension_settings[API_BINDINGS_KEY] = (extensions.extension_settings[API_BINDINGS_KEY] || []).filter(link=>link.apiId!==payload.id);

@@ -46,3 +46,25 @@ export function importApiProfiles(value) {
   if (!Array.isArray(candidates) || !candidates.length || candidates.length > 500) throw new Error('文件中没有可导入的 API 方案（最多 500 个）');
   return candidates.map(item => normalizeApiProfile({ ...item, id: createIdentifier() }));
 }
+
+// Native Connection Manager stores command arguments; never execute its commands or copy settings.
+export function readNativeApiProfiles(profiles, keys) {
+  if (!Array.isArray(profiles)) throw new Error('酒馆连接配置列表格式无效');
+  return profiles.map(item => {
+    const id = typeof item?.id === 'string' ? item.id : '';
+    const name = typeof item?.name === 'string' ? item.name : '未命名方案';
+    try {
+      if (!id || profiles.filter(other => other?.id === id).length !== 1) throw new Error('方案标识缺失或重复');
+      if (item.mode !== 'cc' || item.api !== 'custom') throw new Error('仅支持自定义（兼容 OpenAI）连接');
+      for (const field of ['api', 'api-url', 'model', 'secret-id']) {
+        if (item.exclude?.includes(field) || typeof item[field] !== 'string' || !item[field].trim()) {
+          throw new Error('原生方案未保存完整的来源、URL、模型和密钥引用');
+        }
+      }
+      if (!keys.some(key => key.id === item['secret-id'])) throw new Error('方案引用的自定义 API 密钥已不存在');
+      const profile = normalizeApiProfile({ name, source: 'custom', model: item.model,
+        connection: { custom_url: item['api-url'] }, secretId: item['secret-id'] });
+      return { id, name, profile };
+    } catch (error) { return { id, name, error: error.message }; }
+  });
+}

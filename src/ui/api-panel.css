@@ -91,3 +91,11 @@
 .pcm-api-manager .pcm-header-switch button{font-size:9px;padding:0 2px}
 .pcm-api-manager .pcm-snapshot-heading{gap:2px}
 }
+/* Native saved connections: scroll within the picker without stretching the mobile dialog. */
+.pcm-native-api-list { max-height: 45vh; overflow-y: auto; scrollbar-width: none; }
+.pcm-native-api-list::-webkit-scrollbar { display: none; }
+.pcm-native-api-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; cursor: pointer; }
+.pcm-native-api-row input { flex: 0 0 auto; width: 18px; height: 18px; }
+.pcm-native-api-row span { min-width: 0; }
+.pcm-native-api-row strong, .pcm-native-api-row small { display: block; overflow-wrap: anywhere; }
+.pcm-native-api-row:has(input:disabled) { opacity: .6; cursor: default; }

@@ -1,4 +1,5 @@
-// API 管理页面：方案编辑、旧脚本数据导入与独立切换，所有宿主操作均通过通信桥。
+// API 管理页面：方案编辑、酒馆原生方案导入与独立切换，所有宿主操作均通过通信桥。
+import { chooseNativeApiProfiles } from './api-native-import.js';
 import { chooseApiSnapshotBinding } from './api-snapshot-bind.js';
 export function createApiPanel({ host, onBack, onClose, onCycleTheme, themeIcon, prompt, confirm, quick = false, onSnapshots }) {
   const node = (tag, cls, text) => { const el = document.createElement(tag); el.className = cls || ''; if (text !== undefined) el.textContent = text; return el; };
@@ -35,23 +36,19 @@ export function createApiPanel({ host, onBack, onClose, onCycleTheme, themeIcon,
   const editor = node('form', 'pcm-api-editor'); editor.hidden = true; modal.append(editor);
   const closeEditor = () => { if (busy) return; modal.close(); editor.hidden = true; editor.replaceChildren(); editing = null; };
   modal.addEventListener('cancel', event => { event.preventDefault(); closeEditor(); });
-  const file = node('input'); file.type = 'file'; file.accept = '.json,application/json'; file.hidden = true;
   const saveCurrent = button('保存当前设置', () => run(async () => {
     const name = await prompt('为当前 API 和模型起个名称', '我的 API'); if (!name) return;
     await host.request('api-manager-save', { capture: true, name }); await refresh(); message('已保存当前连接');
   }));
-  toolbar.append(button('＋ 新建方案', () => edit()), button('导入方案', () => file.click()));
-  file.addEventListener('change', () => void run(async () => {
-    const selected = file.files?.[0]; file.value = ''; if (!selected) return;
-    if (selected.size > 5 * 1024 * 1024) throw new Error('导入文件不能超过 5 MB');
-    const input = JSON.parse(await selected.text());
-    const result = await host.request('api-manager-import', { data: input }); await refresh(); message(`已导入 ${result.count} 个方案；密钥引用需属于当前酒馆`);
-  }));
+  toolbar.append(button('＋ 新建方案', () => edit()), button('酒馆api方案', () => run(async () => {
+    const count = await chooseNativeApiProfiles({ host, parent: element });
+    if (count) { await refresh(); message('已导入 ' + count + ' 个酒馆方案'); }
+  })));
   const tabs = node('div','pcm-header-switch');
   if (onSnapshots) {tabs.append(button('设置快照',onSnapshots));}
   heading.append(tabs);
   element.append(header, current, toolbar,
-    status, modal, list, file);
+    status, modal, list);
   function message(text, error = false) { if (disposed) return; const target = modal.open ? editor.querySelector('.pcm-api-editor-status') : status; if (target) { target.textContent = text; target.classList.toggle('is-error', error); } }
   function lock(value) { busy = value; element.setAttribute('aria-busy', String(value)); for (const el of element.querySelectorAll('button,input,select')) el.disabled = value; }
   async function run(task) { if (busy || disposed) return; lock(true); try { await task(); } catch (error) { message(error.message || '操作失败', true); } finally { if (!disposed) lock(false); } }

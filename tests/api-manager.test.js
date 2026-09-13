@@ -1,7 +1,7 @@
 // API 字段隔离、导入白名单与输入校验回归，不包含真实地址或用户密钥。
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeApiProfile, planApiSwitch, importApiProfiles, maskApiSecret } from '../src/api-manager.js';
+import { normalizeApiProfile, planApiSwitch, importApiProfiles, readNativeApiProfiles, maskApiSecret } from '../src/api-manager.js';
 test('密钥无论服务器是否开放明文均强制打码，短密钥不暴露任何字符', () => {
   assert.equal(maskApiSecret('sk-sensitive-example'), '••••••••ple');
   assert.equal(maskApiSecret('abc'), '••••••••');
@@ -32,4 +32,21 @@ test('导入旧脚本只读取方案数据，不携带脚本、明文密钥、�
 test('无效导入整批拒绝，URL 不接受脚本协议及内嵌凭据', () => {
   for (const url of ['javascript:alert(1)', 'https://user:pass@example.com', 'https://example.com?key=private']) assert.throws(() => normalizeApiProfile({ ...profile, connection: { custom_url: url } }));
   assert.throws(() => importApiProfiles({ profiles: [profile, { ...profile, source: 'unknown' }] }));
+});
+
+const native = {id:'native-a',name:'原生方案',mode:'cc',api:'custom','api-url':'https://relay.example/v1',model:'【中转】模型','secret-id':'key-a',preset:'不要导入','reasoning-template':'不要导入',exclude:[]};
+test('原生方案只提取连接白名单，不修改原配置', () => {
+  const before=structuredClone(native), [entry]=readNativeApiProfiles([native],[{id:'key-a'}]);
+  assert.equal(entry.error,undefined); assert.equal(entry.profile.model,native.model);
+  assert.equal(entry.profile.secretId,'key-a'); assert.equal(entry.profile.connection.custom_url,native['api-url']);
+  assert.deepEqual(Object.keys(entry.profile).sort(),['id','name','source','model','connection','secretId','updatedAt'].sort());
+  assert.deepEqual(native,before); assert.notEqual(entry.profile.id,native.id);
+});
+test('原生缺字段、排除字段、其他来源及失效密钥逐项给出原因', () => {
+  for (const patch of [{mode:'tc'},{api:'openai'},{'api-url':''},{model:''},{'secret-id':undefined},{'secret-id':'missing'},{exclude:['model']},{exclude:['secret-id']},{id:''}]) {
+    const [entry]=readNativeApiProfiles([{...native,...patch}],[{id:'key-a'}]);
+    assert.ok(entry.error); assert.equal(entry.profile,undefined);
+  }
+  assert.deepEqual(readNativeApiProfiles([] ,[]),[]);
+  assert.ok(readNativeApiProfiles([native,native],[{id:'key-a'}]).every(x=>x.error));
 });
