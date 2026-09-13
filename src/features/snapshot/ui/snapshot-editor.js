@@ -9,7 +9,7 @@ export function createSnapshotEditor({host, model, existingId, onCancel, onSaved
   let editor=copy(model.editor||{}),disposed=false,busy=false;
   draft.resources.version=2;
   draft.resources.worlds={global:[...draft.resources.worlds.global]};
-  const scopes=['global','preset','character'],scopeNames={global:'全局正则',preset:'预设正则',character:'角色正则'};
+  const scopes=['global'],scopeNames={global:'全局正则',preset:'预设正则',character:'角色正则'};
   const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
   const element=node('section','pcm-snapshot-editor');element.setAttribute('aria-label',existingId?'修改快照':'创建快照');
   const status=node('p','pcm-snapshot-status');status.setAttribute('role','status');
@@ -79,7 +79,7 @@ export function createSnapshotEditor({host, model, existingId, onCancel, onSaved
     busy=value;element.setAttribute('aria-busy',String(value));
     for(const section of element.querySelectorAll('[data-snapshot-scope]'))section.hidden=!draft.scope[section.dataset.snapshotScope];
     for(const el of element.querySelectorAll('input,select,textarea,button'))el.disabled=(value&&el!==cancel)||el.dataset.unavailable==='true'||!!el.closest('[data-snapshot-scope][hidden]');
-    preset.disabled=value||(!draft.scope.preset&&!draft.scope.regex);
+    preset.disabled=value||!draft.scope.preset;
   }
   async function run(action){if(busy||disposed)return;setBusy(true);status.textContent='';status.classList.remove('is-error');try{await action();}catch(error){if(!disposed){status.textContent=error.message;status.classList.add('is-error');toast.error(error.message);}}finally{if(!disposed)setBusy(false);}}
   function updatePresetSummary(){presetSummary.textContent='预设条目与分组 · '+draft.entries.filter(item=>item.enabled).length+'/'+draft.entries.length+' 条目开启';}
@@ -135,7 +135,7 @@ export function createSnapshotEditor({host, model, existingId, onCancel, onSaved
   }
   function renderRegex(){
     const expanded=new Set([...regex.querySelectorAll('details[open][data-scope]')].map(el=>el.dataset.scope));
-    regex.replaceChildren(node('h3','','正则开关'));
+    regex.replaceChildren(node('h3','','全局正则开关'));
     for(const scope of scopes){
       const scripts=draft.resources.regex[scope]||[],groups=editor.regexGroups?.[scope]||[];
       const details=node('details','pcm-snapshot-regex-details');details.dataset.scope=scope;details.open=expanded.has(scope);

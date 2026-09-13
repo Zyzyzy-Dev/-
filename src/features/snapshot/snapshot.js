@@ -16,7 +16,7 @@ export function selectSnapshotScope(snapshot) {
   if (!scope.worlds) saved.worldNames=[];
   if (snapshot.resources) saved.resources = {...snapshot.resources,
     ...(!scope.worlds ? {worlds:{global:[]},worldEntries:[]} : {}),
-    ...(!scope.regex ? {regex:{global:[],preset:[],character:[]}} : {}),
+    regex:{global:scope.regex ? (snapshot.resources.regex?.global || []) : [],preset:[],character:[]},
   };
   return saved;
 }

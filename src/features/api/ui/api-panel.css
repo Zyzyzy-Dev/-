@@ -100,3 +100,6 @@
 .pcm-native-api-row strong, .pcm-native-api-row small { display: block; overflow-wrap: anywhere; }
 .pcm-native-api-row:has(input:disabled) { opacity: .6; cursor: default; }
 .pcm-api-editor textarea { box-sizing: border-box; width: 100%; min-height: 90px; resize: vertical; font: inherit; color: inherit; background: var(--pcm-bg, transparent); scrollbar-width: none; }
+
+/* API token entry is visually masked without a browser login/password form. */
+.pcm-api-secret-text { -webkit-text-security: disc; }

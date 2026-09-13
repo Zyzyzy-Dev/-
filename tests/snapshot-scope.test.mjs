@@ -25,3 +25,11 @@ test('legacy scope defaults keep pre-resource regex excluded and resource snapsh
 test('empty or malformed explicit scope cannot silently fall back to restoring everything',()=>{
  for(const scope of [{preset:false,worlds:false,regex:false},{preset:true},null,{preset:'false',worlds:true,regex:true}])assert.throws(()=>snapshots.validateSnapshot({...base(),scope}),/范围/);
 });
+
+// Legacy per-preset and character regex switches are deliberately ignored under the new global-only scope.
+test('旧快照正则范围只保留全局开关，不携带预设或角色开关',()=>{
+ const snapshot={scope:{preset:true,worlds:false,regex:true},entries:[],groups:[],worldNames:[],resources:{regex:{global:[{id:'g',enabled:false}],preset:[{id:'p',enabled:false}],character:[{id:'c',enabled:false}]}}};
+ const result=snapshots.selectSnapshotScope(snapshot);
+ assert.deepEqual(result.resources.regex,{global:[{id:'g',enabled:false}],preset:[],character:[]});
+ assert.equal(snapshot.resources.regex.preset.length,1);
+});
