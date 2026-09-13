@@ -366,7 +366,7 @@ async function handleApiManagerRequest(method, payload) {
         const result = await response.json();
         if (!result || result.error) throw new Error('连接检查失败，请检查地址和密钥');
         connection = result.bypass ? { ok: true, message: '已执行连接，服务端跳过验证', status: 'Status check bypassed' }
-          : { ok: true, message: '连接检查通过', status: 'Valid' };
+          : { ok: true, message: '连接检查通过', status: '有效的' };
       } catch (error) {
         connection = { ok: false, message: error.name === 'AbortError' ? '连接检查超时，可稍后重试' : '连接检查失败，请检查地址、密钥或网络', status: 'no_connection' };
       } finally { clearTimeout(timer); }
