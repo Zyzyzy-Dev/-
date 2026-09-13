@@ -1,4 +1,5 @@
 // 预设更新编辑器 · 酒馆宿主桥：唯一可接触 SillyTavern 主 document/API 的模块。
+import { clone } from './clone.js';
 import { API_BINDINGS_KEY, bindApiSnapshot, isApiProfileActive } from './api-bindings.js';
 // 扩展菜单入口、外层 dialog/iframe 外壳、preset-manager/openai 动态读取与保存、
 // PRESET_CHANGED 订阅转发、主题变量与 TauriTavern IME 高度转发。
@@ -73,11 +74,7 @@ const THEME_VARIABLES = [
   '--monoFontFamily',
 ];
 
-const clone = value => {
-  if (value === undefined) return undefined;
-  if (typeof structuredClone === 'function') return structuredClone(value);
-  return JSON.parse(JSON.stringify(value));
-};
+
 
 function readPresetByName(manager, name) {
   const { presets, preset_names: names } = manager.getPresetList();
