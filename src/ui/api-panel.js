@@ -28,7 +28,7 @@ export function createApiPanel({ host, onBack, onClose, onCycleTheme, themeIcon,
     toggle.className = 'pcm-api-entry-toggle'; toggle.setAttribute('aria-label', labelText);
     toggle.setAttribute('aria-pressed', 'false'); checks[key] = toggle; preferences.append(toggle);
   }
-  header.append(heading, preferences, theme, button('×', onClose));
+  header.append(heading, preferences, theme, iconButton('关闭插件','m6 6 12 12M6 18 18 6',onClose));
   const status = node('p', 'pcm-snapshot-status'); status.setAttribute('role', 'status');
   const list = node('section', 'pcm-snapshot-list');
   const modal = node('dialog', 'pcm-api-modal'); modal.setAttribute('aria-label', 'API 方案编辑');
@@ -47,9 +47,10 @@ export function createApiPanel({ host, onBack, onClose, onCycleTheme, themeIcon,
     const input = JSON.parse(await selected.text());
     const result = await host.request('api-manager-import', { data: input }); await refresh(); message(`已导入 ${result.count} 个方案；密钥引用需属于当前酒馆`);
   }));
-  const tabs = node('div','pcm-snapshot-toolbar pcm-quick-tabs');
+  const tabs = node('div','pcm-header-switch');
   if (onSnapshots) {tabs.append(button('设置快照',onSnapshots));}
-  element.append(header, tabs, current, toolbar,
+  heading.append(tabs);
+  element.append(header, current, toolbar,
     status, modal, list, file);
   function message(text, error = false) { if (disposed) return; const target = modal.open ? editor.querySelector('.pcm-api-editor-status') : status; if (target) { target.textContent = text; target.classList.toggle('is-error', error); } }
   function lock(value) { busy = value; element.setAttribute('aria-busy', String(value)); for (const el of element.querySelectorAll('button,input,select')) el.disabled = value; }

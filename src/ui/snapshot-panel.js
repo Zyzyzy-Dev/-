@@ -10,7 +10,7 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
   const header = node('header', 'pcm-snapshot-header');
   const back = iconButton('首页', 'home', () => editor ? closeEditor() : onBack()), title = node('h2', '', '设置快照');
   const theme = button('', onCycleTheme); theme.dataset.themeToggle = ''; theme.title = '切换配色'; theme.setAttribute('aria-label', '切换配色'); theme.innerHTML = themeIcon;
-  const close = button('×', onClose); close.setAttribute('aria-label', '关闭插件');
+  const close = iconButton('关闭插件','close',onClose); close.setAttribute('aria-label', '关闭插件');
   const reload = iconButton('刷新', 'refresh', () => refresh());reload.classList.add('pcm-snapshot-refresh');
   const heading=node('div','pcm-snapshot-heading');heading.append(title,reload);
   const preferences=node('div','pcm-api-entry-settings'),toggles={};
@@ -19,7 +19,7 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
     toggle.className='pcm-api-entry-toggle';toggle.setAttribute('aria-label','启用'+label);toggle.setAttribute('aria-pressed','false');toggles[key]=toggle;preferences.append(toggle);
   }
   if(!quick)header.append(back);header.append(heading,preferences,theme,close);
-  const tabs=node('div','pcm-snapshot-toolbar pcm-quick-tabs');if(onApi)tabs.append(button('API 管理',onApi));
+  const tabs=node('div','pcm-header-switch');if(onApi)tabs.append(button('API 管理',onApi));heading.append(tabs);
   if(quick)element.classList.add('pcm-api-quick');
   const context = node('details', 'pcm-snapshot-context');context.open=true;
   const contextTitle=node('summary','','当前设置'),contextBody=node('div','pcm-snapshot-context-body');context.append(contextTitle,contextBody);
@@ -31,7 +31,7 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
   const notice = node('p', 'pcm-snapshot-notice', '快照可分别保存预设、全局世界书和正则设置。聊天绑定优先于角色绑定。');
   const status = node('p', 'pcm-snapshot-status'); status.setAttribute('role', 'status');
   const list = node('section', 'pcm-snapshot-list'); list.setAttribute('aria-label', '已保存快照');
-  element.append(header, tabs, context, toolbar, notice, status, list);
+  element.append(header, context, toolbar, notice, status, list);
   let data = null, busy = false, disposed = false, revision = 0, refreshPending = false, editor = null;
   const unsubscribe = host.on('snapshots-changed', () => {if (busy || editor) refreshPending = true; else void refresh();});
 
@@ -42,7 +42,7 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
   }
   function iconButton(label, icon, action) {
     const b=button('',action);b.className='pcm-snapshot-icon pcm-api-icon';b.title=label;b.setAttribute('aria-label',label);
-    const paths={home:'m3 10 9-7 9 7M5 9v12h5v-7h4v7h5V9',refresh:'M20 7v5h-5 M4 17v-5h5 M6.1 7a7 7 0 0 1 11.5-1L20 9 M4 15l2.4 3A7 7 0 0 0 18 17',rename:'m14 5 5 5 M4 20l4-1L20 7a2.1 2.1 0 0 0-3-3L5 16l-1 4Z',delete:'M3 6h18 M9 6V3h6v3 M6 6l1 15h10l1-15 M10 10v7 M14 10v7'};
+    const paths={close:'m6 6 12 12M6 18 18 6',home:'m3 10 9-7 9 7M5 9v12h5v-7h4v7h5V9',refresh:'M20 7v5h-5 M4 17v-5h5 M6.1 7a7 7 0 0 1 11.5-1L20 9 M4 15l2.4 3A7 7 0 0 0 18 17',rename:'m14 5 5 5 M4 20l4-1L20 7a2.1 2.1 0 0 0-3-3L5 16l-1 4Z',delete:'M3 6h18 M9 6V3h6v3 M6 6l1 15h10l1-15 M10 10v7 M14 10v7'};
     b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+paths[icon]+'"/></svg>';
     return b;
   }

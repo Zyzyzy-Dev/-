@@ -65,3 +65,29 @@
 .pcm-snapshot-manager .pcm-snapshot-card-title h3{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pcm-snapshot-manager .pcm-snapshot-manage:empty{display:none}
 .pcm-dialog:has(>.pcm-snapshot-manager),.pcm-dialog:has(>.pcm-api-manager){overflow-y:auto!important;overflow-x:hidden!important}
+
+/* 顶部统一控制尺寸，图标以 SVG 几何中心居中，不依赖文字基线。 */
+.pcm-api-manager .pcm-snapshot-header{--control:30px;gap:6px}
+.pcm-api-manager .pcm-snapshot-header button{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;line-height:1;margin:0;height:var(--control);min-height:var(--control);padding:0;flex-shrink:0}
+.pcm-api-manager .pcm-snapshot-header .pcm-api-icon,.pcm-api-manager .pcm-snapshot-header [data-theme-toggle],.pcm-api-manager .pcm-snapshot-header>button:last-child{width:var(--control);height:var(--control);min-height:var(--control);flex-basis:var(--control);padding:0}
+.pcm-api-manager .pcm-snapshot-header svg{display:block;flex:none;width:16px;height:16px;margin:0}
+.pcm-api-manager .pcm-api-entry-toggle{width:66px;font-size:11px;gap:3px;justify-content:center}
+.pcm-api-entry-settings{margin:0;padding-right:6px;gap:4px}
+.pcm-header-switch{display:flex;flex:none}.pcm-header-switch:empty{display:none}
+.pcm-api-manager .pcm-header-switch button{padding:0 6px;font-size:11px;white-space:nowrap}
+@media(max-width:650px){
+.pcm-api-manager .pcm-snapshot-header{--control:23px;gap:3px}
+.pcm-api-manager .pcm-snapshot-heading{gap:3px}
+.pcm-api-manager .pcm-snapshot-header h2{font-size:13px}
+.pcm-api-manager .pcm-api-entry-toggle{width:51px;font-size:9px;gap:2px;padding:0}
+.pcm-api-entry-settings{gap:2px;padding-right:3px}
+.pcm-api-manager .pcm-header-switch button{font-size:10px;padding:0 3px}
+.pcm-api-manager .pcm-snapshot-header svg{width:14px;height:14px}
+}
+@media(max-width:350px){
+.pcm-api-manager .pcm-snapshot-header{--control:20px;gap:2px}
+.pcm-api-manager .pcm-snapshot-header h2{font-size:11px}
+.pcm-api-manager .pcm-api-entry-toggle{width:46px;font-size:9px}
+.pcm-api-manager .pcm-header-switch button{font-size:9px;padding:0 2px}
+.pcm-api-manager .pcm-snapshot-heading{gap:2px}
+}

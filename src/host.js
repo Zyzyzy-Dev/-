@@ -1639,6 +1639,15 @@ async function installApiEntries(controller) {
     const y = Math.max(top + 8, Math.min(top + height - 56, position?.y ?? top + height - 160));
     applyImportantStyles(button, {left:x+'px', top:y+'px', right:'auto', bottom:'auto'});
   };
+  const syncQrVisibility = () => {
+    const qr = document.getElementById(qrId), rail = document.getElementById(railId);
+    if (!qr || !rail) return;
+    const hidden = document.body.classList.contains('qra-enabled') && qr.classList.contains('qrq-hidden-by-plugin') && !qr.classList.contains('qrq-whitelisted-original');
+    const display = hidden ? 'none' : 'flex';
+    if (rail.style.display !== display) rail.style.setProperty('display', display, 'important');
+  };
+  const visibilityObserver = new MutationObserver(syncQrVisibility);
+  visibilityObserver.observe(document.body, {attributes:true, attributeFilter:['class'], subtree:true});
   const sync = () => {
     // QR Assistant's public third-party registry (uhhhh15/QR); preserve all other extensions' entries.
     if (!window.qrAssistantExtensionApi) window.qrAssistantExtensionApi = [];
@@ -1680,7 +1689,7 @@ async function installApiEntries(controller) {
       document.body.append(button); placeBall();
     }
   };
-  apiEntrySync = next => { preferences=next; sync(); };
+  apiEntrySync = next => { preferences=next; sync(); syncQrVisibility(); };
   const observer = new MutationObserver(() => {if(preferences.quickReply||preferences.floating) sync();});
   observer.observe(document.body, {childList:true,subtree:true});
   window.addEventListener('resize', placeBall);
