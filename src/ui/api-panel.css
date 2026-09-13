@@ -31,7 +31,7 @@
 .pcm-api-entry-settings{display:flex;flex-wrap:nowrap;gap:5px;margin:0 8px 0 0;padding-right:10px;border-right:1px solid var(--snap-border)}
 .pcm-api-manager .pcm-api-entry-toggle{display:flex;align-items:center;gap:6px;border-radius:18px;min-height:30px;padding:5px 9px;font-size:12px;white-space:nowrap;background:transparent;border-style:dashed}
 .pcm-api-entry-toggle::before{content:'';width:6px;height:6px;flex:none;border:1px solid currentColor;border-radius:50%}
-.pcm-api-manager .pcm-api-entry-toggle[aria-pressed=true]{border-style:solid;border-color:var(--snap-accent);background:color-mix(in srgb,var(--snap-accent) 22%,var(--snap-bg));font-weight:650}
+.pcm-api-manager .pcm-api-entry-toggle[aria-pressed=true]{border-style:solid;border-color:var(--snap-accent);background:color-mix(in srgb,var(--snap-accent) 22%,var(--snap-bg))}
 .pcm-api-entry-toggle[aria-pressed=true]::before{background:currentColor}
 .pcm-api-modal,.pcm-api-model-menu,.pcm-dialog:has(>.pcm-api-manager){scrollbar-width:none}
 .pcm-api-modal::-webkit-scrollbar,.pcm-api-model-menu::-webkit-scrollbar,.pcm-dialog:has(>.pcm-api-manager)::-webkit-scrollbar{display:none}
@@ -71,7 +71,7 @@
 .pcm-api-manager .pcm-snapshot-header button{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;line-height:1;margin:0;height:var(--control);min-height:var(--control);padding:0;flex-shrink:0}
 .pcm-api-manager .pcm-snapshot-header .pcm-api-icon,.pcm-api-manager .pcm-snapshot-header [data-theme-toggle],.pcm-api-manager .pcm-snapshot-header>button:last-child{width:var(--control);height:var(--control);min-height:var(--control);flex-basis:var(--control);padding:0}
 .pcm-api-manager .pcm-snapshot-header svg{display:block;flex:none;width:16px;height:16px;margin:0}
-.pcm-api-manager .pcm-api-entry-toggle{width:66px;font-size:11px;gap:3px;justify-content:center}
+.pcm-api-manager .pcm-api-entry-toggle{width:66px;font-size:11px;font-weight:400;font-family:inherit;-webkit-text-size-adjust:none;text-size-adjust:none;gap:3px;justify-content:center}
 .pcm-api-entry-settings{margin:0;padding-right:6px;gap:4px}
 .pcm-header-switch{display:flex;flex:none}.pcm-header-switch:empty{display:none}
 .pcm-api-manager .pcm-header-switch button{padding:0 6px;font-size:11px;white-space:nowrap}
