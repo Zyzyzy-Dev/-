@@ -1,7 +1,7 @@
 // 快照范围回归：未选数据不持久化、不参与恢复，兼容旧范围并拒绝空范围。
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as snapshots from '../src/snapshot.js';
+import * as snapshots from '../src/features/snapshot/snapshot.js';
 const base = () => ({id:'s',name:'部分设置',presetName:'已删除预设',orderCharacterId:1,entries:[{identifier:'a',enabled:true}],groups:[{id:'g',enabled:true}],worldNames:['书'],resources:{version:2,worlds:{global:['书']},worldEntries:[{name:'书',entries:[]}],regex:{global:[{id:'r',enabled:true}],preset:[],character:[]}}});
 test('saving selected scopes strips excluded data without mutating the editor draft',()=>{
  const draft=base();draft.scope={preset:true,worlds:true,regex:false};const before=JSON.stringify(draft);

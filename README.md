@@ -4,21 +4,11 @@
 
 ## 代码结构与隔离
 
-插件使用原生 ES Module 拆分，并把完整工作区运行在独立 iframe document 中：
+功能代码全部位于 `src/`，按 `host`（酒馆宿主）、`features/api`（API 管理）、`features/snapshot`（设置快照）、`features/worldbook`（世界书）、`features/preset`（预设）、`shared`（公共工具）和 `ui`（iframe 入口与公共界面）分类。每个功能的界面放在对应目录的 `ui/` 中。
 
-- `index.js`：唯一扩展入口，只安装宿主控制器。
-- `src/host.js`：唯一允许接触酒馆主页面的模块；负责扩展菜单、iframe 外壳、preset-manager 调用、`PRESET_CHANGED` 订阅以及主题/输入法环境转发。
-- `src/core.js`：不接触 DOM 的预设校验、顺序节点选择、正则配对与迁移、正文相似度、混合粒度 diff 和变量宏解析，以及保存回酒馆时的「当前活动预设判定 / 内存同步」纯逻辑。
-- `src/ui/app.js`：iframe 内的状态、交互与渲染。
-- `src/ui/bridge.js`：基于 `MessageChannel` 的请求/响应和事件通道。
-- `src/snapshot.js`：设置快照的两层开关捕获、恢复计划和绑定优先级纯逻辑。
-- `src/snapshot-resources.js`：世界书配置与正则开关的捕获、校验及稳定标识恢复。
-- `src/worldbook-workbench.js`：完整世界书校验、条目配对、迁移、排序与预设转换的纯逻辑。
-- `src/ui/worldbook-workbench.js` / `worldbook-workbench.css`：双世界书工作台；`worldbook-entry-editor.js` 提供编辑与差异查看，`worldbook-workbench-drag.js` 处理鼠标与触屏拖拽。
-- `src/ui/snapshot-panel.js` / `snapshot-panel.css`：快照管理页面；持久化及常驻聊天监听由 `src/host.js` 执行。
-- `src/ui/snapshot-editor.js` / `snapshot-editor.css`：独立快照草稿编辑页，创建、覆盖和另存不会立即应用设置。
-- `src/ui/native-switch.css`：预设、世界书、正则与分组统一的原生滑钮样式。
-- `src/ui/index.html` / `src/ui/style.css`：iframe 自己的 HTML 与完整基础样式。
+根目录 `index.js` 只启动宿主控制器；JS 模块通过 import / export 连接，HTML 加载 iframe 独立样式。源文件开头说明用途，PNG 图片用途见资源目录说明。详见 [源码目录说明](src/README.md)。
+
+[tests/](tests/README.md) 仅供 Node 开发测试，在插件根目录执行 `node --test`；不参与插件运行，也不会被运行入口加载。
 
 本项目以 **SillyTavern 官方 Web 版为主目标**，同时对 **TauriTavern** 做可选适配：标准路径只使用 SillyTavern 的扩展加载器、`openai.js`、`preset-manager.js` 和事件总线；仅检测到 `window.__TAURITAVERN__` 时才动态加载 TauriTavern `layout-kit.js`，把同源 iframe 标记为 `ViewportHost` 并转发 IME 高度。Tauri 适配失败或超时不会阻塞标准 SillyTavern UI，普通浏览器继续使用 `visualViewport` 回退。
 
@@ -105,7 +95,7 @@ v1.7.6 提供三个插入位置按钮，指定位置回到预设对比界面点�
 
 世界书关键词、概率、递归、预算、原注入位置/深度等条件不会转换为预设触发逻辑。新条目统一采用预设相对位置，由预设列表顺序和开关控制；需要深度注入时可在缝合后编辑条目设置。为避免重复注入同样内容，请自行检查仍启用的来源世界书。支持标准世界书 `entries` 对象/数组及 JSON 角色卡的 `character_book.entries`；酒馆助手脚本 JSON 是参考代码，不是世界书数据。
 
-核心转换位于 `src/worldbook.js`，选择面板位于 `src/ui/worldbook-panel.js`，对比列表选点模式位于 `src/ui/worldbook-placement.js`，酒馆读取统一通过 `src/host.js` 调用官方 `world-info.js` 的 `world_names` / `loadWorldInfo`，不依赖酒馆助手。
+核心转换位于 `src/features/worldbook/worldbook.js`，选择面板位于 `src/features/worldbook/ui/worldbook-panel.js`，对比列表选点模式位于 `src/features/worldbook/ui/worldbook-placement.js`，酒馆读取统一通过 `src/host/host.js` 调用官方 `world-info.js` 的 `world_names` / `loadWorldInfo`，不依赖酒馆助手。
 
 ## 移动端适配
 

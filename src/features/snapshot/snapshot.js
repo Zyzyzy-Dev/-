@@ -1,5 +1,5 @@
 // 设置快照纯逻辑：捕获两层开关、按稳定 ID 制定恢复计划及解析聊天/角色绑定，不访问宿主。
-import { createIdentifier, findPromptOrderEntry } from './core.js';
+import { createIdentifier, findPromptOrderEntry } from '../preset/core.js';
 import { validateSnapshotResources } from './snapshot-resources.js';
 
 export function snapshotScope(snapshot) {

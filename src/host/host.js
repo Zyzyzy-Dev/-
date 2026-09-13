@@ -1,14 +1,14 @@
 // 预设更新编辑器 · 酒馆宿主桥：唯一可接触 SillyTavern 主 document/API 的模块。
-import { clone } from './clone.js';
-import { API_BINDINGS_KEY, bindApiSnapshot, isApiProfileActive } from './api-bindings.js';
+import { clone } from '../shared/clone.js';
+import { API_BINDINGS_KEY, bindApiSnapshot, isApiProfileActive } from '../features/api/api-bindings.js';
 // 扩展菜单入口、外层 dialog/iframe 外壳、preset-manager/openai 动态读取与保存、
 // PRESET_CHANGED 订阅转发、主题变量与 TauriTavern IME 高度转发。
-import { applyPresetToMemory, shouldRefreshActivePreset } from './core.js';
-import { captureSnapshot, normalizeSnapshotName, planSnapshotRestore, resolveSnapshotBinding, snapshotOrder, validateSnapshot, snapshotPresetEditor, snapshotScope, selectSnapshotScope } from './snapshot.js';
-import { captureWorldEntries, restoreWorldEntries, captureRegexSwitches, restoreRegexSwitches, validateSnapshotResources, normalizeSnapshotResources, regexEditor } from './snapshot-resources.js';
-import { createIdentifier } from './core.js';
-import { normalizeWorkbenchBook } from './worldbook-workbench.js';
-import { API_STORE_KEY, API_ADDITIONAL_FIELDS, normalizeApiAdditional, normalizeApiProfile, planApiSwitch, readNativeApiProfiles, maskApiSecret } from './api-manager.js';
+import { applyPresetToMemory, shouldRefreshActivePreset } from '../features/preset/core.js';
+import { captureSnapshot, normalizeSnapshotName, planSnapshotRestore, resolveSnapshotBinding, snapshotOrder, validateSnapshot, snapshotPresetEditor, snapshotScope, selectSnapshotScope } from '../features/snapshot/snapshot.js';
+import { captureWorldEntries, restoreWorldEntries, captureRegexSwitches, restoreRegexSwitches, validateSnapshotResources, normalizeSnapshotResources, regexEditor } from '../features/snapshot/snapshot-resources.js';
+import { createIdentifier } from '../features/preset/core.js';
+import { normalizeWorkbenchBook } from '../features/worldbook/worldbook-workbench.js';
+import { API_STORE_KEY, API_ADDITIONAL_FIELDS, normalizeApiAdditional, normalizeApiProfile, planApiSwitch, readNativeApiProfiles, maskApiSecret } from '../features/api/api-manager.js';
 
 // Track native worldbook writes from module startup, not only after a workbench window opens.
 // Other URLs, the fetch receiver/arguments, and the exact returned Promise are left untouched.
@@ -1432,7 +1432,7 @@ class AppHost {
       // standard iframe has started; on normal SillyTavern this remains a no-op.
       setTimeout(() => this.configureTauriSurface(), 1_500);
     }
-    this.iframe.src = new URL('./ui/index.html', import.meta.url).href;
+    this.iframe.src = new URL('../ui/index.html', import.meta.url).href;
   }
 
   // TT 布局快照统一处理：layout-kit 与硬 ABI 两条订阅路径共用，转发键盘高度与安全区。
