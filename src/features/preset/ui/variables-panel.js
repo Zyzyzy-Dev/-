@@ -1,6 +1,7 @@
 // 预设变量面板：获取/引用/编辑三个视图、局部草稿表单及批量变更预览；通过回调写入预设草稿。
 import {VARIABLE_KINDS, scanVariables, collectVariables, variableKey, makeVariable, missingVariableInitializers,
   planVariableInitializers, planVariableAdd, planVariableEdit, planVariableRename} from '../variables.js';
+import {buildRows, diffLines} from '../core.js';
 
 const kindNames = {setvar:'设置 · setvar',addvar:'追加 · addvar',getvar:'读取 · getvar',setglobalvar:'全局设置 · setglobalvar',addglobalvar:'全局追加 · addglobalvar',getglobalvar:'全局读取 · getglobalvar'};
 function node(tag, className = '', text) {
@@ -19,11 +20,11 @@ function input(label, value = '') {
 }
 function kindSelect(kind) {
   const select = node('select'); select.setAttribute('aria-label','宏类型');
-  for (const value of VARIABLE_KINDS) select.add(new Option(kindNames[value], value));
+  for (const value of VARIABLE_KINDS.filter(value=>value.includes('global')===kind.includes('global'))) select.add(new Option(kindNames[value], value));
   select.value = kind; return select;
 }
 
-export function openVariablesPanel({dialog, title, getPrompts, apply, undo, confirm, isInjected = () => true}) {
+export function openVariablesPanel({dialog, title, getPrompts, getPresentation, apply, undo, confirm, isInjected = () => true}) {
   const root = node('section','pcm-picker open'); root.dataset.varsPanel = '';
   root.setAttribute('role','dialog'); root.setAttribute('aria-label','预设变量');
   const box = node('div','pcm-picker-panel pcm-variable-panel');
@@ -34,7 +35,7 @@ export function openVariablesPanel({dialog, title, getPrompts, apply, undo, conf
   box.append(header,tabs,message,body); root.append(box); dialog.append(root);
   const candidates = () => getPrompts().filter(p=>!p.marker);
   let view='get', dirty=false, targetId=null, searchValue='';
-  const initial = candidates().slice().sort((a,b)=>scanVariables(b.content).filter(m=>m.kind.startsWith('set')).length-scanVariables(a.content).filter(m=>m.kind.startsWith('set')).length)[0];
+  const initial = candidates().filter(p=>scanVariables(p.content).some(m=>m.kind.startsWith('set'))).sort((a,b)=>scanVariables(b.content).filter(m=>m.kind.startsWith('set')).length-scanVariables(a.content).filter(m=>m.kind.startsWith('set')).length)[0];
   targetId=initial?.identifier;
   const attempt = action => {try {message.textContent=''; return action();} catch(error) {message.textContent=error.message;}};
   async function discard() {return !dirty || await confirm('当前表单还有未应用的修改，放弃这些修改吗？');}
@@ -58,7 +59,16 @@ export function openVariablesPanel({dialog, title, getPrompts, apply, undo, conf
     for(const item of changes) {
       const card=node('details','pcm-variable-preview');card.open=changes.length===1;
       card.append(node('summary','',item.name));
-      card.append(node('h5','','修改前'),node('pre','',item.before),node('h5','','修改后'),node('pre','',item.after));body.append(card);
+      const paint=()=>{
+        if(!card.open||card.dataset.painted)return;card.dataset.painted='true';
+        const rows=buildRows(diffLines(item.before,item.after));
+        card.append(node('p','pcm-variable-note','红色：删除／原内容　绿色：新增／新内容'));
+        for(const [side,label] of [['-','修改前'],['+','修改后']]){
+          const pre=node('pre','pcm-variable-diff');const visible=rows.filter(row=>row.t===' '||row.t===side);
+          visible.forEach((row,index)=>{if(index)pre.append(document.createTextNode('\n'));for(const segment of row.segs){if(segment.t!==' '&&segment.t!==side)continue;pre.append(segment.t===' '?document.createTextNode(segment.text):node('mark',side==='-'?'pcm-variable-del':'pcm-variable-add',segment.text));}});
+          card.append(node('h5','',label),pre);
+        }
+      };card.addEventListener('toggle',paint);body.append(card);paint();
     }
     dirty=true;
   }
@@ -70,16 +80,13 @@ export function openVariablesPanel({dialog, title, getPrompts, apply, undo, conf
   }
   function targetPicker() {
     const choices=candidates();
-    if(!choices.some(p=>p.identifier===targetId))targetId=choices[0]?.identifier;
-    const select=node('select');select.setAttribute('aria-label','获取变量条目');
-    for(const p of choices)select.add(new Option(p.name||'(未命名)',p.identifier));select.value=targetId||'';
-    select.addEventListener('change',async()=>{const next=select.value;if(!(await discard())){select.value=targetId;return;}if(!root.isConnected)return;targetId=next;dirty=false;render();});
-    body.append(field('获取变量条目',select));
-    return choices.find(p=>p.identifier===targetId);
+    const target=choices.find(p=>p.identifier===targetId);
+    if(target)body.append(node('div','pcm-variable-target','获取变量条目：'+(target.name||'(未命名)')));
+    return target;
   }
   function renderCollection() {
     const target=targetPicker();
-    if(!target){body.append(node('p','','当前预设没有可编辑条目'));return;}
+    if(!target){body.append(node('p','','未识别到初始化变量条目。可在“编辑变量”添加 setvar 后重新打开变量面板。'));return;}
     const original=String(target.content??''), groups=collectVariables(candidates());
     const definitions=scanVariables(original).filter(m=>m.kind.startsWith('set'));
     const reads=new Set(groups.filter(g=>g.occurrences.some(m=>m.kind.startsWith('get')&&isInjected(m.id))).map(g=>g.key));
@@ -145,22 +152,34 @@ export function openVariablesPanel({dialog, title, getPrompts, apply, undo, conf
   function formHeading(text) {body.replaceChildren();body.append(button('返回编辑变量',async()=>{if(await discard()){dirty=false;render();}}),node('h4','',text));message.textContent='';}
   function macroFields(kind='setvar',name='',value=' ') {
     const select=kindSelect(kind),nameInput=input('变量名',name),area=node('textarea');area.value=value;area.rows=5;area.setAttribute('aria-label','变量内容');
+    const global=node('input');global.type='checkbox';global.checked=kind.includes('global');
+    const scope=node('label','pcm-variable-scope');scope.append(global,document.createTextNode('使用全局变量（跨聊天共享）'));
+    global.addEventListener('change',()=>{
+      const operation=select.value.startsWith('set')?'set':select.value.startsWith('add')?'add':'get';
+      select.replaceChildren();for(const value of VARIABLE_KINDS.filter(v=>v.includes('global')===global.checked))select.add(new Option(kindNames[value],value));
+      select.value=operation+(global.checked?'globalvar':'var');dirty=true;select.dispatchEvent(new Event('change'));
+    });
     for(const control of [select,nameInput,area])control.addEventListener('input',markDirty);
-    body.append(field('宏类型',select),field('变量名',nameInput),field('变量内容（可留空，以后填写）',area));
+    body.append(field('宏类型',select),scope,field('变量名',nameInput),field('变量内容（可留空，以后填写）',area));
     return {select,nameInput,area};
   }
   function renderAdd() {
     formHeading('添加变量');
-    const selected=new Set(),search=input('搜索预设条目');search.type='search';search.placeholder='搜索预设条目';
+    const selected=new Set(),search=input('搜索预设条目');search.type='search';search.placeholder='搜索条目名称、正文或分组';
     const count=node('span'),list=node('div','pcm-variable-picklist');
-    const choices=candidates();
-    const shown=()=>choices.filter(p=>String(p.name||'').toLocaleLowerCase().includes(search.value.trim().toLocaleLowerCase()));
-    const draw=()=>{count.textContent='已选 '+selected.size+' 个条目';list.replaceChildren();for(const p of shown()){
+    const map=new Map(candidates().map(p=>[p.identifier,p]));
+    const choices=(getPresentation?.()||candidates().map(p=>({id:p.identifier}))).filter(item=>map.has(item.id)).map(item=>({...item,prompt:map.get(item.id)}));
+    const shown=()=>choices.filter(item=>[item.prompt.name,item.prompt.content,item.groupName].join('\n').toLocaleLowerCase().includes(search.value.trim().toLocaleLowerCase()));
+    const collapsed=new Set();
+    const draw=()=>{count.textContent='已选 '+selected.size+' 个条目';list.replaceChildren();let previous=null,container=list,segment=0;for(const item of shown()){
+      const p=item.prompt;
+      if(item.grouped&&item.groupId!==previous){previous=item.groupId;const group=node('details','pcm-variable-choice-group'),key=String(item.groupId)+':'+segment++;group.open=!!search.value.trim()||!collapsed.has(key);group.append(node('summary','',item.groupName));group.addEventListener('toggle',()=>{group.open?collapsed.delete(key):collapsed.add(key);});container=node('div');group.append(container);list.append(group);}
       const check=node('input');check.type='checkbox';check.checked=selected.has(p.identifier);check.setAttribute('aria-label','选择条目 '+(p.name||'(未命名)'));
+      check.dataset.variableEntry=p.identifier;
       check.addEventListener('change',()=>{check.checked?selected.add(p.identifier):selected.delete(p.identifier);dirty=true;count.textContent='已选 '+selected.size+' 个条目';});
-      const label=node('label');label.append(check,node('span','',p.name||'(未命名)'));list.append(label);
+      const label=node('label');label.append(check,node('span','',p.name||'(未命名)'));container.append(label);
     }if(!list.childElementCount)list.append(node('p','','没有匹配条目'));};
-    const selectionBar=node('div','pcm-variable-actions');selectionBar.append(button('全选搜索结果',()=>{shown().forEach(p=>selected.add(p.identifier));dirty=true;draw();}),button('清空选择',()=>{selected.clear();dirty=true;draw();}),count);
+    const selectionBar=node('div','pcm-variable-actions');selectionBar.append(button('全选搜索结果',()=>{shown().forEach(item=>selected.add(item.id));dirty=true;draw();}),button('清空选择',()=>{selected.clear();dirty=true;draw();}),count);
     body.append(search,selectionBar,list);search.addEventListener('input',draw);draw();
     const modes=node('fieldset','pcm-variable-modes');modes.append(node('legend','','添加方式'));
     let mode='append';

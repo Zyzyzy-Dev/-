@@ -1,6 +1,16 @@
 /* 预设变量三视图：独立滚动、移动端表单、来源分组与变更预览；颜色继承当前主题。 */
 .pcm-variable-panel{width:min(900px,100%);display:flex;flex-direction:column;overflow:hidden;min-width:0}
 .pcm-variable-panel [hidden]{display:none!important}
+.pcm-variable-target{border-bottom:1px solid #8885;padding:8px 0;overflow-wrap:anywhere}
+.pcm-variable-scope{display:flex;gap:8px;align-items:center;font-size:12px}
+.pcm-variable-scope input{appearance:auto!important;width:17px!important;height:17px!important;accent-color:#888}
+.pcm-variable-choice-group{border-bottom:1px solid #8884;padding:4px}
+.pcm-variable-choice-group summary{font-weight:600;cursor:pointer;padding:6px 0;overflow-wrap:anywhere}
+.pcm-variable-diff mark{color:inherit;border-radius:2px;padding:0}
+.pcm-variable-diff .pcm-variable-del{background:#d9494938;text-decoration:line-through;text-decoration-color:#b22}
+.pcm-variable-diff .pcm-variable-add{background:#32945340;box-shadow:inset 0 -1px #28773e}
+.pcm-theme-night .pcm-variable-diff .pcm-variable-del{background:#ed656550}
+.pcm-theme-night .pcm-variable-diff .pcm-variable-add{background:#62c98245}
 .pcm-variable-panel .pcm-picker-head{flex:none;gap:8px;min-width:0}
 .pcm-variable-panel .pcm-picker-head h3{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:16px}
 .pcm-variable-tabs{display:flex;gap:6px;padding:8px 14px;border-bottom:1px solid var(--pcm-border,#8885);flex:none}

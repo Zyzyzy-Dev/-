@@ -27,6 +27,13 @@ function openVarPanel(side){
   variablePanel=openVariablesPanel({dialog:document.getElementById(APP_ID+'-dialog'),title:(side==='old'?'旧版':'新版')+' · '+state[side+'Name'],
     getPrompts(){if(state[side]!==preset)throw new Error('预设已重新载入，请关闭后重新打开变量面板');return preset.prompts;},
     isInjected(id){const prompt=byId(side).get(id);return prompt&&isInjected(side,prompt);},
+    getPresentation(){
+      const meta=groupMeta(side),items=ordered(side);
+      return [...items.filter(p=>isInjected(side,p)),...items.filter(p=>!isInjected(side,p))].map(p=>{
+        const raw=meta?.state.prompts?.[p.identifier]?.groupId,group=raw&&meta?.groups.get(String(raw));
+        return {id:p.identifier,groupId:!isInjected(side,p)?'uninjected':group?String(group.id):'',groupName:!isInjected(side,p)?'未注入':group?.name||'未分组',grouped:!!meta||!isInjected(side,p)};
+      });
+    },
     confirm:pcmConfirm,undo:undoLast,
     apply(changes){
       if(state[side]!==preset)throw new Error('预设已重新载入，请重新打开变量面板');
