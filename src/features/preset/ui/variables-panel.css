@@ -1,0 +1,38 @@
+/* 预设变量三视图：独立滚动、移动端表单、来源分组与变更预览；颜色继承当前主题。 */
+.pcm-variable-panel{width:min(900px,100%);display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.pcm-variable-panel [hidden]{display:none!important}
+.pcm-variable-panel .pcm-picker-head{flex:none;gap:8px;min-width:0}
+.pcm-variable-panel .pcm-picker-head h3{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:16px}
+.pcm-variable-tabs{display:flex;gap:6px;padding:8px 14px;border-bottom:1px solid var(--pcm-border,#8885);flex:none}
+.pcm-variable-tabs button{flex:1;min-width:0}
+.pcm-variable-tabs button[aria-pressed=true]{font-weight:700;box-shadow:inset 0 -2px currentColor}
+.pcm-variable-body{padding:14px;overflow:auto;min-height:0;overscroll-behavior:contain;display:flex;flex-direction:column;gap:12px}
+.pcm-variable-body h4,.pcm-variable-body h5,.pcm-variable-body p{margin:0}
+.pcm-variable-body input:not([type=checkbox]):not([type=radio]),.pcm-variable-body select,.pcm-variable-body textarea{box-sizing:border-box;width:100%;max-width:100%;min-width:0;color:inherit;background:transparent;border:1px solid #8886;border-radius:7px;padding:8px;font:inherit}
+.pcm-variable-body textarea{resize:vertical;min-height:100px;white-space:pre-wrap;overflow-wrap:anywhere}
+.pcm-variable-body select option{color:CanvasText;background:Canvas}
+.pcm-variable-body [disabled]{opacity:.5}
+.pcm-variable-field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.pcm-variable-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pcm-variable-actions input{flex:1;min-width:120px!important}
+.pcm-variable-note{font-size:12px;opacity:.8;line-height:1.6;overflow-wrap:anywhere}
+.pcm-variable-message{padding:0 14px;color:inherit;flex:none;font-size:13px;overflow-wrap:anywhere}
+.pcm-variable-message:not(:empty){padding-top:8px;padding-bottom:8px;border-bottom:1px solid #8885}
+.pcm-variable-picklist{max-height:230px;overflow:auto;border:1px solid #8885;border-radius:8px;flex:none;padding:5px}
+.pcm-variable-picklist label{display:flex;align-items:center;gap:8px;padding:7px;overflow-wrap:anywhere;cursor:pointer}
+.pcm-variable-picklist input,.pcm-variable-modes input{appearance:auto!important;flex:none;width:17px!important;height:17px!important;margin:0 6px 0 0!important;accent-color:#888}
+.pcm-variable-modes{display:flex;gap:10px;flex-wrap:wrap;border:1px solid #8885;border-radius:8px;padding:10px;margin:0;min-width:0}
+.pcm-variable-modes label{display:flex;align-items:center;font-size:13px}
+.pcm-variable-group,.pcm-variable-preview{border:1px solid #8885;border-radius:9px;padding:10px;margin-bottom:8px;overflow-wrap:anywhere;min-width:0}
+.pcm-variable-group summary,.pcm-variable-preview summary{cursor:pointer;font-weight:600;padding:3px 0}
+.pcm-variable-group[open]>button{margin-top:8px}
+.pcm-variable-source{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #8883;min-width:0;flex-wrap:wrap}
+.pcm-variable-source strong{overflow-wrap:anywhere}
+.pcm-variable-source span,.pcm-variable-source code{flex:1;font-size:12px;min-width:80px;overflow-wrap:anywhere;opacity:.85}
+.pcm-variable-source button{margin-left:auto;flex:none}
+.pcm-variable-preview pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;font-size:13px;max-height:320px;overflow:auto;padding:9px;background:#8881}
+.pcm-variable-section{display:flex;flex-direction:column;gap:8px}
+.pcm-variable-chips{display:flex;gap:6px;flex-wrap:wrap}
+.pcm-variable-unreferenced{color:#a73c0d;background:#e98b2020;border-radius:4px;padding:2px 4px}
+.pcm-theme-night .pcm-variable-unreferenced{color:#ffb078}
+@media(max-width:520px){.pcm-variable-panel .pcm-picker-head{padding:8px}.pcm-variable-panel .pcm-picker-head h3{font-size:13px}.pcm-variable-body{padding:10px}.pcm-variable-tabs{padding:6px;gap:4px}.pcm-variable-tabs button{font-size:12px!important;padding:6px 3px!important}.pcm-variable-source{align-items:flex-start}.pcm-variable-source strong{width:100%}.pcm-variable-picklist{max-height:180px}}
