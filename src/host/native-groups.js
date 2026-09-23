@@ -14,6 +14,13 @@ function button(text, title, action) {
     const el = node('button', 'pcm-ng-button', text); el.type = 'button'; el.title = title;
     el.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); action(); }); return el;
 }
+function iconButton(icon, title, action) {
+    const el = button('', title, action); el.setAttribute('aria-label', title);
+    const paths = { chevron: 'm9 5 7 7-7 7', pencil: 'm16 3 5 5-12 12-6 1 1-6Z M13 6l5 5', trash: 'M4 7h16 M9 7V3h6v4 M6 7l1 14h10l1-14 M10 11v6 M14 11v6' };
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true');
+    const path = document.createElementNS(svg.namespaceURI, 'path'); path.setAttribute('d', paths[icon]); svg.append(path); el.append(svg); return el;
+}
 function choose(title, build) {
     return new Promise(resolve => {
         const dialog = node('dialog', 'pcm-ng-dialog'); const form = node('form'); form.method = 'dialog';
@@ -29,6 +36,36 @@ function choose(title, build) {
 function askName(title, value = '') {
     return choose(title, form => { const input = node('input', 'text_pole'); input.value = value; input.required = true; input.maxLength = 120; form.append(input); return () => input.value.trim(); });
 }
+
+export function syncPresetGroupCaches(bai, name, before, value) {
+    const undo = [];
+    // 只同步本次组字段变化；保留柏宝箱队列中的其他分组、未知字段及提示词排序。
+    const patch = (target, key) => {
+        if (!target?.[key]?.groups) return;
+        const old = target[key], next = clone(old);
+        for (const group of before?.groups || []) {
+            const updated = value.groups.find(g => g.id === group.id), cached = next.groups.find(g => g.id === group.id);
+            if (!updated) {
+                next.groups = next.groups.filter(g => g.id !== group.id);
+                for (const [id, meta] of Object.entries(next.prompts || {})) if (meta?.groupId === group.id) delete next.prompts[id];
+            } else if (cached) {
+                for (const field of ['name', 'enabled', 'collapsed']) if (updated[field] !== group[field]) cached[field] = updated[field];
+            }
+        }
+        target[key] = next;
+        const written = JSON.stringify(next);
+        undo.push(() => { if (JSON.stringify(target[key]) === written) target[key] = old; });
+    };
+    if (bai?.presetPromptGroupRuntimePresetName === name) patch(bai, 'presetPromptGroupRuntimeState');
+    const entry = bai?.__baiBaiToolkitPresetVueListManager?.pendingPresetPromptGroupSaves?.get?.(name);
+    if (entry) {
+        patch(entry, 'groupState');
+        const oldKey = entry.syncKey, nextKey = `${name}:${JSON.stringify(entry.groupState)}`;
+        entry.syncKey = nextKey; undo.push(() => { if (entry.syncKey === nextKey && `${name}:${JSON.stringify(entry.groupState)}` === nextKey) entry.syncKey = oldKey; });
+    }
+    return () => { for (const restore of undo.reverse()) restore(); };
+}
+
 
 export function installNativeGroups(env) {
     const { openai, script, extensions, regex, presetManager, serial, saveSettingsChecked } = env;
@@ -80,19 +117,29 @@ export function installNativeGroups(env) {
         const bai = globalThis.__baiBaiToolkitExtensionInstalled;
         const pending = bai?.__baiBaiToolkitPresetVueListManager;
         const regexPending = bai?.regexQuickOperationOptimization;
-        if (context.kind === 'preset' && (pending?.pendingChangesSaveInFlight || pending?.pendingChangesSavePromise
-            || pending?.pendingOrderSave || pending?.pendingPresetPromptGroupSaves?.has?.(context.name)
-            || pending?.pendingPresetPromptServiceSaves?.has?.(context.name) || pending?.pendingOpenAiPresetSaves?.has?.(context.name)
-            || pending?.openAiPresetSaveRequestStates?.get?.(context.name)?.promise)) throw new Error('柏宝箱仍有预设修改待保存，请等待其保存完成后重试');
+        if (context.kind === 'preset' && pending?.state?.dragging) throw new Error('请先松开正在拖拽的预设条目');
         if (context.kind === 'regex' && (regexPending?.regexChangesSaveInFlight || regexPending?.regexChangesSavePromise
             || regexPending?.pendingRegexGroupSettingsSave || regexPending?.pendingRegexScriptSaves?.has?.(context.scopeKey)
             || regexPending?.pendingRegexPresetGroupSaves?.has?.(context.scopeKey))) throw new Error('柏宝箱仍有正则修改待保存，请等待其保存完成后重试');
         return current;
     }
+    async function settlePresetWrite(context) {
+        if (context.kind !== 'preset') return;
+        const pending = globalThis.__baiBaiToolkitExtensionInstalled?.__baiBaiToolkitPresetVueListManager;
+        // 排队标记不代表正在写盘；仅串行等待已经开始的请求，不依赖柏宝箱主动刷新队列。
+        for (const read of [() => pending?.pendingChangesSavePromise, () => pending?.openAiPresetSaveRequestStates?.get?.(context.name)?.promise]) {
+            const promise = read();
+            if (!promise?.then) continue;
+            let timer;
+            try { await Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('预设写入尚未完成，请稍后重试')), 8000); })]); }
+            finally { clearTimeout(timer); }
+        }
+        if (pending?.pendingChangesSaveInFlight) throw new Error('预设写入尚未完成，请稍后重试');
+    }
     async function persist(context, value) {
         const before = clone(context.value);
         const bai = globalThis.__baiBaiToolkitExtensionInstalled;
-        const runtimeBefore = clone(bai?.presetPromptGroupRuntimeState);
+        const rollbackCaches = context.kind === 'preset' ? syncPresetGroupCaches(bai, context.name, before, value) : () => {};
         if (context.kind === 'preset' || context.scope === 'PRESET') {
             const cache = settings.baiBaiToolkit?.regexListGroups?.scopes;
             const oldCache = clone(cache?.[context.scopeKey]);
@@ -103,13 +150,12 @@ export function installNativeGroups(env) {
                     settings.baiBaiToolkit.regexListGroups.scopes[context.scopeKey] = clone(value);
                 }
                 await saveSettingsChecked();
-                if (context.kind === 'preset' && bai?.presetPromptGroupRuntimePresetName === context.name
-                    && JSON.stringify(bai.presetPromptGroupRuntimeState) === JSON.stringify(runtimeBefore)) {
-                    bai.presetPromptGroupRuntimeState = clone(value);
+                if (context.kind === 'preset' && bai?.presetPromptGroupRuntimePresetName === context.name) {
                     const vue = bai.__baiBaiToolkitPresetVueListManager;
                     if (vue) { vue.lastSyncSignature = ''; vue.lastStructureSignature = ''; }
                 }
             } catch (error) {
+                rollbackCaches();
                 if (cache && context.scopeKey && JSON.stringify(cache[context.scopeKey]) === JSON.stringify(value)) cache[context.scopeKey] = oldCache;
                 // 保留宿主其他改动，仅还原仍等于本次写入的字段；磁盘可能已部分写入，明确报告。
                 for (const target of [context.manager.getPresetList().settings, context.manager.getCompletionPresetByName?.(context.name)]) {
@@ -127,6 +173,7 @@ export function installNativeGroups(env) {
     }
     function act(context, action) {
         run(async () => {
+            await settlePresetWrite(context);
             const current = validate(context);
             if (action.type === 'toggle' && current.kind === 'regex') {
                 const model = groupModel(current.value, current.kind);
@@ -191,16 +238,19 @@ export function installNativeGroups(env) {
             const g = groups.get(groupId), header = node(kind === 'preset' ? 'li' : 'div', 'pcm-ng-header'); header.dataset.pcmNg = 'header';
             if (!g) { header.append(node('span', '', '未分组')); return header; }
             const members = context.entries.filter(e => memberGroup(model, kind, e.id) === groupId);
-            const collapse = button(g.collapsed ? '▸' : '▾', g.collapsed ? '展开分组' : '折叠分组', () => act(context, { type: 'collapse', groupId }));
+            const collapse = iconButton('chevron', g.collapsed ? '展开分组' : '折叠分组', () => act(context, { type: 'collapse', groupId }));
+            collapse.classList.add('pcm-ng-chevron');
             collapse.setAttribute('aria-expanded', String(!g.collapsed));
-            const title = button(`${g.name || g.id}${continuation ? '（续）' : ''} (${members.filter(e=>e.enabled).length}/${members.length})`, '展开或折叠分组', () => act(context, { type: 'collapse', groupId }));
+            const title = button(`${g.name || g.id}${continuation ? '（续）' : ''}`, '展开或折叠分组', () => act(context, { type: 'collapse', groupId }));
+            title.append(node('small', 'pcm-ng-count', `(${members.filter(e=>e.enabled).length}/${members.length})`));
             title.classList.add('pcm-ng-title');header.append(collapse,title);
-            const check = node('input'); check.type = 'checkbox'; check.title = kind === 'preset' ? '组总开关（保留成员自身开关）' : '批量切换组内正则（不改变原生授权）';
-            check.checked = kind === 'preset' ? g.enabled !== false : members.length > 0 && members.every(e => e.enabled);
-            check.indeterminate = kind === 'regex' && members.some(e => e.enabled) && members.some(e => !e.enabled);
-            check.addEventListener('change', () => act(context, { type: 'toggle', groupId, enabled: check.checked })); header.append(check);
-            header.append(button('✎', '重命名分组', async () => { const name = await askName('分组名称', g.name); if (name) act(context, { type: 'rename', groupId, name }); }),
-                button('⌫', '仅解散分组，保留全部条目', async () => {
+            const checked = kind === 'preset' ? g.enabled !== false : members.length > 0 && members.every(e => e.enabled);
+            const check = button('', kind === 'preset' ? '组总开关（保留成员自身开关）' : '批量切换组内正则（不改变原生授权）', () => act(context, { type: 'toggle', groupId, enabled: !checked }));
+            check.classList.add('pcm-ng-switch'); check.setAttribute('role', 'switch'); check.setAttribute('aria-checked', String(checked)); check.setAttribute('aria-label', check.title);
+            check.classList.toggle('pcm-ng-mixed', kind === 'regex' && members.some(e => e.enabled) && members.some(e => !e.enabled));
+            const track = node('span', 'pcm-ng-track'); track.append(node('span', 'pcm-ng-knob')); check.append(track); header.append(check);
+            header.append(iconButton('pencil', '重命名分组', async () => { const name = await askName('分组名称', g.name); if (name) act(context, { type: 'rename', groupId, name }); }),
+                iconButton('trash', '仅解散分组，保留全部条目', async () => {
                     const yes = await choose('解散分组？条目会保留在原位置。', form => { form.append(node('p', '', g.name)); return () => true; });
                     if (yes) act(context, { type: 'delete', groupId });
                 }));
@@ -210,7 +260,7 @@ export function installNativeGroups(env) {
             const id = kind === 'preset' ? row.getAttribute('data-pm-identifier') : row.id;
             if (!context.entries.some(e => e.id === id)) continue;
             const groupId = memberGroup(model, kind, id), group = groups.get(groupId);
-            if (groupId !== last && (group || model.groups.length)) { row.before(makeHeader(groupId, displayed.has(groupId))); displayed.add(groupId); }
+            if (groupId !== last && (group || (kind !== 'preset' && model.groups.length))) { row.before(makeHeader(groupId, displayed.has(groupId))); displayed.add(groupId); }
             last = groupId;
             row.classList.toggle('pcm-ng-hidden', Boolean(group?.collapsed)); row.classList.toggle('pcm-ng-off', kind === 'preset' && group?.enabled === false);
             if (model.groups.length && kind !== 'preset') {
