@@ -70,14 +70,14 @@ export function syncPresetGroupCaches(bai, name, before, value) {
 export function installNativeGroups(env) {
     const { openai, script, extensions, regex, presetManager, serial, saveSettingsChecked } = env;
     const settings = extensions.extension_settings;
-    let busy = false, scheduled = 0, observer;
+    let busy = false, scheduled = 0, observer, fast = null;
     const signatures = new WeakMap();
     const prefs = () => settings[PREF] || {};
     const baiOwns = kind => Boolean(globalThis.__baiBaiToolkitExtensionInstalled) && settings.baiBaiToolkit?.[kind === 'preset' ? 'presetGroupingEnabled' : 'regexQuickOperationOptimizationEnabled'] !== false;
     const owns = kind => prefs()[kind] !== false && !baiOwns(kind) && (kind !== 'preset'
         || (typeof openai.promptManager?.getPromptCollection === 'function' && typeof openai.promptManager?.isPromptDisabledForActiveCharacter === 'function'));
     const fail = error => { console.error('[原生分组]', error); globalThis.toastr?.error(error.message || String(error), '分组操作未完成'); };
-    const run = fn => { if (busy) return; busy = true; schedule(); void serial(fn).catch(fail).finally(() => { busy = false; schedule(); }); };
+    const run = fn => { if (busy || fast) return; busy = true; schedule(); void serial(fn).catch(fail).finally(() => { busy = false; schedule(); }); };
     const link = node('link'); link.rel = 'stylesheet'; link.href = new URL('./native-groups.css', import.meta.url).href; document.head.append(link);
 
     function presetContext() {
@@ -171,7 +171,33 @@ export function installNativeGroups(env) {
             catch (error) { if (scopes[context.scopeKey] === value) { if (before === undefined) delete scopes[context.scopeKey]; else scopes[context.scopeKey] = before; } throw error; }
         }
     }
+    function fastPresetAction(context, action) {
+        try {
+            if (busy) return;
+            const raw = presetContext();
+            if (!raw || (fast && fast.key !== raw.key)) throw new Error('预设已变化，请等待上一组操作保存完成');
+            const visible = fast?.value ?? raw.value;
+            if (JSON.stringify(context.value) !== JSON.stringify(visible)) throw new Error('分组已变化，请重新操作');
+            validate({ ...context, value: raw.value });
+            const next = changeGroups(visible, 'preset', action, raw.entries);
+            if (fast) { fast.value = next; fast.revision++; refresh(); return; }
+            const pending = fast = { key: raw.key, value: next, revision: 1 };
+            refresh();
+            void serial(async () => {
+                let base = raw;
+                await settlePresetWrite(base);
+                for (;;) {
+                    const current = validate(base), revision = pending.revision, value = clone(pending.value);
+                    await persist(current, value);
+                    if (pending.revision === revision) break;
+                    base = { ...current, value };
+                }
+            }).catch(fail).finally(() => { if (fast === pending) fast = null; refresh(); });
+        } catch (error) { fail(error); }
+    }
     function act(context, action) {
+        if (context.kind === 'preset' && ['collapse', 'toggle'].includes(action.type)) { fastPresetAction(context, action); return; }
+
         run(async () => {
             await settlePresetWrite(context);
             const current = validate(context);
@@ -211,11 +237,12 @@ export function installNativeGroups(env) {
         list.classList.remove(ROOT);
     }
     function render(context) {
+        if (context.kind === 'preset' && fast?.key === context.key) context = { ...context, value: clone(fast.value) };
         const { list, kind } = context;
         let toolbar = list.previousElementSibling;
         if (!toolbar?.classList.contains('pcm-ng-toolbar')) { toolbar = node('div', 'pcm-ng-toolbar'); list.before(toolbar); }
         const owner = baiOwns(kind), enabled = owns(kind);
-        const signature = JSON.stringify([context.key, context.value, context.entries, owner, enabled, busy]);
+        const signature = JSON.stringify([context.key, context.value, context.entries, owner, enabled, busy, Boolean(fast)]);
         const rows = [...list.children].filter(el => kind === 'preset' ? el.hasAttribute('data-pm-identifier') : el.classList.contains('regex-script-label'));
         const old = signatures.get(list);
         if (old?.toolbar === toolbar && old.signature === signature && old.rows.length === rows.length && old.rows.every((r, i) => r === rows[i])) return;
@@ -239,14 +266,14 @@ export function installNativeGroups(env) {
             if (!g) { header.append(node('span', '', '未分组')); return header; }
             const members = context.entries.filter(e => memberGroup(model, kind, e.id) === groupId);
             const collapse = iconButton('chevron', g.collapsed ? '展开分组' : '折叠分组', () => act(context, { type: 'collapse', groupId }));
-            collapse.classList.add('pcm-ng-chevron');
+            collapse.classList.add('pcm-ng-chevron'); collapse.dataset.pcmFast = '';
             collapse.setAttribute('aria-expanded', String(!g.collapsed));
             const title = button(`${g.name || g.id}${continuation ? '（续）' : ''}`, '展开或折叠分组', () => act(context, { type: 'collapse', groupId }));
             title.append(node('small', 'pcm-ng-count', `(${members.filter(e=>e.enabled).length}/${members.length})`));
-            title.classList.add('pcm-ng-title');header.append(collapse,title);
+            title.dataset.pcmFast = '';title.classList.add('pcm-ng-title');header.append(collapse,title);
             const checked = kind === 'preset' ? g.enabled !== false : members.length > 0 && members.every(e => e.enabled);
             const check = button('', kind === 'preset' ? '组总开关（保留成员自身开关）' : '批量切换组内正则（不改变原生授权）', () => act(context, { type: 'toggle', groupId, enabled: !checked }));
-            check.classList.add('pcm-ng-switch'); check.setAttribute('role', 'switch'); check.setAttribute('aria-checked', String(checked)); check.setAttribute('aria-label', check.title);
+            check.dataset.pcmFast = '';check.classList.add('pcm-ng-switch'); check.setAttribute('role', 'switch'); check.setAttribute('aria-checked', String(checked)); check.setAttribute('aria-label', check.title);
             check.classList.toggle('pcm-ng-mixed', kind === 'regex' && members.some(e => e.enabled) && members.some(e => !e.enabled));
             const track = node('span', 'pcm-ng-track'); track.append(node('span', 'pcm-ng-knob')); check.append(track); header.append(check);
             header.append(iconButton('pencil', '重命名分组', async () => { const name = await askName('分组名称', g.name); if (name) act(context, { type: 'rename', groupId, name }); }),
@@ -277,14 +304,14 @@ export function installNativeGroups(env) {
             }
         }
         for (const g of model.groups) if (!displayed.has(g.id)) list.append(makeHeader(g.id));
-        for (const control of [...toolbar.querySelectorAll('button,input'), ...list.querySelectorAll('[data-pcm-ng] button,[data-pcm-ng] input,[data-pcm-ng="assign"]')]) control.disabled = busy;
+        for (const control of [...toolbar.querySelectorAll('button,input'), ...list.querySelectorAll('[data-pcm-ng] button,[data-pcm-ng] input,[data-pcm-ng="assign"]')]) control.disabled = busy || (Boolean(fast) && !(kind === 'preset' && control.hasAttribute('data-pcm-fast')));
     }
     function refresh() {
-        scheduled = 0; observer.disconnect();
+        clearTimeout(scheduled); scheduled = 0; observer.disconnect();
         try {
             const pm = openai.promptManager;
             const ready = owns('preset')
-                ? installGroupGate(pm, () => openai.oai_settings?.extensions?.baibaiToolkit?.presetPromptGroups, () => owns('preset'))
+                ? installGroupGate(pm, () => fast?.key === presetContext()?.key ? fast.value : openai.oai_settings?.extensions?.baibaiToolkit?.presetPromptGroups, () => owns('preset'))
                 : typeof pm?.getPromptCollection === 'function';
             const preset = ready ? presetContext() : null; if (preset) render(preset);
             for (const [scope, id] of [['GLOBAL', 'saved_regex_scripts'], ['PRESET', 'saved_preset_scripts'], ['SCOPED', 'saved_scoped_scripts']]) {
