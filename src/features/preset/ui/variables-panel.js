@@ -1,5 +1,5 @@
 // 预设变量面板：获取/引用/编辑三个视图、局部草稿表单及批量变更预览；通过回调写入预设草稿。
-import {VARIABLE_KINDS, scanVariables, collectVariables, variableKey, makeVariable, missingVariableInitializers,
+import {variableInitializer, VARIABLE_KINDS, scanVariables, collectVariables, variableKey, makeVariable, missingVariableInitializers,
   planVariableInitializers, planVariableAdd, planVariableEdit, planVariableRename} from '../variables.js';
 import {buildRows, diffLines} from '../core.js';
 
@@ -38,7 +38,7 @@ export function openVariablesPanel({dialog, title, getPrompts, getPresentation, 
   const candidates = () => getPrompts().filter(p=>!p.marker);
   let view='get', dirty=false, targetId=null, searchValue='';
   let renderedPrompts=JSON.stringify(getPrompts()), resume=()=>{};
-  const initial = candidates().filter(p=>scanVariables(p.content).some(m=>m.kind.startsWith('set'))).sort((a,b)=>scanVariables(b.content).filter(m=>m.kind.startsWith('set')).length-scanVariables(a.content).filter(m=>m.kind.startsWith('set')).length)[0];
+  const initial = variableInitializer(candidates());
   targetId=initial?.identifier;
   const attempt = action => {try {message.textContent=''; return action();} catch(error) {message.textContent=error.message;}};
   async function discard() {return !dirty || await confirm('当前表单还有未应用的修改，放弃这些修改吗？');}

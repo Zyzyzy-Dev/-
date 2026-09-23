@@ -1,7 +1,7 @@
 // 变量编辑回归：原文保真、范围隔离、嵌套位置、批量初始化及过期预览原子拒绝。
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {scanVariables, makeVariable, collectVariables, planVariableAdd, planVariableEdit, planVariableRename, planVariableInitializers, missingVariableInitializers, applyVariableChanges} from '../src/features/preset/variables.js';
+import {unreferencedVariableChoices, scanVariables, makeVariable, collectVariables, planVariableAdd, planVariableEdit, planVariableRename, planVariableInitializers, missingVariableInitializers, applyVariableChanges} from '../src/features/preset/variables.js';
 const p = (identifier, content) => ({identifier,name:identifier,content,custom:{keep:true}});
 test('扫描局部/全局 set add get，保留嵌套宏完整原文和重复出现位置', () => {
  const text='前\r\n{{setvar:: 风 ::A{{getvar::人}}B}}后{{addvar::风::雨}} {{getglobalvar::风}} {{addvar;;错误:: }}';
@@ -62,4 +62,12 @@ test('过期预览、重复目标及系统占位条目均原子拒绝，不部�
  assert.throws(()=>applyVariableChanges(input,plan),/预览后/);assert.equal(input[0].content,'A');
  assert.throws(()=>planVariableAdd([{...p('m',''),marker:true}],['m'],{kind:'getvar',name:'风'}),/占位/);
  assert.throws(()=>applyVariableChanges([p('a','A')],[plan[0],plan[0]]),/预览后/);
+});
+
+test('引用候选与初始化条目一致，按作用域去重并忽略未注入条目的读取', () => {
+ const prompts=[p('init','{{setvar::爱意:: }}{{setvar::爱意:: }}{{setglobalvar::爱意:: }}{{setvar::已用:: }}'),p('a','{{getvar::已用}}'),p('hidden','{{getvar::爱意}}'),p('other','{{setvar::不在初始化中::x}}')];
+ assert.deepEqual(unreferencedVariableChoices(prompts,id=>id!=='hidden').map(v=>v.macro),['{{getvar::爱意}}','{{getglobalvar::爱意}}']);
+ prompts[1].content+='{{getvar::爱意}}';
+ assert.deepEqual(unreferencedVariableChoices(prompts,id=>id!=='hidden').map(v=>v.macro),['{{getglobalvar::爱意}}']);
+ assert.deepEqual(unreferencedVariableChoices([p('empty','正文')]),[]);
 });

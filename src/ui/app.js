@@ -17,6 +17,7 @@ import {
 import { buildSearchRows, plainSearchRows, normalizeSearchQuery } from '../features/preset/ui/search-highlight.js';
 import { createPromptRangeGroup } from '../features/preset/native-groups.js';
 import { host } from './bridge/bridge.js';
+import { installVariableReferencePicker } from '../features/preset/ui/variable-reference-picker.js';
 import { openVariablesPanel } from '../features/preset/ui/variables-panel.js';
 import { applyVariableChanges } from '../features/preset/variables.js';
 let variablePanel = null;
@@ -439,6 +440,7 @@ function paintBackdrop(bd,rows,side,query=''){
   while(kids.length>highlighted.length)bd.lastChild.remove();
 }
 function setupLiveDiff(detail){
+  installVariableReferencePicker(detail,{getPreset:side=>state[side],isInjected:(side,id)=>{const prompt=byId(side).get(id);return prompt&&isInjected(side,prompt);}});
   const areas=[...detail.querySelectorAll('.pcm-live-area')];if(!areas.length)return;
   const oldArea=areas.find(a=>a.form?.dataset.side==='old'),newArea=areas.find(a=>a.form?.dataset.side==='new');
   const sync=(area,bd)=>{bd.scrollTop=area.scrollTop;bd.scrollLeft=area.scrollLeft;};

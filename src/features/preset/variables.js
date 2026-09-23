@@ -2,6 +2,20 @@
 export const VARIABLE_KINDS = ['setvar', 'addvar', 'getvar', 'setglobalvar', 'addglobalvar', 'getglobalvar'];
 export const variableKey = macro => JSON.stringify([macro.scope, macro.name.trim()]);
 
+export function variableInitializer(prompts) {
+  return prompts.filter(p=>!p.marker).map(prompt=>({prompt,count:scanVariables(prompt.content).filter(m=>m.kind.startsWith('set')).length})).filter(item=>item.count).sort((a,b)=>b.count-a.count)[0]?.prompt;
+}
+export function unreferencedVariableChoices(prompts, isInjected = () => true) {
+  const initial=variableInitializer(prompts);
+  if(!initial)return [];
+  const reads=new Set(collectVariables(prompts).filter(g=>g.occurrences.some(m=>m.kind.startsWith('get')&&isInjected(m.id))).map(g=>g.key));
+  const seen=new Set();
+  return scanVariables(initial.content).filter(m=>m.kind.startsWith('set')).flatMap(m=>{
+    const key=variableKey(m);if(reads.has(key)||seen.has(key))return [];seen.add(key);
+    return [{key,name:m.name,scope:m.scope,macro:makeVariable(m.scope==='global'?'getglobalvar':'getvar',m.name)}];
+  });
+}
+
 export function scanVariables(text) {
   text = String(text ?? '');
   const stack = [], spans = [];
