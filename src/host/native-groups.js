@@ -171,8 +171,8 @@ export function installNativeGroups(env) {
         const signature = JSON.stringify([context.key, context.value, context.entries, owner, enabled, busy]);
         const rows = [...list.children].filter(el => kind === 'preset' ? el.hasAttribute('data-pm-identifier') : el.classList.contains('regex-script-label'));
         const old = signatures.get(list);
-        if (old?.signature === signature && old.rows.length === rows.length && old.rows.every((r, i) => r === rows[i])) return;
-        signatures.set(list, { signature, rows }); clean(list); toolbar.replaceChildren();
+        if (old?.toolbar === toolbar && old.signature === signature && old.rows.length === rows.length && old.rows.every((r, i) => r === rows[i])) return;
+        signatures.set(list, { signature, rows, toolbar }); clean(list); toolbar.replaceChildren();
         const label = node('label', 'pcm-ng-choice'), toggle = node('input'); toggle.type = 'checkbox'; toggle.checked = prefs()[kind] !== false; toggle.disabled = busy || owner;
         toggle.addEventListener('change', () => run(async () => {
             const before = clone(settings[PREF]); settings[PREF] = { ...prefs(), [kind]: toggle.checked };
@@ -183,7 +183,8 @@ export function installNativeGroups(env) {
         if (!enabled) return;
         const model = groupModel(context.value, kind);
         list.classList.add(ROOT);
-        toolbar.append(button('＋新建组', '创建分组', async () => { const name = await askName('新建分组'); if (name) act(context, { type: 'create', name }); }),
+        if(kind === 'preset') toolbar.append(node('small', '', '在酒馆盒子「预设编辑」中选取首尾条目分组，保存后在此查看'));
+        else toolbar.append(button('＋新建组', '创建分组', async () => { const name = await askName('新建分组'); if (name) act(context, { type: 'create', name }); }),
             button('批量归组', '选择条目并调整所属组', () => { void batch(context).catch(fail); }));
         const groups = new Map(model.groups.map(g => [g.id, g])), displayed = new Set(); let last = null;
         const makeHeader = (groupId, continuation = false) => {
@@ -191,13 +192,15 @@ export function installNativeGroups(env) {
             if (!g) { header.append(node('span', '', '未分组')); return header; }
             const members = context.entries.filter(e => memberGroup(model, kind, e.id) === groupId);
             const collapse = button(g.collapsed ? '▸' : '▾', g.collapsed ? '展开分组' : '折叠分组', () => act(context, { type: 'collapse', groupId }));
-            collapse.setAttribute('aria-expanded', String(!g.collapsed)); header.append(collapse, node('span', 'pcm-ng-title', `${g.name || g.id}${continuation ? '（续）' : ''} · ${members.length}`));
+            collapse.setAttribute('aria-expanded', String(!g.collapsed));
+            const title = button(`${g.name || g.id}${continuation ? '（续）' : ''} (${members.filter(e=>e.enabled).length}/${members.length})`, '展开或折叠分组', () => act(context, { type: 'collapse', groupId }));
+            title.classList.add('pcm-ng-title');header.append(collapse,title);
             const check = node('input'); check.type = 'checkbox'; check.title = kind === 'preset' ? '组总开关（保留成员自身开关）' : '批量切换组内正则（不改变原生授权）';
             check.checked = kind === 'preset' ? g.enabled !== false : members.length > 0 && members.every(e => e.enabled);
             check.indeterminate = kind === 'regex' && members.some(e => e.enabled) && members.some(e => !e.enabled);
             check.addEventListener('change', () => act(context, { type: 'toggle', groupId, enabled: check.checked })); header.append(check);
-            header.append(button('改名', '重命名分组', async () => { const name = await askName('分组名称', g.name); if (name) act(context, { type: 'rename', groupId, name }); }),
-                button('解散', '仅解散分组，保留全部条目', async () => {
+            header.append(button('✎', '重命名分组', async () => { const name = await askName('分组名称', g.name); if (name) act(context, { type: 'rename', groupId, name }); }),
+                button('⌫', '仅解散分组，保留全部条目', async () => {
                     const yes = await choose('解散分组？条目会保留在原位置。', form => { form.append(node('p', '', g.name)); return () => true; });
                     if (yes) act(context, { type: 'delete', groupId });
                 }));
@@ -210,7 +213,7 @@ export function installNativeGroups(env) {
             if (groupId !== last && (group || model.groups.length)) { row.before(makeHeader(groupId, displayed.has(groupId))); displayed.add(groupId); }
             last = groupId;
             row.classList.toggle('pcm-ng-hidden', Boolean(group?.collapsed)); row.classList.toggle('pcm-ng-off', kind === 'preset' && group?.enabled === false);
-            if (model.groups.length) {
+            if (model.groups.length && kind !== 'preset') {
                 const select = node('select', 'pcm-ng-select'); select.dataset.pcmNg = 'assign'; select.title = `调整“${context.entries.find(e => e.id === id)?.name}”所属分组`;
                 select.setAttribute('aria-label', select.title); select.append(new Option('未分组', UNGROUPED));
                 for (const g of model.groups) select.append(new Option(g.name || g.id, g.id)); select.value = groupId;

@@ -1,7 +1,19 @@
 // 原生分组的数据保真和实际生成门控回归；不依赖宿主 DOM。
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { changeGroups, groupModel, installGroupGate, UNGROUPED } from '../src/features/preset/native-groups.js';
+import { changeGroups, groupModel, installGroupGate, UNGROUPED, createPromptRangeGroup } from '../src/features/preset/native-groups.js';
+
+test('首尾范围分组包含中间所有条目，支持反向和单条，且不修改来源', () => {
+    const ids=['a','b','c','d'];
+    const state={groups:[{id:'old',name:'旧组'}],prompts:{b:{groupId:'old',extra:42}}};
+    const result=createPromptRangeGroup(state,ids,'d','b','新组');
+    assert.equal(result.count,3);assert.equal(result.state.groups.at(-1).collapsed,true);
+    for(const id of ['b','c','d'])assert.equal(result.state.prompts[id].groupId,result.groupId);
+    assert.equal(result.state.prompts.b.extra,42);assert.equal(result.state.prompts.a,undefined);
+    assert.equal(state.prompts.b.groupId,'old');
+    assert.equal(createPromptRangeGroup(undefined,ids,'a','a','单条').count,1);
+    assert.throws(()=>createPromptRangeGroup(state,ids,'missing','a','错误'),/范围/);
+});
 
 test('归组/解散只改归属，保留原顺序、未知字段与成员开关', () => {
     const state = { extra: 42, groups: [{ id: 'g', name: '测试', enabled: false, custom: 1 }], prompts: { a: { groupId: 'g', custom: 2 } } };

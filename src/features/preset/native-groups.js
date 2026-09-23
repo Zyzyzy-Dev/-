@@ -3,6 +3,15 @@ import { clone } from '../../shared/clone.js';
 import { createIdentifier } from './core.js';
 
 export const UNGROUPED = '__ungrouped';
+export function createPromptRangeGroup(value, orderedIds, startId, endId, name) {
+    const start = orderedIds.indexOf(startId), end = orderedIds.indexOf(endId);
+    if (start < 0 || end < 0 || new Set(orderedIds).size !== orderedIds.length) throw new Error('条目范围已变化，请重新选择');
+    const state = changeGroups(value, 'preset', { type: 'create', name });
+    const group = state.groups.at(-1);
+    group.collapsed = true;
+    const ids = orderedIds.slice(Math.min(start, end), Math.max(start, end) + 1);
+    return { state: changeGroups(state, 'preset', { type: 'assign', groupId: group.id, ids }, orderedIds.map(id => ({ id }))), groupId: group.id, count: ids.length };
+}
 const setMember = (map, id, value) => Object.defineProperty(map, id, { value, enumerable: true, configurable: true, writable: true });
 export function groupModel(value, kind) {
     if (value?.version != null && kind === 'regex' && Number(value.version) !== 1) throw new Error('正则分组版本不受支持，请更新插件');

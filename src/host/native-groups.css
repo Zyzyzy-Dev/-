@@ -20,3 +20,12 @@
 .pcm-ng-picker{max-height:45vh;overflow:auto;margin-top:8px}
 .pcm-ng-choice{display:flex;gap:8px;align-items:center;overflow-wrap:anywhere}
 .pcm-ng-picker .pcm-ng-choice{padding:7px 2px;text-align:left}
+/* 原生组标题采用紧凑图标与灰色开关；分组创建在盒子编辑器中完成。 */
+.pcm-ng-header .pcm-ng-button{background:transparent;border-color:transparent;padding:2px 4px}
+.pcm-ng-header .pcm-ng-title{text-align:left;font-weight:600}
+.pcm-ng-header>input[type=checkbox]{appearance:none;position:relative;width:26px!important;height:14px!important;border:0;border-radius:9px;background:#9995;cursor:pointer}
+.pcm-ng-header>input[type=checkbox]:before{content:'';position:absolute;width:10px;height:10px;top:2px;left:2px;border-radius:50%;background:#eee;box-shadow:0 0 2px #555}
+.pcm-ng-header>input[type=checkbox]:checked{background:#777}
+.pcm-ng-header>input[type=checkbox]:checked:before{left:14px}
+.pcm-ng-header>input[type=checkbox]:indeterminate{background:#999}
+.pcm-ng-header>input[type=checkbox]:indeterminate:before{left:8px}
