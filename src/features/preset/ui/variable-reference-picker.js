@@ -4,13 +4,13 @@ import {unreferencedVariableChoices} from '../variables.js';
 export function installVariableReferencePicker(detail, {getPreset, isInjected}) {
   const areas=[...detail.querySelectorAll('textarea[name=content]')];
   if(!areas.length)return;
-  let active=areas.length===1?areas[0]:null;
-  for(const area of areas)area.addEventListener('focus',()=>{active=area;});
   const node=(tag,text)=>{const el=document.createElement(tag);if(text!==undefined)el.textContent=text;return el;};
   const button=(text,action)=>{const el=node('button',text);el.type='button';el.className='menu_button';el.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();action();});return el;};
+  for(const editor of detail.querySelectorAll('.pcm-version-editor')) {
+  const area=editor.querySelector('textarea[name=content]');
   const launch=button('插入引用变量',()=>{
     detail.querySelector('[data-variable-reference-picker]')?.remove();
-    const area=active,side=area?.form.dataset.side,preset=side&&getPreset(side);
+    const side=area.form.dataset.side,preset=getPreset(side);
     const original=area?.value,start=area?.selectionStart,end=area?.selectionEnd;
     const layer=node('section');layer.className='pcm-picker open';layer.dataset.variableReferencePicker='';layer.setAttribute('role','dialog');layer.setAttribute('aria-label','插入引用变量');
     const box=node('div');box.className='pcm-picker-panel';
@@ -19,7 +19,6 @@ export function installVariableReferencePicker(detail, {getPreset, isInjected}) 
     head.append(node('h3','插入引用变量'+(side?' · '+(side==='old'?'旧版':'新版'):'')),button('取消',close));box.append(head);
     const body=node('div');body.className='pcm-variable-body';box.append(body);layer.append(box);detail.append(layer);
     layer.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close();}});
-    if(!area){body.append(node('p','请先点击要插入的旧版或新版正文，放好光标后再打开。'));return;}
     const livePrompts=()=>{
       const edits=new Map(areas.filter(a=>a.form.dataset.side===side).map(a=>[a.form.dataset.id,a.value]));
       return (getPreset(side)?.prompts||[]).map(p=>edits.has(p.identifier)?{...p,content:edits.get(p.identifier)}:p);
@@ -40,6 +39,9 @@ export function installVariableReferencePicker(detail, {getPreset, isInjected}) 
     };
     search.addEventListener('input',draw);draw();search.focus();
   });
-  const actions=detail.querySelector('.pcm-compare-actions');
-  if(actions)actions.prepend(launch);else detail.querySelector('.pcm-compare-head')?.append(launch);
+  launch.disabled=!area;
+  if(!area)launch.title='此版本没有该条目';
+  const heading=editor.querySelector('h4'),bar=node('div');bar.className='pcm-variable-entry-heading';
+  heading.before(bar);bar.append(heading,launch);
+  }
 }
