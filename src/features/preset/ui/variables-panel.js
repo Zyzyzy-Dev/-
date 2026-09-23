@@ -112,27 +112,39 @@ export function openVariablesPanel({dialog, title, getPrompts, getPresentation, 
       if(raw.value===original){dirty=false;return;}
       commit([{id:target.identifier,name:target.name,before:original,after:raw.value}]);
     }));save.setAttribute('aria-label','保存条目内容');body.querySelector('.pcm-variable-target').append(save);
-    const requireSaved=()=>{if(raw.value!==original)throw new Error('请先保存条目原文的修改，再补写变量');};
-    const missing=missingVariableInitializers(candidates(),targetId);
-    const section=node('section','pcm-variable-section');section.append(node('h4','','未收录的变量 · '+missing.length));
-    for(const group of missing){
-      const row=node('div','pcm-variable-source');
-      const sources=[...new Set(group.occurrences.filter(m=>m.id!==targetId&&/^(set|add)/.test(m.kind)).map(m=>m.entryName))];
-      row.append(node('strong','',(group.scope==='global'?'全局 · ':'')+group.name),node('span','',sources.join('、')),
-        button('写入',()=>attempt(()=>{requireSaved();preview(planVariableInitializers(candidates(),targetId,[group.key]),'写入 '+group.name);})));
-      section.append(row);
+    const draftPrompts=()=>candidates().map(p=>p.identifier===targetId?{...p,content:raw.value}:p);
+    const pending=node('div','pcm-variable-pending');body.append(pending);
+    const stage=changes=>{
+      if(!changes.length){message.textContent='文本框中已包含这些变量，无需重复写入';return;}
+      raw.value=changes[0].after;dirty=raw.value!==original;drawPending();
+      message.textContent='已写入上方文本框，点击右上角“保存”后才会更新条目草稿';
+    };
+    function drawPending() {
+      pending.replaceChildren();
+      const prompts=draftPrompts(),missing=missingVariableInitializers(prompts,targetId);
+      const section=node('section','pcm-variable-section');section.append(node('h4','','未收录的变量 · '+missing.length));
+      for(const group of missing){
+        const row=node('div','pcm-variable-source');
+        const sources=[...new Set(group.occurrences.filter(m=>m.id!==targetId&&/^(set|add)/.test(m.kind)).map(m=>m.entryName))];
+        row.append(node('strong','',(group.scope==='global'?'全局 · ':'')+group.name),node('span','',sources.join('、')),
+          button('写入',()=>attempt(()=>stage(planVariableInitializers(draftPrompts(),targetId,[group.key])))));
+        section.append(row);
+      }
+      if(!missing.length)section.append(node('p','pcm-variable-note','其他条目的设置／追加变量均已收录到上方文本框'));
+      if(missing.length){const actions=node('div','pcm-variable-actions pcm-variable-end');actions.append(button('一键写入变量',()=>attempt(()=>stage(planVariableInitializers(draftPrompts(),targetId)))));section.append(actions);}
+      pending.append(section);
+      const draftGroups=collectVariables(prompts);
+      const undefinedGroups=draftGroups.filter(g=>g.occurrences.some(m=>m.kind.startsWith('get')&&isInjected(m.id))&&!g.occurrences.some(m=>m.kind.startsWith('set')&&(m.id===targetId||isInjected(m.id))));
+      if(undefinedGroups.length){const section=node('section','pcm-variable-section');section.append(node('h4','','被引用但没有 setvar 初始化'));
+        for(const group of undefinedGroups){const row=node('div','pcm-variable-source');row.append(node('strong','',(group.scope==='global'?'全局 · ':'')+group.name),button('补写',()=>attempt(()=>{
+          stage(planVariableAdd(draftPrompts(),[targetId],{kind:group.scope==='global'?'setglobalvar':'setvar',name:group.name}));
+        })));section.append(row);}pending.append(section);
+      }
     }
-    if(!missing.length)section.append(node('p','pcm-variable-note','其他条目的设置／追加变量均已收录'));
-    if(missing.length){const actions=node('div','pcm-variable-actions pcm-variable-end');actions.append(button('一键写入变量',()=>attempt(()=>{requireSaved();preview(planVariableInitializers(candidates(),targetId),'一键写入变量','按名称及作用域去重，只补空值 setvar；已有值和来源正文保持不变。初始化应先于 addvar 执行。');})));section.append(actions);}
-    body.append(section);
-    const undefinedGroups=groups.filter(g=>g.occurrences.some(m=>m.kind.startsWith('get')&&isInjected(m.id))&&!g.occurrences.some(m=>m.kind.startsWith('set')&&isInjected(m.id)));
-    if(undefinedGroups.length){const section=node('section','pcm-variable-section');section.append(node('h4','','被引用但没有 setvar 初始化'));
-      for(const group of undefinedGroups){const row=node('div','pcm-variable-source');row.append(node('strong','',(group.scope==='global'?'全局 · ':'')+group.name),button('补写',()=>attempt(()=>{
-        requireSaved();
-        const plan=planVariableAdd(candidates(),[targetId],{kind:group.scope==='global'?'setglobalvar':'setvar',name:group.name});preview(plan,'补写 '+group.name);
-      })));section.append(row);}body.append(section);
-    }
+    raw.addEventListener('input',()=>attempt(()=>{dirty=raw.value!==original;drawPending();}));
+    drawPending();
   }
+
   function renderEditor() {
     const bar=node('div','pcm-variable-actions');
     const search=input('搜索变量或条目',searchValue);search.type='search';search.placeholder='搜索变量或条目';
