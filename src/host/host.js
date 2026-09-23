@@ -1172,7 +1172,8 @@ async function handleSnapshotRequest(method, payload) {
       await settleBaiBai(env, context);
       assertSnapshotContext(env, payload.contextKey);
       assertSnapshotIdle(env);
-      const included=snapshotScope({scope:method==='snapshot-save-draft' ? payload.draft?.scope : payload.scope,resources:{}});
+      // 覆盖当前设置沿用目标快照的范围；只有详情编辑才显式修改已有范围。
+      const included=method==='snapshot-save'&&existing ? snapshotScope(existing) : snapshotScope({scope:method==='snapshot-save-draft' ? payload.draft?.scope : payload.scope,resources:{}});
       const {settings, orderCharacterId} = included.preset ? snapshotSettings(env) : {settings:env.openai.oai_settings,orderCharacterId:null};
       let snapshot;
       if (method==='snapshot-save-draft') {
