@@ -21,11 +21,19 @@ test('批量追加不改原文/配置，精确重复跳过，支持空正文', (
 });
 test('整段转换保留正文空白及嵌套宏，不允许 get 或未闭合正文', () => {
  const input=[p('a','\r\n内容{{getvar::角色}}\r\n')];
- assert.equal(planVariableAdd(input,['a'],{mode:'wrap',kind:'setvar',name:'文风'})[0].after,'{{setvar::文风::\r\n内容{{getvar::角色}}\r\n}}');
+ assert.equal(planVariableAdd(input,['a'],{mode:'wrap',kind:'setvar',name:'文风'})[0].after,'{{setvar::文风::\r\n\r\n\r\n内容{{getvar::角色}}\r\n}}');
  assert.throws(()=>planVariableAdd(input,['a'],{mode:'wrap',kind:'getvar',name:'风'}),/不能存放/);
  assert.throws(()=>planVariableAdd([p('a','bad}}')],['a'],{mode:'wrap',kind:'setvar',name:'风'}),/未配对/);
  assert.throws(()=>makeVariable('setvar','a::b'),/变量名/);
  assert.throws(()=>makeVariable('setvar','风','末尾}'),/边界混淆/);
+});
+test('整段转换在宏头与正文之间空一行，局部全局 set/add 均保留原正文', () => {
+ for(const kind of ['setvar','addvar','setglobalvar','addglobalvar']) {
+  const source=[p('a','## Step 本色校验\n\n正文')];
+  const result=planVariableAdd(source,['a'],{mode:'wrap',kind,name:'本色校验'})[0].after;
+  assert.equal(result,'{{'+kind+'::本色校验::\n\n## Step 本色校验\n\n正文}}');
+  assert.equal(source[0].content,'## Step 本色校验\n\n正文');
+ }
 });
 test('只编辑同名多次出现中的指定位置，其他文本不变', () => {
  const input=[p('a','{{addvar::风::一}}\r\n{{addvar::风::二}}')];

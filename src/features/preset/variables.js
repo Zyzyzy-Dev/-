@@ -68,7 +68,10 @@ export function planVariableAdd(prompts, ids, {kind, name, value = ' ', mode = '
   const macro = makeVariable(kind, name, value);
   return [...new Set(ids)].map(id => {
     const prompt = entry(prompts, id), before = content(prompt);
-    if (mode === 'wrap') return change(prompt, makeVariable(kind, name, before));
+    if (mode === 'wrap') {
+      const newline = before.includes('\r\n') ? '\r\n' : '\n';
+      return change(prompt, makeVariable(kind, name, newline + newline + before));
+    }
     // Exact existing macro is skipped; other values of the same variable remain independent.
     if (scanVariables(before).some(item => item.raw === macro)) return change(prompt, before);
     return change(prompt, appendVariableText(before, macro));

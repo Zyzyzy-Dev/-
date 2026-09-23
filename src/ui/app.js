@@ -20,11 +20,15 @@ import { host } from './bridge/bridge.js';
 import { openVariablesPanel } from '../features/preset/ui/variables-panel.js';
 import { applyVariableChanges } from '../features/preset/variables.js';
 let variablePanel = null;
-function closeVariablesPanel(){variablePanel?.destroy();variablePanel=null;}
+const variablePanels = new Map();
+function closeVariablesPanel(){for(const {panel} of variablePanels.values())panel.destroy();variablePanels.clear();variablePanel=null;}
 function openVarPanel(side){
   const preset=state[side];
   if(!preset?.prompts?.length){pcmToastr.warning('请先导入这一侧的预设');return;}
-  closeVariablesPanel();
+  variablePanel?.hide();
+  const previous=variablePanels.get(side);
+  if(previous?.preset===preset){variablePanel=previous.panel;variablePanel.show();return;}
+  previous?.panel.destroy();
   variablePanel=openVariablesPanel({dialog:document.getElementById(APP_ID+'-dialog'),title:(side==='old'?'旧版':'新版')+' · '+state[side+'Name'],
     getPrompts(){if(state[side]!==preset)throw new Error('预设已重新载入，请关闭后重新打开变量面板');return preset.prompts;},
     isInjected(id){const prompt=byId(side).get(id);return prompt&&isInjected(side,prompt);},
@@ -46,6 +50,7 @@ function openVarPanel(side){
       state.dirty[side]=true;rebuildCache();renderAll();
     },
   });
+  variablePanels.set(side,{preset,panel:variablePanel});
 }
 import { createToolboxHome } from './home/home.js';
 import { createSnapshotPanel } from '../features/snapshot/ui/snapshot-panel.js';
