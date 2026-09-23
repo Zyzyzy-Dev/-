@@ -1064,9 +1064,9 @@ async function refreshSnapshotPrompts(env) {
     error.name = 'SnapshotContextChanged';
     throw error;
   }
+  // 这里只重绘开关（柏宝箱也通过 render hook 同步列表）。原生切换已发出生命周期事件；
+  // 再发 AFTER 会让刚启动的预设脚本执行离开预设的清理，移除悬浮入口但仍显示启用。
   await env.openai.promptManager?.render?.(false);
-  const type = env.script.event_types?.OAI_PRESET_CHANGED_AFTER;
-  if (type) await env.script.eventSource?.emit?.(type);
 }
 
 async function applySettingsSnapshot(env, snapshot, payload, automatic = false) {
