@@ -348,8 +348,8 @@ async function handleApiManagerRequest(method, payload) {
         for (const select of document.querySelectorAll('.model_custom_select')) select.replaceChildren(new Option(settings.custom_model, settings.custom_model, true, true));
       } else {
         for (const select of document.querySelectorAll('.model_custom_select')) {
-          if (![...select.options].some(option => option.value === settings.custom_model)) select.add(new Option(settings.custom_model, settings.custom_model));
-          select.value = settings.custom_model;
+          if (![...select.options].some(option => option.value === settings.custom_model)) select.append(new Option(settings.custom_model, settings.custom_model));
+          if (select.tagName === 'SELECT') select.value = settings.custom_model;
         }
       }
       script.saveSettingsDebounced();
@@ -382,8 +382,14 @@ async function handleApiManagerRequest(method, payload) {
       } finally { clearTimeout(timer); }
       // Do not let a late response overwrite the status of a connection changed outside this plugin.
       if (script.main_api === 'openai' && JSON.stringify(settings) === applied) {
+        let verifiedKeys;
         try {
-          if (activeId(await readKeys()) === connectionKey && script.main_api === 'openai' && JSON.stringify(settings) === applied) {
+          verifiedKeys = await readKeys();
+        } catch {
+          return { mode: payload.mode, connection: { ok: false, message: '无法核对当前密钥，请刷新核对连接' } };
+        }
+        if (activeId(verifiedKeys) === connectionKey && script.main_api === 'openai' && JSON.stringify(settings) === applied) {
+          try {
             // Publish discovery only after both configuration and secret identity are still current.
             // Keep a manually entered model even when the service does not advertise it; never fire change.
             if (discoveredModels) {
@@ -394,14 +400,22 @@ async function handleApiManagerRequest(method, payload) {
               const ids = [...new Set([settings.custom_model || '', ...discoveredModels.map(model => model.id)])];
               for (const select of document.querySelectorAll('.model_custom_select')) {
                 select.replaceChildren();
-                for (const id of ids) select.add(new Option(id || 'None', id, false, id === (settings.custom_model || '')));
-                select.value = settings.custom_model || '';
+                // The native class is shared by SELECT and DATALIST; only SELECT has add()/value.
+                for (const id of ids) select.append(new Option(id || 'None', id, false, id === (settings.custom_model || '')));
+                if (select.tagName === 'SELECT') select.value = settings.custom_model || '';
               }
             }
-            script.setOnlineStatus?.(connection.status);
+          } catch {
+            connection = { ...connection, message: `${connection.message}；模型列表同步失败，请刷新酒馆界面` };
           }
-          else connection = { ok: false, message: '连接已被外部修改，请刷新核对' };
-        } catch { connection = { ok: false, message: '无法核对当前密钥，请刷新核对连接' }; }
+          // Model UI errors cannot prevent native connection completion or masquerade as key errors.
+          try {
+            script.setOnlineStatus?.(connection.status);
+            script.resultCheckStatus?.();
+          } catch {
+            return { mode: payload.mode, connection: { ok: false, message: '连接状态同步失败，请刷新酒馆后重试' } };
+          }
+        } else connection = { ok: false, message: '连接已被外部修改，请刷新核对' };
       } else connection = { ok: false, message: '连接已被外部修改，请刷新核对' };
       return { mode: payload.mode, connection };
     } catch (error) {
