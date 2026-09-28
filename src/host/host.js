@@ -357,7 +357,7 @@ async function handleApiManagerRequest(method, payload) {
       // A network failure does not undo the user's successful configuration switch.
       const applied = JSON.stringify(settings), connectionKey = target === null ? previous : target;
       const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 15000);
-      let connection;
+      let connection, discoveredModels;
       try {
         const response = await fetch('/api/backends/chat-completions/status', {
           method: 'POST', headers: script.getRequestHeaders(), signal: controller.signal, cache: 'no-cache',
@@ -367,6 +367,14 @@ async function handleApiManagerRequest(method, payload) {
         if (!response.ok) throw new Error('连接检查失败（'+response.status+'），请检查地址和密钥');
         const result = await response.json();
         if (!result || result.error) throw new Error('连接检查失败，请检查地址和密钥');
+        if (Array.isArray(result.data)) {
+          const seen = new Set();
+          discoveredModels = result.data.flatMap(model => {
+            const item = typeof model === 'string' ? { id: model } : model;
+            if (!item || typeof item.id !== 'string' || !item.id || seen.has(item.id)) return [];
+            seen.add(item.id); return [{ ...item }];
+          });
+        }
         connection = result.bypass ? { ok: true, message: '已执行连接，服务端跳过验证', status: 'Status check bypassed' }
           : { ok: true, message: '连接检查通过', status: '有效的' };
       } catch (error) {
@@ -375,7 +383,23 @@ async function handleApiManagerRequest(method, payload) {
       // Do not let a late response overwrite the status of a connection changed outside this plugin.
       if (script.main_api === 'openai' && JSON.stringify(settings) === applied) {
         try {
-          if (activeId(await readKeys()) === connectionKey && script.main_api === 'openai' && JSON.stringify(settings) === applied) script.setOnlineStatus?.(connection.status);
+          if (activeId(await readKeys()) === connectionKey && script.main_api === 'openai' && JSON.stringify(settings) === applied) {
+            // Publish discovery only after both configuration and secret identity are still current.
+            // Keep a manually entered model even when the service does not advertise it; never fire change.
+            if (discoveredModels) {
+              if (Array.isArray(openai.model_list)) {
+                openai.model_list.splice(0);
+                for (const model of discoveredModels) openai.model_list.push(model);
+              }
+              const ids = [...new Set([settings.custom_model || '', ...discoveredModels.map(model => model.id)])];
+              for (const select of document.querySelectorAll('.model_custom_select')) {
+                select.replaceChildren();
+                for (const id of ids) select.add(new Option(id || 'None', id, false, id === (settings.custom_model || '')));
+                select.value = settings.custom_model || '';
+              }
+            }
+            script.setOnlineStatus?.(connection.status);
+          }
           else connection = { ok: false, message: '连接已被外部修改，请刷新核对' };
         } catch { connection = { ok: false, message: '无法核对当前密钥，请刷新核对连接' }; }
       } else connection = { ok: false, message: '连接已被外部修改，请刷新核对' };
