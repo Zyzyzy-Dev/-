@@ -493,12 +493,13 @@ async function handleWorkbenchWorldbook(method, payload) {
   // Android local servers may need longer to enumerate settings/presets and read large books.
   // Keep disk existence checks: the native get endpoint returns an empty book for missing files.
   if (method === 'workbench-read-worldbook') {
-    // 两个独立只读请求并行，仍须全部通过才更新缓存和返回草稿。
-    const [names, book] = await Promise.all([
-      workbenchDiskNames(env, {timeoutMs:45000, label:'世界书列表'}),
-      readSnapshotPersistence(env, '/api/worldinfo/get', {name}, {timeoutMs:45000, label:'世界书正文'}),
-    ]);
-    if (!names.includes(name)) throw new Error('该世界书不存在，请重新读取列表');
+    // 官方 /get 只在文件缺失时返回空 entries。非空有效正文即为文件存在的证据，
+    // 不为读取一本书额外下载所有预设/设置；空书仍查磁盘目录，区分空文件与缺失。
+    const book = await readSnapshotPersistence(env, '/api/worldinfo/get', {name}, {timeoutMs:45000, label:'世界书正文'});
+    if (!book?.entries || typeof book.entries !== 'object' || !Object.keys(book.entries).length) {
+      const names = await workbenchDiskNames(env, {timeoutMs:45000, label:'世界书列表'});
+      if (!names.includes(name)) throw new Error('该世界书不存在，请重新读取列表');
+    }
     normalizeWorkbenchBook(book);
     assertWorkbenchCache(world, name, book);
     world.worldInfoCache.set(name, clone(book));

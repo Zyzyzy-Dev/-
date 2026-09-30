@@ -257,3 +257,13 @@
 
 /* 导入进度沿用正文配色，不把读取过程显示成错误。 */
 .pcm-wb-progress{font-size:12px;margin:6px 0}.pcm-wb-progress:empty{display:none}
+/* 固定可见顶栏、主题化就地选择菜单。 */
+.pcm-wb-header{position:sticky;top:0;z-index:20;background:var(--wb-bg);padding:10px 0;border-bottom:1px solid var(--wb-line);box-shadow:0 5px 10px color-mix(in srgb,var(--wb-bg) 85%,transparent)}
+@media(max-width:900px){.pcm-wb-header{top:var(--pcm-safe-top,0px)}}
+.pcm-wb-workbench button.pcm-wb-select{height:28px;min-height:0;min-width:0;padding:3px 6px;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:5px;background:var(--wb-bg);font-size:12px}
+.pcm-wb-workbench .pcm-wb-select-menu{position:fixed;z-index:100;box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;padding:5px;border:1px solid var(--wb-line);border-radius:12px;background:var(--wb-bg);color:var(--wb-fg);box-shadow:0 8px 28px #0004;scrollbar-width:thin}
+.pcm-wb-workbench .pcm-wb-select-menu button{display:block;width:100%;min-height:40px;text-align:left;padding:9px 12px;border:0;border-radius:7px;background:transparent;color:inherit;font-size:13px;line-height:1.5}
+.pcm-wb-workbench .pcm-wb-select-menu button[aria-selected=true]{background:var(--wb-soft);font-weight:650}
+.pcm-wb-workbench .pcm-wb-select-menu button[aria-selected=true]::after{content:'✓';float:right;margin-left:12px}
+.pcm-wb-workbench .pcm-wb-select-menu button:hover,.pcm-wb-workbench .pcm-wb-select-menu button:focus-visible{background:var(--wb-soft);outline:1px solid var(--wb-line);outline-offset:-1px}
+@media(max-width:900px){.pcm-wb-workbench button.pcm-wb-select{width:100%;height:27px;padding:2px 1px;font-size:10px}}

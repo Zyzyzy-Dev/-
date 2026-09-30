@@ -16,14 +16,24 @@ export function installWorkbenchDrag(element,{canDrag,onDrop}) {
     return {toSide:list.dataset.side,anchorId:row?.dataset.wbId||null,after:rect?gesture.y>rect.top+rect.height/2:true,row,list};
   }
   function scrollAtEdge(target,now){
-    const scroller=target?.list||element.closest('.pcm-dialog');
+    // 命中可见边缘及其外侧窄区，而非只认列表内部；覆盖手机视口裁切。
+    const header=element.querySelector('.pcm-wb-header')?.getBoundingClientRect(),viewport=window.visualViewport;
+    const viewportTop=Math.max(viewport?.offsetTop||0,header?.bottom||0),viewportBottom=(viewport?.offsetTop||0)+(viewport?.height||window.innerHeight);
+    let candidate=null;
+    for(const list of element.querySelectorAll('.pcm-wb-list')){
+      const r=list.getBoundingClientRect(),top=Math.max(r.top,viewportTop),bottom=Math.min(r.bottom,viewportBottom);
+      if(bottom-top<30||gesture.x<r.left-22||gesture.x>r.right+22)continue;
+      const direction=gesture.y>=top-22&&gesture.y<top+35?-1:gesture.y>bottom-35&&gesture.y<=bottom+22?1:0;
+      const distance=Math.abs(gesture.y-(direction<0?top:bottom));
+      if(direction&&(!candidate||distance<candidate.distance))candidate={scroller:list,direction,distance};
+    }
+    const scroller=candidate?.scroller||(!target?element.closest('.pcm-dialog'):null);
     if(!scroller){edge=null;return;}
-    const rect=scroller.getBoundingClientRect(),top=target?rect.top:Math.max(0,rect.top),bottom=target?rect.bottom:Math.min(window.innerHeight,rect.bottom);
-    const direction=gesture.y>=top&&gesture.y<top+35?-1:gesture.y<=bottom&&gesture.y>bottom-35?1:0;
+    const direction=candidate?.direction||(gesture.y<viewportTop+20?-1:gesture.y>viewportBottom-35?1:0);
     const canScroll=direction<0?scroller.scrollTop>0:direction>0&&scroller.scrollTop+scroller.clientHeight<scroller.scrollHeight-1;
     if(!direction||!canScroll){edge=null;return;}
-    // 快速穿过边界或仍在移动时不滚动；停留计时绑定当前列表及方向。
-    if(!edge||edge.scroller!==scroller||edge.direction!==direction||Math.hypot(gesture.x-edge.x,gesture.y-edge.y)>10){
+    // 快速穿过边界不滚动；停留计时绑定列表及方向，允许手指在边缘轻微晃动。
+    if(!edge||edge.scroller!==scroller||edge.direction!==direction){
       edge={scroller,direction,x:gesture.x,y:gesture.y,since:now,last:now};return;
     }
     const elapsed=now-edge.since,delta=Math.min(32,now-edge.last);edge.last=now;
