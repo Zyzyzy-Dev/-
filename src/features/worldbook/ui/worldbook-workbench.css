@@ -267,3 +267,30 @@
 .pcm-wb-workbench .pcm-wb-select-menu button[aria-selected=true]::after{content:'✓';float:right;margin-left:12px}
 .pcm-wb-workbench .pcm-wb-select-menu button:hover,.pcm-wb-workbench .pcm-wb-select-menu button:focus-visible{background:var(--wb-soft);outline:1px solid var(--wb-line);outline-offset:-1px}
 @media(max-width:900px){.pcm-wb-workbench button.pcm-wb-select{width:100%;height:27px;padding:2px 1px;font-size:10px}}
+/* 多选批量操作与一行紧凑顶栏，选择框不占用条目配置行。 */
+.pcm-wb-workbench .pcm-wb-header{flex-wrap:nowrap;gap:5px}
+.pcm-wb-workbench .pcm-wb-header h2{white-space:nowrap;flex:0 0 auto;font-size:17px}
+.pcm-wb-workbench .pcm-wb-header>button{height:28px;min-height:28px;padding:3px 6px;font-size:11px;flex:0 0 auto}
+.pcm-wb-workbench .pcm-wb-header>:is(.pcm-wb-icon,.pcm-wb-header-icon,[data-theme-toggle]){width:28px;padding:5px}
+.pcm-wb-workbench .pcm-wb-header svg{width:16px;height:16px;display:block}
+.pcm-wb-header-space{flex:1 1 auto;min-width:0;margin:0}
+.pcm-wb-multi-actions{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:3px 0 6px;font-size:11px}
+.pcm-wb-multi-count{margin-right:auto}
+.pcm-wb-workbench .pcm-wb-multi-actions button{font-size:10px;min-height:24px;padding:3px 6px}
+.pcm-wb-workbench .pcm-wb-multi-delete{color:#a33f37;border-color:#b77768}
+.pcm-theme-night .pcm-wb-workbench .pcm-wb-multi-delete{color:#f4aa98}
+.pcm-wb-workbench .pcm-wb-entry.is-multi-selected{border-color:#7999b3;background:color-mix(in srgb,var(--wb-card) 80%,#7999b3);box-shadow:inset 0 0 0 1px #7999b3}
+.pcm-wb-workbench .pcm-wb-drag:has(.pcm-wb-entry-select){display:flex;align-items:center}
+@media(max-width:900px){
+  .pcm-wb-workbench .pcm-wb-header{gap:4px}
+  .pcm-wb-workbench .pcm-wb-header h2{font-size:14px}
+  .pcm-wb-workbench .pcm-wb-header>button{height:25px;min-height:25px;padding:3px 5px;font-size:10px}
+  .pcm-wb-workbench .pcm-wb-header>:is(.pcm-wb-icon,.pcm-wb-header-icon,[data-theme-toggle]){width:25px;padding:4px}
+}
+@media(max-width:360px){
+  .pcm-wb-workbench .pcm-wb-header{gap:3px}
+  .pcm-wb-workbench .pcm-wb-header h2{font-size:13px}
+  .pcm-wb-workbench .pcm-wb-header>button{padding-inline:4px}
+  .pcm-wb-workbench .pcm-wb-header>:is(.pcm-wb-icon,.pcm-wb-header-icon,[data-theme-toggle]){width:23px;padding:3px}
+}
+@media(max-width:900px){.pcm-wb-workbench .pcm-wb-drag .pcm-wb-entry-select{margin-left:22px!important}}
