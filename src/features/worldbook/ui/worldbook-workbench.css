@@ -60,7 +60,7 @@
 .pcm-wb-row-actions{grid-column:2/-1;display:flex;flex-wrap:wrap;gap:4px}
 .pcm-wb-workbench .pcm-wb-row-actions button{font-size:10px;min-height:22px;padding:2px 6px}
 .pcm-wb-empty{padding:28px 12px;text-align:center;font-size:12px;opacity:.65}
-.pcm-wb-drop-marker{height:3px;background:#7999b3;pointer-events:none;border-radius:3px}
+.pcm-wb-drop-marker{position:absolute;left:0;right:0;z-index:2;height:3px;background:#7999b3;pointer-events:none;border-radius:3px}
 .pcm-wb-workbench.is-dragging{user-select:none;cursor:grabbing}
 .pcm-wb-workbench input.pcm-native-switch{appearance:none!important;-webkit-appearance:none!important;position:relative;display:inline-block;width:22px!important;height:12px!important;min-width:22px!important;max-width:22px!important;min-height:12px!important;padding:0!important;margin:0!important;flex:0 0 auto;align-self:center;max-height:12px!important;border:0!important;border-radius:8px!important;background:#b8b8b8!important;box-shadow:inset 0 1px 2px #0002!important;cursor:pointer}
 .pcm-wb-workbench input.pcm-native-switch::before{content:'';position:absolute;left:2px;top:2px;width:8px;height:8px;border-radius:50%;background:#fff}
@@ -254,3 +254,6 @@
 .pcm-dialog .pcm-wb-workbench .pcm-wb-compare-modal textarea.pcm-wb-compare-input{background:transparent!important;border:0!important;color:var(--wb-fg)!important;-webkit-text-fill-color:var(--wb-fg)!important;caret-color:var(--wb-fg)!important}
 .pcm-wb-workbench button.pcm-wb-compare-toggle[aria-pressed=true]{background:var(--wb-soft);border-color:#7999b3;box-shadow:inset 0 0 0 1px #7999b3;font-weight:700}
 .pcm-wb-workbench button.pcm-wb-compare-toggle[aria-pressed=false]{background:var(--wb-card);border-color:var(--wb-line);box-shadow:none;font-weight:400}
+
+/* 导入进度沿用正文配色，不把读取过程显示成错误。 */
+.pcm-wb-progress{font-size:12px;margin:6px 0}.pcm-wb-progress:empty{display:none}

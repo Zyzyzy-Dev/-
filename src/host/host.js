@@ -492,17 +492,20 @@ async function handleWorkbenchWorldbook(method, payload) {
   const env = {script, world};
   // Android local servers may need longer to enumerate settings/presets and read large books.
   // Keep disk existence checks: the native get endpoint returns an empty book for missing files.
-  const reading = method === 'workbench-read-worldbook';
-  const names = await workbenchDiskNames(env, reading ? {timeoutMs:45000, label:'世界书列表'} : undefined);
   if (method === 'workbench-read-worldbook') {
+    // 两个独立只读请求并行，仍须全部通过才更新缓存和返回草稿。
+    const [names, book] = await Promise.all([
+      workbenchDiskNames(env, {timeoutMs:45000, label:'世界书列表'}),
+      readSnapshotPersistence(env, '/api/worldinfo/get', {name}, {timeoutMs:45000, label:'世界书正文'}),
+    ]);
     if (!names.includes(name)) throw new Error('该世界书不存在，请重新读取列表');
-    const book = await readSnapshotPersistence(env, '/api/worldinfo/get', {name}, {timeoutMs:45000, label:'世界书正文'});
     normalizeWorkbenchBook(book);
     assertWorkbenchCache(world, name, book);
     world.worldInfoCache.set(name, clone(book));
     // The raw disk object is the CAS baseline; normalization must not change it.
     return {name, book: clone(book)};
   }
+  const names = await workbenchDiskNames(env);
   if (typeof payload.create !== 'boolean') throw new Error('请明确选择覆盖保存或另存世界书');
   const create = payload.create, book = normalizeWorkbenchBook(payload.book), base = payload.base;
   const exists = list => list.some(value => value.toLocaleLowerCase() === name.toLocaleLowerCase());
