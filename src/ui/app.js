@@ -131,16 +131,22 @@ function showWorldbookWorkbench(){
   worldbookWorkbench=createWorldbookWorkbench({host,session:worldbookSession,onBack:showToolbox,onClose:()=>dialog.close(),onCycleTheme:cycleUiTheme,themeIcon:UI_THEME_ICONS[state.uiTheme]||'',prompt:pcmPrompt,confirm:pcmConfirm,toast:pcmToastr});
   dialog.append(worldbookWorkbench.element);dialog.scrollTop=0;
 }
+// 快捷入口只记住 API／快照页；存储不可用时保留本次 iframe 会话选择。
+const QUICK_VIEW_KEY='preset-compare-migrator.quick-view';
+let quickView='api';
+try{if(localStorage.getItem(QUICK_VIEW_KEY)==='snapshots')quickView='snapshots';}catch{}
+function rememberQuickView(view){quickView=view;try{localStorage.setItem(QUICK_VIEW_KEY,view);}catch{}}
+function showQuickView(){if(quickView==='snapshots')showSnapshots(true);else showApiManager(true);}
 function showApiManager(quick=false){
   const dialog=document.getElementById(APP_ID+'-dialog');if(!dialog)return;
-  closeSnapshotPanel();closeWorldbookWorkbench();closeApiPanel();toolboxView='api';paneLayout?.cancel();
+  closeSnapshotPanel();closeWorldbookWorkbench();closeApiPanel();toolboxView='api';if(quick)rememberQuickView('api');paneLayout?.cancel();
   dialog.querySelector('.pcm-toolbox-home')?.classList.add('pcm-view-hidden');dialog.querySelector('.pcm-app')?.classList.add('pcm-view-hidden');
   apiPanel=createApiPanel({quick,host,onSnapshots:()=>showSnapshots(quick),onBack:showToolbox,onClose:()=>void requestPanelClose(),onCycleTheme:cycleUiTheme,themeIcon:UI_THEME_ICONS[state.uiTheme]||'',prompt:pcmPrompt,confirm:pcmConfirm});
   dialog.append(apiPanel.element);dialog.scrollTop=0;void apiPanel.refresh();
 }
 function showSnapshots(quick=false){
   const dialog=document.getElementById(APP_ID+'-dialog');if(!dialog)return;
-  closeSnapshotPanel();closeWorldbookWorkbench();closeApiPanel();toolboxView='snapshots';paneLayout?.cancel();
+  closeSnapshotPanel();closeWorldbookWorkbench();closeApiPanel();toolboxView='snapshots';if(quick)rememberQuickView('snapshots');paneLayout?.cancel();
   dialog.querySelector('.pcm-toolbox-home')?.classList.add('pcm-view-hidden');
   dialog.querySelector('.pcm-app')?.classList.add('pcm-view-hidden');
   snapshotPanel=createSnapshotPanel({quick,host,onApi:()=>showApiManager(quick),onBack:showToolbox,onClose:()=>void requestPanelClose(),onCycleTheme:cycleUiTheme,themeIcon:UI_THEME_ICONS[state.uiTheme]||'',prompt:pcmPrompt,confirm:pcmConfirm,toast:pcmToastr});
@@ -874,7 +880,7 @@ async function startApplication(){
   await host.ready();
   await loadUiPrefs();
   watchTavernPresetEvents();
-  host.on('open',payload=>{try{const dialog=shell();openDialogSafe(dialog);if(payload?.apiQuick)showApiManager(true);else showToolbox();}catch(error){console.error('[preset-compare-migrator] init failed',error);pcmToastr.error(error.message,APP_TITLE+'启动失败');}});
+  host.on('open',payload=>{try{const dialog=shell();openDialogSafe(dialog);if(payload?.apiQuick)showQuickView();else showToolbox();}catch(error){console.error('[preset-compare-migrator] init failed',error);pcmToastr.error(error.message,APP_TITLE+'启动失败');}});
   host.on('host-closed',()=>{const dialog=document.getElementById(APP_ID+'-dialog');if(!dialog)return;if(dialog.open)dialog.close();else destroyPanel(dialog);});
   await host.notify('ready');
 }
