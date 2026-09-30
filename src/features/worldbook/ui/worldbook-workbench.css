@@ -279,8 +279,6 @@
 .pcm-wb-workbench .pcm-wb-multi-actions button{font-size:10px;min-height:24px;padding:3px 6px}
 .pcm-wb-workbench .pcm-wb-multi-delete{color:#a33f37;border-color:#b77768}
 .pcm-theme-night .pcm-wb-workbench .pcm-wb-multi-delete{color:#f4aa98}
-.pcm-wb-workbench .pcm-wb-entry.is-multi-selected{border-color:#7999b3;background:color-mix(in srgb,var(--wb-card) 80%,#7999b3);box-shadow:inset 0 0 0 1px #7999b3}
-.pcm-wb-workbench .pcm-wb-drag:has(.pcm-wb-entry-select){display:flex;align-items:center}
 @media(max-width:900px){
   .pcm-wb-workbench .pcm-wb-header{gap:4px}
   .pcm-wb-workbench .pcm-wb-header h2{font-size:14px}
@@ -293,4 +291,3 @@
   .pcm-wb-workbench .pcm-wb-header>button{padding-inline:4px}
   .pcm-wb-workbench .pcm-wb-header>:is(.pcm-wb-icon,.pcm-wb-header-icon,[data-theme-toggle]){width:23px;padding:3px}
 }
-@media(max-width:900px){.pcm-wb-workbench .pcm-wb-drag .pcm-wb-entry-select{margin-left:22px!important}}
