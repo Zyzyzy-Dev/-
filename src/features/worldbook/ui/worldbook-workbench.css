@@ -291,3 +291,21 @@
   .pcm-wb-workbench .pcm-wb-header>button{padding-inline:4px}
   .pcm-wb-workbench .pcm-wb-header>:is(.pcm-wb-icon,.pcm-wb-header-icon,[data-theme-toggle]){width:23px;padding:3px}
 }
+/* 搜索与批量动作同排，移动卡片压缩高度并保持表头单行。 */
+.pcm-wb-workbench .pcm-wb-search{align-items:center;gap:4px;flex-wrap:nowrap}
+.pcm-wb-workbench .pcm-wb-search :is(input,select,button){box-sizing:border-box;height:25px;min-height:25px;margin:0;padding:2px 4px;font-size:10px;line-height:18px}
+.pcm-wb-workbench .pcm-wb-search input[type=search]{min-width:0;flex:1 1 0;width:0}
+.pcm-wb-workbench .pcm-wb-search select{flex:0 0 54px;width:54px;min-width:0}
+.pcm-wb-workbench .pcm-wb-search>.pcm-wb-actions{flex:none;gap:3px;overflow:visible}
+.pcm-wb-workbench .pcm-wb-search .pcm-wb-actions button{padding:2px 4px}
+.pcm-wb-workbench .pcm-wb-multi-actions{flex:none;display:flex;gap:3px;margin:0;padding:0;border:0}
+.pcm-wb-workbench .pcm-wb-multi-actions[hidden]{display:none!important}
+.pcm-wb-workbench .pcm-wb-multi-delete{width:25px;padding:4px}
+@media(max-width:900px){
+.pcm-wb-workbench .pcm-wb-entry{padding:3px 5px;gap:2px 3px;margin:3px 0}
+.pcm-wb-workbench .pcm-wb-entry-actions .pcm-wb-row-icon{width:20px;height:20px;min-height:20px;padding:3px}
+.pcm-wb-workbench .pcm-wb-entry-actions .pcm-wb-row-icon svg{width:13px;height:13px}
+.pcm-wb-workbench .pcm-wb-entry-header .pcm-wb-header-config,.pcm-wb-workbench .pcm-wb-entry .pcm-wb-entry-config{grid-template-columns:32px minmax(20px,1fr) 23px 25px 32px}
+.pcm-wb-workbench .pcm-wb-entry-header .pcm-wb-header-config .pcm-wb-col-setting{white-space:nowrap;overflow-wrap:normal;letter-spacing:-.5px;font-size:8px}
+.pcm-wb-workbench .pcm-wb-entry .pcm-wb-entry-name,.pcm-wb-workbench .pcm-wb-entry-config :is(input,select,button){height:24px;min-height:24px}
+}
