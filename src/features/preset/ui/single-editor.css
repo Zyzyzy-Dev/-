@@ -71,3 +71,11 @@
 .pcm-dialog .pcm-app.pcm-single .pcm-inline-form :is(input,select,textarea){-webkit-text-fill-color:currentColor!important;caret-color:currentColor!important}
 .pcm-dialog.pcm-theme-night .pcm-app.pcm-single .pcm-inline-form button{color:#ebdbb2!important}
 .pcm-dialog.pcm-theme-day .pcm-app.pcm-single .pcm-inline-form button{color:#594735!important}
+
+/* 整组拖拽落点只显示在容器外缘，折叠与展开使用相同边界。 */
+.pcm-group[data-group-id]>.pcm-group-head,.pcm-group[data-group-id]>.pcm-group-head .pcm-group-toggle{cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.pcm-whole-drag-active{cursor:grabbing;user-select:none;-webkit-user-select:none}
+.pcm-whole-dragging{opacity:.55}
+.pcm-whole-before{box-shadow:0 -3px 0 0 #83a598!important}
+.pcm-whole-after{box-shadow:0 3px 0 0 #83a598!important}
+.pcm-whole-end{box-shadow:inset 0 -3px 0 #83a598!important}
