@@ -310,17 +310,17 @@
 .pcm-wb-workbench .pcm-wb-entry .pcm-wb-entry-name,.pcm-wb-workbench .pcm-wb-entry-config :is(input,select,button){height:24px;min-height:24px}
 }
 
-/* 自定义选择按钮随网格收缩；不能继续沿用原生 select 的固定宽度。 */
+/* 设置控件使用紧凑列宽，配置区末尾保留空白以便抓取条目拖拽。 */
 .pcm-wb-workbench .pcm-wb-entry-config>:is(button,input){box-sizing:border-box;width:100%;max-width:100%;min-width:0}
 .pcm-wb-workbench .pcm-wb-entry-config .pcm-wb-entry-trigger{text-align:center;padding-inline:0}
 @media(min-width:901px){
- .pcm-wb-workbench .pcm-wb-entry-header,.pcm-wb-workbench .pcm-wb-entry{grid-template-columns:12px 18px minmax(65px,1fr) minmax(270px,1.4fr) 81px}
- .pcm-wb-workbench .pcm-wb-entry-header .pcm-wb-header-config,.pcm-wb-workbench .pcm-wb-entry .pcm-wb-entry-config{grid-template-columns:44px minmax(65px,1fr) 34px 38px 44px 44px!important}
+ .pcm-wb-workbench .pcm-wb-entry-header,.pcm-wb-workbench .pcm-wb-entry{grid-template-columns:12px 18px minmax(65px,210px) minmax(336px,1fr) 81px}
+ .pcm-wb-workbench .pcm-wb-entry-header .pcm-wb-header-config,.pcm-wb-workbench .pcm-wb-entry .pcm-wb-entry-config{grid-template-columns:44px 84px 30px 34px 44px 32px!important}
  .pcm-wb-workbench .pcm-wb-entry-header .pcm-wb-header-config>*{width:100%;min-width:0;box-sizing:border-box}
  .pcm-wb-workbench .pcm-wb-entry-actions,.pcm-wb-workbench .pcm-wb-header-actions{width:81px}
  .pcm-wb-workbench .pcm-wb-entry-config .pcm-wb-badge{box-sizing:border-box;width:100%;min-width:0}
 }
-@media(min-width:901px) and (max-width:1100px){
+@media(min-width:901px) and (max-width:1280px){
  .pcm-wb-workbench .pcm-wb-entry-header,.pcm-wb-workbench .pcm-wb-entry{grid-template-columns:12px 18px minmax(65px,1fr) 81px}
  .pcm-wb-workbench .pcm-wb-entry .pcm-wb-entry-config,.pcm-wb-workbench .pcm-wb-entry-header .pcm-wb-header-config{grid-row:2;grid-column:1/-1}
  .pcm-wb-workbench .pcm-wb-entry-actions,.pcm-wb-workbench .pcm-wb-header-actions{grid-row:1;grid-column:4}
