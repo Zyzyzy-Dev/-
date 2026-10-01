@@ -2,9 +2,9 @@
 export function createWorkbenchSelects(parent) {
   let opened=null,sequence=0;
   function close(restore=false){if(!opened)return;const {menu,anchor,controller}=opened;opened=null;controller.abort();menu.remove();anchor.setAttribute('aria-expanded','false');anchor.removeAttribute('aria-controls');if(restore&&anchor.isConnected)anchor.focus({preventScroll:true});}
-  function create({className,label,value,choices,onChange,key,minWidth=230}){
-    const anchor=document.createElement('button');anchor.type='button';anchor.dataset.wbSelectKey=key;anchor.className=className+' pcm-wb-select';anchor.setAttribute('aria-label',label);anchor.setAttribute('aria-haspopup','listbox');anchor.setAttribute('aria-expanded','false');anchor.textContent=choices.find(([key])=>key===value)?.[1]||value;anchor.title=anchor.textContent;
-    Object.defineProperty(anchor,'value',{get:()=>value,set:next=>{value=next;anchor.textContent=choices.find(([key])=>key===next)?.[1]||next;anchor.title=anchor.textContent;}});
+  function create({className,label,value,choices,onChange,key,minWidth=230,formatValue}){
+    const anchor=document.createElement('button');anchor.type='button';anchor.dataset.wbSelectKey=key;anchor.className=className+' pcm-wb-select';anchor.setAttribute('aria-label',label);anchor.setAttribute('aria-haspopup','listbox');anchor.setAttribute('aria-expanded','false');function display(){const full=choices.find(([key])=>key===value)?.[1]||value;anchor.textContent=formatValue?formatValue(value,full):full;anchor.title=full;if(formatValue)anchor.setAttribute('aria-label',label+'：'+full);}display();
+    Object.defineProperty(anchor,'value',{get:()=>value,set:next=>{value=next;display();}});
     function open(){
       if(anchor.disabled)return;if(opened?.anchor===anchor){close(true);return;}close();
       const menu=document.createElement('div');menu.className='pcm-wb-select-menu';menu.id='pcm-wb-options-'+(++sequence);menu.setAttribute('role','listbox');menu.setAttribute('aria-label',label);

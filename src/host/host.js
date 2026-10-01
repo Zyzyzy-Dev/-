@@ -43,7 +43,7 @@ function installWorkbenchWorldWriteGuard() {
 }
 
 async function awaitWorkbenchWorldWrites() {
-  if (globalThis.fetch !== workbenchWorldWrites.fetch) throw new Error('世界书保存请求追踪已被其他扩展替换，请刷新酒馆后重试');
+  if (globalThis.fetch !== workbenchWorldWrites.fetch) throw new Error('世界书保存请求追踪链发生变化，无法确认是否有未完成的写入；请刷新酒馆后重试。若仍出现，请排查网络请求相关扩展');
   await withSnapshotTimeout((async () => {
     while (workbenchWorldWrites.pending.size) await Promise.all([...workbenchWorldWrites.pending]);
   })(), '原生世界书仍在保存，尚未覆盖写入；请等待完成后重试');
