@@ -9,7 +9,6 @@ export function makeStitchInput(baseline,sources,guidance,sessionId,revision){
  if(!baseline?.prompts?.length||!Array.isArray(sources)||!sources.length)fail('请加载主预设并添加材料');
  if(sources.length>100||sources.some(s=>!s.id||typeof s.content!=='string'||typeof s.name!=='string')||new Set(sources.map(s=>s.id)).size!==sources.length)fail('材料ID重复或格式无效（最多100项）');
  const value=clone({baseline,sources,guidance,sessionId,revision});
- if(JSON.stringify(value).length>200000)fail('输入超过200000字符，请缩小主预设或材料范围；没有截断发送');
  return value;
 }
 export function stitchContext(input){

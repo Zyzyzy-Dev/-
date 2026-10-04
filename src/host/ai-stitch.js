@@ -1,5 +1,5 @@
 // AI 缝合宿主适配：请求级密钥引用、独立消息、有限取消任务及读盘核验新建。
-import {API_STORE_KEY,normalizeApiProfile} from '../features/api/api-manager.js';
+import {API_STORE_KEY,normalizeApiProfile,maskApiSecret} from '../features/api/api-manager.js';
 import {clone} from '../features/preset/core.js';
 import {makeStitchInput,stitchContext,STITCH_INSTRUCTIONS,parseStitchResponse,assembleStitch} from '../features/preset/ai-stitch/core.js';
 import {buildIndependentRequest,createOnlyStore,registerCreatedPreset} from './ai-stitch-transport.js';
@@ -28,6 +28,7 @@ async function connection(profileId,e){
  const list=keys[key];if(!Array.isArray(list))throw Error('当前后端未提供多密钥引用接口');
  config.secretId=profileId?config.secretId:list.find(k=>k.active)?.id;
  if(!config.secretId||!list.some(k=>k.id===config.secretId))throw Error('方案密钥不存在或当前连接没有活动密钥；未使用其他密钥');
+ config.maskedSecret=maskApiSecret(list.find(k=>k.id===config.secretId).value);
  return config;
 }
 async function disk(e){const data=await json('/api/settings/get',{},e.script);if(!Array.isArray(data.openai_setting_names)||!Array.isArray(data.openai_settings)||data.openai_setting_names.length!==data.openai_settings.length)throw Error('宿主预设读盘接口格式未验证');return data.openai_setting_names.map((n,i)=>[n,typeof data.openai_settings[i]==='string'?JSON.parse(data.openai_settings[i]):data.openai_settings[i]]);}
@@ -47,6 +48,15 @@ export async function handleAiStitch(method,payload={}){
  const e=await env();
  if(method==='ai-stitch-presets')return Array.isArray(e.openai.openai_setting_names)?[...e.openai.openai_setting_names]:Object.keys(e.openai.openai_setting_names||{});
  if(method==='ai-stitch-connections')return [{id:'',name:'酒馆当前连接'},...(e.extensions.extension_settings[API_STORE_KEY]?.profiles||[]).map(p=>{profileVersions.set(p.id,JSON.stringify(p));return {id:p.id,name:p.name};})];
+ if(method==='ai-stitch-connection'||method==='ai-stitch-models'){
+  const config=await connection(payload.profileId,e);
+  if(method==='ai-stitch-connection')return {url:config.connection.custom_url||({openai:'https://api.openai.com/v1',openrouter:'https://openrouter.ai/api/v1'}[config.source]),maskedSecret:config.maskedSecret,model:config.model};
+  const body=buildIndependentRequest(config,[],s=>e.lib.yaml.parse(s));
+  const response=await json('/api/backends/chat-completions/status',{chat_completion_source:body.chat_completion_source,custom_url:body.custom_url,secret_id:body.secret_id,custom_include_headers:body.custom_include_headers},e.script);
+  const models=response.data??response.models;
+  if(response.error||!Array.isArray(models))throw Error('未取得模型列表，请重试或手动填写模型名称');
+  return [...new Set(models.map(m=>typeof m==='string'?m:m?.id).filter(m=>typeof m==='string'&&m.length>0&&m.length<=500))].sort();
+ }
  if(method==='ai-stitch-verify')return (await persistence(e)).verify(payload.id);
  if(method==='ai-stitch-create'){
   const input=makeStitchInput(payload.input.baseline,payload.input.sources,payload.input.guidance,payload.input.sessionId,payload.input.revision);
@@ -59,6 +69,7 @@ export async function handleAiStitch(method,payload={}){
   try{
    const input=makeStitchInput(payload.input.baseline,payload.input.sources,payload.input.guidance,payload.input.sessionId,payload.input.revision);
    const config=await connection(payload.profileId,e);if(controller.signal.aborted)throw Error('已取消生成');
+   if(payload.model!==undefined){if(typeof payload.model!=='string'||!payload.model.trim()||payload.model.length>500||/[\r\n\0]/.test(payload.model))throw Error('请输入有效模型名称');config.model=payload.model.trim();}
    const body=buildIndependentRequest(config,[{role:'system',content:STITCH_INSTRUCTIONS},{role:'user',content:JSON.stringify(stitchContext(input))}],s=>e.lib.yaml.parse(s));
    const response=await json('/api/backends/chat-completions/generate',body,e.script,controller.signal);
    if(controller.signal.aborted)throw Error('已取消生成');
