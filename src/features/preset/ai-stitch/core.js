@@ -75,11 +75,11 @@ export function assembleStitch(input,plan,excluded=new Set()){
    if(scanVariables(source.content).some(m=>!m.kind.startsWith('get')))fail('含变量写入的来源无法证明无损嵌套安全，请保留原文并改用直接插入或手动处理');
    const suffix=item.scope==='global'?'globalvar':'var';
    const occurrences=base.prompts.flatMap(p=>scanVariables(p.content).map(m=>({...m,id:p.identifier})));
-   const same=occurrences.filter(m=>m.name===item.variable&&m.scope===item.scope);
-   if(!occurrences.some(m=>m.scope===item.scope&&m.kind==='set'+suffix))fail('主预设没有可验证的对应变量体系');
+   const same=occurrences.filter(m=>m.name===item.variable&&m.scope===item.scope),executing=same.filter(m=>active(m.id));
+   if(!occurrences.some(m=>active(m.id)&&m.scope===item.scope&&m.kind==='set'+suffix))fail('主预设没有可验证的对应变量体系');
    if(item.mode==='define'&&same.length)fail('变量名冲突：禁止覆盖已有变量');
-   if(item.mode==='append'&&(!same.some(m=>m.kind==='set'+suffix)||!same.some(m=>m.kind==='get'+suffix)))fail('变量缺少定义或读取位置');
-   if(same.some(m=>!plain(m.id)))fail('变量存在条件、禁用或不确定执行位置');
+   if(item.mode==='append'&&(!executing.some(m=>m.kind==='set'+suffix)||!executing.some(m=>m.kind==='get'+suffix)))fail('变量 '+item.scope+' '+item.variable+' 缺少已启用的定义或读取位置');
+   for(const m of executing){const issue=stitchAnchorIssue(base,m.id);if(issue)fail('变量 '+m.scope+' '+m.name+' 的 '+m.kind+' 依赖不可验证：'+issue);}
    content=makeVariable((item.mode==='define'?'set':'add')+suffix,item.variable,source.content);
    if(scanVariables(content)[0]?.value!==source.content)fail('原文包裹一致性失败');
    if(item.mode==='define'){
@@ -103,9 +103,11 @@ export function assembleStitch(input,plan,excluded=new Set()){
  const newIds=new Set(added.map(x=>x.id)),defined=new Set(),newNames=new Set(),reads=new Set();
  const targetNames=new Set(added.flatMap(x=>scanVariables(x.content).map(m=>m.scope+':'+m.name)));
  const updated=new Set();
- for(const p of base.prompts){for(const m of scanVariables(p.content).filter(m=>targetNames.has(m.scope+':'+m.name))){
+ // 未注入、条目禁用或分组禁用的备用正文不参与本次执行；仍原样保留。
+ for(const p of base.prompts.filter(p=>active(p.identifier))){for(const m of scanVariables(p.content).filter(m=>targetNames.has(m.scope+':'+m.name))){
   const prefix=p.content.slice(0,m.start),depth=(prefix.match(/\{\{/g)||[]).length-(prefix.match(/\}\}/g)||[]).length;
-  if(!plain(p.identifier)||depth||/<%/.test(p.content))fail('变量依赖处于条件、嵌套宏或脚本模板，无法证明执行顺序');
+  const issue=stitchAnchorIssue(base,p.identifier);
+  if(issue||depth||/<%/.test(p.content))fail('变量 '+m.scope+' '+m.name+' 的 '+m.kind+' 依赖不可验证：'+(issue||('条目 '+(p.name||p.identifier)+' 包含'+(depth?'嵌套宏':'脚本模板')+'，无法证明执行顺序')));
  }}
  for(const row of order){const id=idOf(row),p=preset.prompts.find(p=>p.identifier===id);if(!p||(!newIds.has(id)&&!active(id)))continue;
   const macros=scanVariables(p.content);

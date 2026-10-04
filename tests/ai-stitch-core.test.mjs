@@ -26,3 +26,28 @@ test('来源条件写入和定义自身读取不被当作无条件初始化',()=
  for(const content of ['{{if::false::{{setvar::fresh::x}}}}{{getvar::fresh}}','<% if(false){ %>{{setvar::fresh::x}}<% } %>{{getvar::fresh}}']){const i=input(content);assert.throws(()=>assembleStitch(i,plan(i)));}
  const i=input('{{getvar::fresh}}');assert.throws(()=>assembleStitch(i,plan(i,{mode:'define',variable:'fresh',scope:'local',readId:'b'})));
 });
+
+test('未执行的备用变量条目不阻断追加，原对象和开关全部保留',()=>{
+ for(const state of ['unlisted','rowDisabled','promptDisabled','groupDisabled']){
+  const i=input(),b=i.baseline;
+  b.prompts.push({identifier:'unused',name:'备用思维',content:'<% if(x){ %>{{setvar::tone::备用}}{{getvar::tone}}<% } %>',injection_position:1,injection_trigger:['normal']});
+  if(state!=='unlisted')b.prompt_order[0].order.push({identifier:'unused',enabled:state!=='rowDisabled'});
+  if(state==='promptDisabled')b.prompts.at(-1).enabled=false;
+  if(state==='groupDisabled'){const g=b.extensions.baibaiToolkit.presetPromptGroups;g.groups.push({id:'off',name:'备用组',enabled:false});g.prompts.unused={groupId:'off'};}
+  const before=structuredClone(b),r=assembleStitch(i,plan(i,{mode:'append',scope:'local',variable:'tone'}));
+  assert.equal(r.added[0].content,'{{addvar::tone::'+i.sources[0].content+'}}');
+  assert.deepEqual(r.preset.prompts.filter(p=>p.identifier!==r.added[0].id),before.prompts);
+  assert.deepEqual(r.preset.prompt_order[0].order.filter(p=>p.identifier!==r.added[0].id),before.prompt_order[0].order);
+  assert.deepEqual(i.baseline,before);
+ }
+});
+test('禁用定义或读取不能充当有效依赖，备用名字仍参与新变量冲突检查',()=>{
+ for(const id of ['a','b']){const i=input();i.baseline.prompt_order[0].order.find(p=>p.identifier===id).enabled=false;assert.throws(()=>assembleStitch(i,plan(i,{anchorId:id==='a'?'b':'a',mode:'append',scope:'local',variable:'tone'})));}
+ const i=input();i.baseline.prompts.push({identifier:'unused',name:'备用',content:'{{setvar::new_tone::}}'});assert.throws(()=>assembleStitch(i,plan(i,{mode:'define',scope:'local',variable:'new_tone',readId:'b'})),/变量名冲突/);
+});
+test('实际执行的条件和聊天位置依赖仍阻止保存，并指明变量和条目',()=>{
+ for(const [settings,reason] of [[{injection_trigger:['normal']},'触发条件'],[{injection_position:1,injection_depth:4,injection_order:100},'聊天中']]){
+  const i=input();Object.assign(i.baseline.prompts[1],settings);
+  assert.throws(()=>assembleStitch(i,plan(i,{mode:'append',scope:'local',variable:'tone'})),e=>e.message.includes('local tone')&&e.message.includes('getvar')&&e.message.includes('读取')&&e.message.includes(reason));
+ }
+});
