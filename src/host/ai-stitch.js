@@ -1,6 +1,7 @@
 // AI 缝合宿主适配：请求级密钥引用、独立消息、有限取消任务及读盘核验新建。
 import {API_STORE_KEY,normalizeApiProfile,maskApiSecret} from '../features/api/api-manager.js';
 import {clone} from '../features/preset/core.js';
+import {createStitchDeadline,stitchAbortMessage} from '../features/preset/ai-stitch/timeout.js';
 import {makeStitchInput,stitchContext,STITCH_INSTRUCTIONS,parseStitchResponse,assembleStitch} from '../features/preset/ai-stitch/core.js';
 import {buildIndependentRequest,createOnlyStore,registerCreatedPreset} from './ai-stitch-transport.js';
 const tasks=new Map(),profileVersions=new Map();let store;
@@ -65,7 +66,7 @@ export async function handleAiStitch(method,payload={}){
  }
  if(method==='ai-stitch-generate'){
   if(tasks.has(payload.id))throw Error('生成任务已存在');
-  const controller=new AbortController();tasks.set(payload.id,controller);const timer=setTimeout(()=>controller.abort(),120000);
+  const deadline=createStitchDeadline(payload.timeoutMinutes),{controller}=deadline;tasks.set(payload.id,controller);
   try{
    const input=makeStitchInput(payload.input.baseline,payload.input.sources,payload.input.guidance,payload.input.sessionId,payload.input.revision);
    const config=await connection(payload.profileId,e);if(controller.signal.aborted)throw Error('已取消生成');
@@ -75,8 +76,8 @@ export async function handleAiStitch(method,payload={}){
    if(controller.signal.aborted)throw Error('已取消生成');
    const choice=response.choices?.[0];if(!choice||choice.finish_reason==='length'||choice.finish_reason==='content_filter')throw Error('模型输出截断或被过滤，请缩小输入后重试');
    return parseStitchResponse(choice.message?.content);
-  }catch(error){if(controller.signal.aborted)throw Error('生成已取消或超过120秒，输入和草稿仍保留');throw error;}
-  finally{clearTimeout(timer);tasks.delete(payload.id);}
+  }catch(error){if(controller.signal.aborted)throw Error(stitchAbortMessage(controller.signal));throw error;}
+  finally{deadline.dispose();tasks.delete(payload.id);}
  }
  throw Error('未知AI缝合请求');
 }
