@@ -1,0 +1,12 @@
+/* AI 缝合详情面板：沿用主题，长正文独立滚动，窄屏按钮换行。 */
+.pcm-ai-stitch{display:flex;flex-direction:column;gap:12px;min-width:0;padding:12px;overflow:auto;box-sizing:border-box;width:100%}
+.pcm-ai-stitch header,.pcm-ai-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;justify-content:space-between}
+.pcm-ai-stitch fieldset{display:flex;flex-direction:column;gap:12px;border:0;margin:0;padding:0;min-width:0}
+.pcm-ai-stitch article{border:1px solid var(--pcm-border,#7775);border-radius:8px;padding:10px;margin:8px 0;min-width:0}
+.pcm-ai-stitch label{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.pcm-ai-stitch label:has(textarea),.pcm-ai-stitch label:has(input:not([type=checkbox])){flex-direction:column;align-items:stretch}
+.pcm-ai-stitch input:not([type=checkbox]),.pcm-ai-stitch textarea,.pcm-ai-stitch select{box-sizing:border-box;max-width:100%;min-width:0;width:100%;color:inherit;background:var(--pcm-bg,#202028);border:1px solid var(--pcm-border,#7778);padding:8px;border-radius:6px}
+.pcm-ai-stitch textarea{min-height:100px;resize:vertical}.pcm-ai-stitch pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:280px;overflow:auto;font:inherit;border:1px solid #8884;padding:8px}
+.pcm-ai-stitch p,.pcm-ai-stitch small{overflow-wrap:anywhere}.pcm-ai-stitch small{display:block;opacity:.8}.pcm-ai-picker>div{max-height:260px;overflow:auto;display:flex;flex-direction:column;gap:6px}
+.pcm-ai-stitch button{white-space:normal;max-width:100%;padding:8px;border-radius:6px}.pcm-ai-stitch select{margin:4px 0}.pcm-ai-stitch [hidden]{display:none!important}
+.pcm-app:not(.pcm-single) [data-action=ai-stitch]{display:none}
+@media(max-width:900px){.pcm-ai-stitch{padding:8px}.pcm-ai-actions{justify-content:flex-start}.pcm-ai-stitch textarea{font-size:16px}}
