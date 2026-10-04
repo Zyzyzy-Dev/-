@@ -34,3 +34,14 @@ test('核验不明时禁止重写，允许只读恢复',async()=>{
  await assert.rejects(store.create(args),/待核验/);await assert.rejects(store.create(args),/待核验/);assert.equal(writes,1);
  fail=false;assert.deepEqual((await store.verify('job')).preset,preset);
 });
+
+test('保存核验区分读取、缺失、内容差异和已写入后的同步失败，复查不重写',async()=>{
+ for(const state of ['read','missing','different','sync']){
+  let disk=[],writes=0,stage=false,recovered=false;
+  const store=createOnlyStore({read:async()=>{if(stage&&!recovered&&state==='read')throw Error('HTTP 503');return stage&&!recovered&&state==='missing'?[]:stage&&!recovered&&state==='different'?[['new',{changed:true}]]:disk;},write:async(n,p)=>{writes++;disk=[[n,p]];stage=true;},sync:()=>{if(!recovered&&state==='sync')throw Error('列表控件缺失');}});
+  const pattern={read:/读取预设列表失败.*503/,missing:/尚未找到新预设/,different:/内容不一致/,sync:/已写入且内容核验通过.*同步原生列表失败/}[state];
+  await assert.rejects(store.create({id:'j',name:'new',originalName:'old',preset:{prompts:[]}}),pattern);
+  await assert.rejects(store.verify('j'),pattern);assert.equal(writes,1);
+  recovered=true;assert.equal((await store.verify('j')).name,'new');assert.equal(writes,1);
+ }
+});

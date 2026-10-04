@@ -33,14 +33,19 @@ export function createOnlyStore({read,write,sync}) {
  const jobs=new Map();let tail=Promise.resolve();
  async function verify(id) {
   const job=jobs.get(id);if(!job)throw Error('没有待核验保存');
-  try {const entry=(await read()).find(([name])=>name===job.name);if(!entry||!equalValues(entry[1],job.preset))throw Error();await sync(job.name,clone(entry[1]));job.result={name:job.name,preset:clone(entry[1])};return clone(job.result);}
-  catch {throw Error('保存状态待核验；请只读复查，勿另起名称重复保存');}
+  let entries;
+  try{entries=await read();}catch(error){throw Error('保存状态待核验：读取预设列表失败（'+(error.message||error.name||'未知读取错误')+'）；请只读复查。');}
+  const entry=entries.find(([name])=>name===job.name);
+  if(!entry)throw Error('保存状态待核验：磁盘列表尚未找到新预设'+(job.writeError?'；写入请求报告：'+job.writeError:'')+'。请只读复查，勿换名称重复保存。');
+  if(!equalValues(entry[1],job.preset))throw Error('保存状态待核验：已找到新预设，但读回内容与提交内容不一致；未覆盖文件。');
+  try{await sync(job.name,clone(entry[1]));}catch(error){throw Error('新预设已写入且内容核验通过，但同步原生列表失败（'+(error.message||error.name||'未知同步错误')+'）；只读复查可重试同步，不会再次写入。');}
+  job.result={name:job.name,preset:clone(entry[1])};return clone(job.result);
  }
  async function run(args) {
   const existing=jobs.get(args.id);if(existing){if(existing.name!==args.name||!equalValues(existing.preset,args.preset))throw Error('保存事务已固定，必须先核验原事务');return existing.result?clone(existing.result):verify(args.id);}
   try{const disk=await read();validateNewName(args.name,args.originalName,disk.map(([n])=>n));}catch(error){error.name='StitchNotWritten';throw error;}
   jobs.set(args.id,{name:args.name,preset:clone(args.preset)});
-  try{await write(args.name,clone(args.preset));}catch{/* May have committed. Never blindly retry a write. */}
+  try{await write(args.name,clone(args.preset));}catch(error){jobs.get(args.id).writeError=error.message||error.name||'未知写入错误';/* May have committed. Never blindly retry a write. */}
   return verify(args.id);
  }
  return {create(args){const next=tail.then(()=>run(args));tail=next.catch(()=>{});return next;},verify};
