@@ -1,9 +1,13 @@
 // 组装器拒绝模型越权、严格保留原文与已有字段，并验证变量执行顺序。
 import test from 'node:test';import assert from 'node:assert/strict';
-import { assembleStitch, makeStitchInput } from '../src/features/preset/ai-stitch/core.js';
+import { assembleStitch, makeStitchInput, previewStitchSource, stitchAnchorIssue, stitchContext } from '../src/features/preset/ai-stitch/core.js';
 const base=()=>({unknown:{keep:1},prompts:[{identifier:'a',name:'定义',content:'{{setvar::tone::}}',role:'system'},{identifier:'b',name:'读取',content:'前\r\n{{getvar::tone}} 后',role:'system'}],prompt_order:[{character_id:100001,order:[{identifier:'a',enabled:true},{identifier:'b',enabled:true}]}],extensions:{baibaiToolkit:{presetPromptGroups:{groups:[{id:'g',name:'组',enabled:true}],prompts:{a:{groupId:'g'},b:{groupId:'g'}}}},regex_scripts:[{x:1}]}});
 const input=(content=' \r\n中文😀\n{{user}}\r\n ' )=>makeStitchInput(base(),[{id:'s',name:'来源',content}], '指导','session',1);
 const plan=(i,extra={})=>({schemaVersion:1,sessionId:i.sessionId,revision:i.revision,items:[{sourceId:'s',anchorId:'a',placement:'after',groupId:'g',mode:'direct',role:'system',reason:'相关',...extra}]});
+test('锚点阻止原因区分禁用、分组、聊天位置和触发器，发送同一诊断',()=>{
+ for(const [edit,pattern] of [[i=>i.baseline.prompts[0].enabled=false,/条目已禁用/],[i=>i.baseline.extensions.baibaiToolkit.presetPromptGroups.groups[0].enabled=false,/分组已禁用/],[i=>i.baseline.prompts[0].injection_position=1,/聊天中/],[i=>i.baseline.prompts[0].injection_trigger=['normal'],/触发条件.*normal/]]){const i=input();edit(i);assert.match(stitchAnchorIssue(i.baseline,'a'),pattern);assert.match(stitchContext(i).baseline.prompts[0].anchorIssue,pattern);assert.throws(()=>assembleStitch(i,plan(i)),pattern);}
+});
+test('单项包裹可展示但不绕过整套方案顺序校验',()=>{const i=input(),p=plan(i,{mode:'append',scope:'local',variable:'tone',anchorId:'b'});assert.equal(previewStitchSource(i.sources[0],p.items[0]),'{{addvar::tone::'+i.sources[0].content+'}}');assert.throws(()=>assembleStitch(i,p));});
 test('超过20万字符仍完整保留，不静默截断',()=>{const content='中文😀\r\n '.repeat(40000);const i=input(content);assert.equal(i.sources[0].content,content);const r=assembleStitch(i,plan(i));assert.equal(r.added[0].content,content);});
 test('多种 Unicode/CRLF/嵌套宏原文与非目标字段逐字保留',()=>{const i=input(),before=structuredClone(i);const r=assembleStitch(i,plan(i));assert.equal(r.preset.prompts.find(p=>!['a','b'].includes(p.identifier)).content,i.sources[0].content);assert.deepEqual(r.preset.prompts.filter(p=>['a','b'].includes(p.identifier)),i.baseline.prompts);assert.deepEqual(r.preset.unknown,{keep:1});assert.deepEqual(r.preset.extensions.regex_scripts,[{x:1}]);assert.deepEqual(i,before);});
 test('模型不能提供正文、未知ID、重复或遗漏材料、任意补丁',()=>{const i=input();for(const mutate of [p=>p.items[0].content='改写',p=>p.items[0].anchorId='fake',p=>p.items.push({...p.items[0]}),p=>p.items=[],p=>p.patch={}]){const p=plan(i);mutate(p);assert.throws(()=>assembleStitch(i,p));}});
