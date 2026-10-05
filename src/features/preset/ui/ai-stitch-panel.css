@@ -74,3 +74,8 @@
 }
 
 @media(max-width:600px){.pcm-ai-api-row>button{font-size:0}.pcm-dialog .pcm-single .pcm-tools>[data-filter]{width:42px!important;min-width:0!important;max-width:42px;padding:5px 2px!important;font-size:10px!important}}
+
+/* 导入名称自然换行撑高；禁止flex压缩行高，触摸滚动交给独立滚动容器。 */
+.pcm-ai-stitch .pcm-ai-scroll button{height:auto!important;min-height:32px;max-height:none;flex-shrink:0;white-space:normal!important;overflow-wrap:anywhere;line-height:1.4}
+.pcm-ai-scroll{touch-action:pan-y;overscroll-behavior-y:contain;min-height:0}
+.pcm-ai-import-group>summary{touch-action:pan-y;overflow-wrap:anywhere}

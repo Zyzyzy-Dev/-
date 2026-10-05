@@ -51,3 +51,9 @@ test('实际执行的条件和聊天位置依赖仍阻止保存，并指明变�
   assert.throws(()=>assembleStitch(i,plan(i,{mode:'append',scope:'local',variable:'tone'})),e=>e.message.includes('local tone')&&e.message.includes('getvar')&&e.message.includes('读取')&&e.message.includes(reason));
  }
 });
+
+test('导入显示按连续分组段保留原顺序，不聚合跨组的未分组条目',async()=>{
+ const {stitchEntrySections}=await import('../src/features/preset/ui/ai-stitch-panel.js');
+ const items=['','g','','h','g','g',''].map((groupId,i)=>({sourceId:String(i),groupId,content:'原文'+i}));
+ const sections=stitchEntrySections(items);assert.deepEqual(sections.map(s=>s.items.map(i=>i.sourceId)),[['0'],['1'],['2'],['3'],['4','5'],['6']]);assert.deepEqual(sections.flatMap(s=>s.items),items);assert.equal(new Set(sections.map(s=>s.key)).size,6);
+});
