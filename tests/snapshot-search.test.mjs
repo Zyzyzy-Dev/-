@@ -1,0 +1,4 @@
+// 快照归属筛选不修改绑定；旧版当前绑定兼容，无上下文时不混入其他角色数据。
+import test from 'node:test';import assert from 'node:assert/strict';
+import {snapshotBelongs} from '../src/features/snapshot/snapshot.js';
+test('多份归属与自动绑定并存，角色聊天范围相互独立',()=>{const c={canBindCharacter:true,canBindChat:true,characterKey:'a.png',chatKey:'chat-a',characterBindingId:'legacy',chatBindingId:'chat-legacy'},s={id:'s',associations:{characters:['a.png'],chats:['other-chat']}};assert(snapshotBelongs(s,c,'character'));assert(!snapshotBelongs(s,c,'chat'));assert(snapshotBelongs({id:'legacy'},c,'character'));assert(snapshotBelongs({id:'chat-legacy'},c,'chat'));assert(snapshotBelongs(s,c,'all'));assert(!snapshotBelongs(s,{...c,characterKey:'b.png'},'character'));assert(!snapshotBelongs(s,{...c,canBindCharacter:false},'character'));assert(!snapshotBelongs({id:'chat-legacy'},{...c,canBindChat:false},'chat'));assert(!snapshotBelongs({id:'bad',associations:{characters:'a.png'}},c,'character'));});

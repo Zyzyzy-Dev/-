@@ -138,3 +138,10 @@ export function resolveSnapshotBinding(store, chatSnapshotId, characterKey) {
   const character = id && snapshots.find(s => s.id === id);
   return character ? {snapshot: character, source: 'character'} : null;
 }
+
+// 收藏归属与自动应用绑定独立；旧快照的当前绑定可直接显示，未知历史不推断。
+export function snapshotBelongs(snapshot,context,target){
+ if(target==='character')return !!context.canBindCharacter&&(snapshot.id===context.characterBindingId||(Array.isArray(snapshot.associations?.characters)&&snapshot.associations.characters.includes(context.characterKey)));
+ if(target==='chat')return !!context.canBindChat&&(snapshot.id===context.chatBindingId||(Array.isArray(snapshot.associations?.chats)&&snapshot.associations.chats.includes(context.chatKey)));
+ return true;
+}
