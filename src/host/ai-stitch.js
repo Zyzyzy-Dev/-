@@ -3,7 +3,7 @@ import {API_STORE_KEY,normalizeApiProfile,maskApiSecret} from '../features/api/a
 import {clone} from '../features/preset/core.js';
 import {createStitchDeadline,stitchAbortMessage} from '../features/preset/ai-stitch/timeout.js';
 import {makeStitchInput,stitchContext,STITCH_INSTRUCTIONS,parseStitchResponse,assembleStitch} from '../features/preset/ai-stitch/core.js';
-import {buildIndependentRequest,createOnlyStore,registerCreatedPreset} from './ai-stitch-transport.js';
+import {applyStitchOverrides,buildIndependentRequest,createOnlyStore,registerCreatedPreset} from './ai-stitch-transport.js';
 const tasks=new Map(),profileVersions=new Map();let store;
 async function env(){const [openai,script,extensions,lib]=await Promise.all([import('/scripts/openai.js'),import('/script.js'),import('/scripts/extensions.js'),import('/lib.js')]);return {openai,script,extensions,lib};}
 async function json(url,body,script,signal){
@@ -52,7 +52,7 @@ export async function handleAiStitch(method,payload={}){
  if(method==='ai-stitch-connection'||method==='ai-stitch-models'){
   const config=await connection(payload.profileId,e);
   if(method==='ai-stitch-connection')return {url:config.connection.custom_url||({openai:'https://api.openai.com/v1',openrouter:'https://openrouter.ai/api/v1'}[config.source]),maskedSecret:config.maskedSecret,model:config.model};
-  const body=buildIndependentRequest(config,[],s=>e.lib.yaml.parse(s));
+  const body=applyStitchOverrides(buildIndependentRequest(config,[],s=>e.lib.yaml.parse(s)),payload.overrides,s=>e.lib.yaml.parse(s));
   const response=await json('/api/backends/chat-completions/status',{chat_completion_source:body.chat_completion_source,custom_url:body.custom_url,secret_id:body.secret_id,custom_include_headers:body.custom_include_headers},e.script);
   const models=response.data??response.models;
   if(response.error||!Array.isArray(models))throw Error('未取得模型列表，请重试或手动填写模型名称');
@@ -71,7 +71,7 @@ export async function handleAiStitch(method,payload={}){
    const input=makeStitchInput(payload.input.baseline,payload.input.sources,payload.input.guidance,payload.input.sessionId,payload.input.revision);
    const config=await connection(payload.profileId,e);if(controller.signal.aborted)throw Error('已取消生成');
    if(payload.model!==undefined){if(typeof payload.model!=='string'||!payload.model.trim()||payload.model.length>500||/[\r\n\0]/.test(payload.model))throw Error('请输入有效模型名称');config.model=payload.model.trim();}
-   const body=buildIndependentRequest(config,[{role:'system',content:STITCH_INSTRUCTIONS},{role:'user',content:JSON.stringify(stitchContext(input))}],s=>e.lib.yaml.parse(s));
+   const body=applyStitchOverrides(buildIndependentRequest(config,[{role:'system',content:STITCH_INSTRUCTIONS},{role:'user',content:JSON.stringify(stitchContext(input))}],s=>e.lib.yaml.parse(s)),payload.overrides,s=>e.lib.yaml.parse(s));
    const response=await json('/api/backends/chat-completions/generate',body,e.script,controller.signal);
    if(controller.signal.aborted)throw Error('已取消生成');
    const choice=response.choices?.[0];if(!choice||choice.finish_reason==='length'||choice.finish_reason==='content_filter')throw Error('模型输出截断或被过滤，请缩小输入后重试');

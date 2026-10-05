@@ -1,7 +1,7 @@
 // 独立请求和只新建保存边界；模拟 I/O，断言实际适配器的行为。
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildIndependentRequest, createOnlyStore } from '../src/host/ai-stitch-transport.js';
+import { applyStitchOverrides, buildIndependentRequest, createOnlyStore } from '../src/host/ai-stitch-transport.js';
 import {registerCreatedPreset} from '../src/host/ai-stitch-transport.js';
 test('新建缓存注册后可按原生名称索引读取，原项目不变',()=>{const original={prompts:[]},fresh={prompts:[{content:'新'}]},presets=[original],names={'主':0};registerCreatedPreset(presets,names,'新',fresh);assert.equal(names['新'],1);assert.deepEqual(presets[1],fresh);assert.equal(presets[0],original);});
 test('写入前冲突有可安全修改名称的错误类型',async()=>{const store=createOnlyStore({read:async()=>[['same',{}]],write:()=>assert.fail(),sync:()=>{}});await assert.rejects(store.create({id:'j',name:'same',originalName:'main',preset:{}}),{name:'StitchNotWritten'});});
@@ -44,4 +44,13 @@ test('保存核验区分读取、缺失、内容差异和已写入后的同步�
   await assert.rejects(store.verify('j'),pattern);assert.equal(writes,1);
   recovered=true;assert.equal((await store.verify('j')).name,'new');assert.equal(writes,1);
  }
+});
+
+test('临时URL和密钥仅覆盖custom请求，原请求不变且输入需合法',()=>{
+ const original={chat_completion_source:'custom',custom_url:'https://original.test/v1',secret_id:'saved',custom_include_headers:'{"X-Test":"keep"}'};
+ const result=applyStitchOverrides(original,{url:'https://temporary.test/v1',key:'SYNTHETIC_KEY'});
+ assert.equal(result.custom_url,'https://temporary.test/v1');assert.equal(JSON.parse(result.custom_include_headers).Authorization,'Bearer SYNTHETIC_KEY');assert.equal(JSON.parse(result.custom_include_headers)['X-Test'],'keep');assert.equal(original.custom_url,'https://original.test/v1');assert.equal(JSON.parse(original.custom_include_headers).Authorization,undefined);
+ for(const overrides of [{url:'javascript:alert(1)'},{url:'https://user:pass@example.test'},{key:'bad\nkey'}])assert.throws(()=>applyStitchOverrides(original,overrides));
+ assert.throws(()=>applyStitchOverrides({chat_completion_source:'openai'},{key:'x'}),/仅支持custom/);
+ assert.deepEqual(applyStitchOverrides(original),original);
 });

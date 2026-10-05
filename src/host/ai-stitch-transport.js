@@ -50,3 +50,13 @@ export function createOnlyStore({read,write,sync}) {
  }
  return {create(args){const next=tail.then(()=>run(args));tail=next.catch(()=>{});return next;},verify};
 }
+
+// 手动连接覆盖只作用于当前请求；密钥通过宿主 custom 请求头发送，不写密钥库。
+export function applyStitchOverrides(body,overrides={},parseYaml=JSON.parse){
+ const result=clone(body),url=overrides.url,key=overrides.key;
+ if(url===undefined&&key===undefined)return result;
+ if(body.chat_completion_source!=='custom')throw Error('临时URL/密钥编辑目前仅支持custom兼容接口；请选择custom方案，未修改原连接');
+ if(url!==undefined){let parsed;try{parsed=new URL(url);}catch{throw Error('请输入完整的http或https URL');}if(!['http:','https:'].includes(parsed.protocol)||parsed.username||parsed.password)throw Error('URL必须为http或https，且不能包含登录凭据');result.custom_url=url;}
+ if(key!==undefined){if(typeof key!=='string'||!key.trim()||/[\r\n\0]/.test(key))throw Error('临时密钥不能为空或包含换行');const headers=body.custom_include_headers?parseYaml(body.custom_include_headers):{};result.custom_include_headers=JSON.stringify({...headers,Authorization:'Bearer '+key});}
+ return result;
+}

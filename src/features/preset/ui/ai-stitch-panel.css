@@ -34,3 +34,13 @@
 @media(max-width:600px){.pcm-ai-tabs{gap:4px}.pcm-ai-tabs button{font-size:12px;padding:6px 2px}.pcm-ai-columns{gap:8px;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr)}.pcm-ai-column{padding:6px}.pcm-ai-stitch article summary{flex-wrap:wrap}.pcm-ai-connection{flex-basis:100%}}
 
 .pcm-ai-stitch button[aria-pressed=true]{outline:2px solid var(--pcm-accent,var(--SmartThemeBodyColor,#888)) !important;outline-offset:-2px}
+
+/* 标题信息、同排连接框、分组包裹及隐藏滚动条，保留滚轮和触摸滚动。 */
+.pcm-ai-stitch header{justify-content:flex-start}.pcm-ai-baseline{flex:1;min-width:0;overflow-wrap:anywhere}
+.pcm-ai-api-row{align-items:center}.pcm-ai-api-row input,.pcm-ai-api-row select,.pcm-ai-api-row button{height:36px;margin:0}
+.pcm-ai-import-group{border:1px solid var(--SmartThemeBorderColor);border-radius:10px;overflow:hidden;padding:0 4px 4px;flex-shrink:0}
+.pcm-ai-import-group>summary{margin:0 -4px 4px;background:color-mix(in srgb,var(--pcm-accent,var(--SmartThemeBodyColor)) 10%,transparent)}
+.pcm-ai-scroll{scrollbar-width:none}.pcm-ai-scroll::-webkit-scrollbar{display:none;width:0;height:0}
+.pcm-ai-send-hint{flex:1;font-size:12px}
+
+.pcm-ai-api-row>label:last-child{flex-direction:row!important;align-items:center!important;gap:4px}.pcm-ai-api-row>label:last-child input{width:54px;padding:6px}
