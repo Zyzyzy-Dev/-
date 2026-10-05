@@ -99,6 +99,3 @@
 /* 名称搜索仅筛选显示，沿用快照主题。 */
 .pcm-snapshot-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
 .pcm-snapshot-search{flex:1;min-width:100px;max-width:100%;box-sizing:border-box;border:1px solid var(--snap-border);border-radius:8px;padding:8px;color:var(--snap-fg);background:var(--snap-card);font:inherit}
-
-.pcm-snapshot-filter-tabs{display:flex;gap:6px;width:100%;flex-wrap:wrap}.pcm-snapshot-filter-tabs button[aria-pressed=true]{outline:2px solid var(--snap-accent);outline-offset:-2px}
-.pcm-snapshot-memberships{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}.pcm-snapshot-memberships button{font-size:11px;flex:1}

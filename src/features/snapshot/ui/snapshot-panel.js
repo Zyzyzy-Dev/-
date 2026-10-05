@@ -1,8 +1,10 @@
 // 设置快照页面：保存、恢复与聊天/角色绑定，通过 iframe 通信桥调用宿主，不访问酒馆全局。
 import { chooseApiSnapshotBinding } from '../../api/ui/api-snapshot-bind.js';
 import { createSnapshotEditor } from './snapshot-editor.js';
-import { snapshotScope, snapshotBelongs } from '../snapshot.js';
+import { snapshotScope } from '../snapshot.js';
 import { createSnapshotScopePicker, snapshotScopeLabels } from './snapshot-scope.js';
+// 搜索仅筛选展示，不修改快照或绑定。
+export function searchSnapshotNames(snapshots,text){const query=String(text||'').trim().toLocaleLowerCase();return snapshots.filter(s=>String(s.name||'').toLocaleLowerCase().includes(query));}
 export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeIcon, prompt, confirm, toast, quick=false, onApi}) {
   const node = (tag, cls, text) => {const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n;};
   const element = node('main', 'pcm-snapshots pcm-api-manager pcm-snapshot-manager');
@@ -30,8 +32,8 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
   const saveScope={preset:true,worlds:true,regex:true};
   const scopePicker=createSnapshotScopePicker(saveScope);
   const create=button('＋ 创建快照',()=>openEditor());create.classList.add('pcm-snapshot-create');toolbar.append(create);
-  const filters=node('div','pcm-snapshot-filters'),search=node('input','pcm-snapshot-search');search.type='search';search.placeholder='搜索快照名称';search.setAttribute('aria-label','搜索快照名称');search.addEventListener('input',()=>render());const clearSearch=button('清空搜索',()=>{search.value='';render();search.focus();});filters.append(search,clearSearch);let filterTarget='all';const filterTabs=node('div','pcm-snapshot-filter-tabs');for(const [value,label] of [['all','全部快照'],['character','此角色卡'],['chat','此聊天']]){const tab=button(label,()=>{filterTarget=value;render();});tab.dataset.scopeFilter=value;tab.setAttribute('aria-pressed',String(value==='all'));filterTabs.append(tab);}filters.append(filterTabs);
-  const notice = node('p', 'pcm-snapshot-notice', '新建快照自动归属当前角色和聊天；旧快照可用“加入”整理归属，不改变自动应用绑定。聊天绑定优先于角色绑定。');
+  const filters=node('div','pcm-snapshot-filters'),search=node('input','pcm-snapshot-search');search.type='search';search.placeholder='搜索快照名称';search.setAttribute('aria-label','搜索快照名称');search.addEventListener('input',()=>render());const clearSearch=button('清空搜索',()=>{search.value='';render();search.focus();});filters.append(search,clearSearch);
+  const notice = node('p', 'pcm-snapshot-notice', '快照可分别保存预设、全局世界书和正则设置。聊天绑定优先于角色绑定。');
   const status = node('p', 'pcm-snapshot-status'); status.setAttribute('role', 'status');
   const list = node('section', 'pcm-snapshot-list'); list.setAttribute('aria-label', '已保存快照');
   element.append(header, context, toolbar, filters, notice, status, list);
@@ -67,7 +69,7 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
     if (disposed || !data) return;
     const expanded = new Set([...contextBody.querySelectorAll('details[open]')].map(d => d.dataset.regexScope));
     contextBody.replaceChildren(); list.replaceChildren();
-    const c = data.context;for(const b of filterTabs.children)b.setAttribute('aria-pressed',String(b.dataset.scopeFilter===filterTarget));
+    const c = data.context;
     const settings=node('div','pcm-snapshot-settings-grid');
     settings.append(settingLine('当前预设',c.presetName||'未选择','pcm-snapshot-current'),settingLine('当前角色',c.characterName),settingLine('当前聊天',c.chatName));
     for(const [scope,label] of [['global','全局世界书'],['character','角色附加世界书'],['chat','聊天附加世界书']])settings.append(settingLine(label,c.resources?.worlds?.[scope]?.join('、')||'未挂载'));
@@ -92,8 +94,8 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
       empty.append(node('strong', '', '把常用设置存成一份快照'), node('p', '', '保存当前设置，或点击「创建快照」自由搭配。'));
       list.append(empty);
     }
-    const query=search.value.trim().toLocaleLowerCase(),visibleSnapshots=data.snapshots.filter(snapshot=>snapshotBelongs(snapshot,c,filterTarget)&&String(snapshot.name||'').toLocaleLowerCase().includes(query));
-    if(data.snapshots.length&&!visibleSnapshots.length)list.append(node('p','pcm-snapshot-empty','没有匹配的快照，请调整搜索或范围；可在全部快照中添加归属。'));
+    const visibleSnapshots=searchSnapshotNames(data.snapshots,search.value);
+    if(data.snapshots.length&&!visibleSnapshots.length)list.append(node('p','pcm-snapshot-empty','没有匹配的快照，请修改名称关键词或清空搜索。'));
     for (const snapshot of visibleSnapshots) {
       const card = node('article', 'pcm-snapshot-card'); card.dataset.snapshotId = snapshot.id;
       const overwrite=button('覆',()=>execute('update',snapshot));overwrite.title='用当前设置覆盖快照';overwrite.setAttribute('aria-label',overwrite.title);
@@ -114,7 +116,7 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
       const manage = node('div', 'pcm-snapshot-actions');
       manage.classList.add('pcm-snapshot-manage');
       card.append(top, range, summary, mounts);
-      const memberships=node('div','pcm-snapshot-memberships');for(const [target,label,allowed] of [['character','此角色卡',c.canBindCharacter],['chat','此聊天',c.canBindChat]]){const belongs=snapshotBelongs(snapshot,c,target),b=button((belongs?'移出':'加入')+label,()=>execute('associate',{...snapshot,target,enabled:!belongs}));b.dataset.unavailable=String(!allowed);memberships.append(b);}card.append(actions,memberships,manage);list.append(card);
+      card.append(actions,manage);list.append(card);
     }
     setBusy(busy);
   }
@@ -181,7 +183,6 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
       } else if (action === 'bind' || action === 'unbind') {
         result = await host.request('snapshot-bind', {id: action === 'unbind' ? null : snapshot.id, target: snapshot.target, contextKey});
         message = action === 'unbind' ? '已解除绑定，下次进入聊天时按剩余绑定应用' : '已绑定，下次进入聊天自动应用；现在可点击「切」';
-      } else if(action==='associate'){result=await host.request('snapshot-associate',{id:snapshot.id,target:snapshot.target,enabled:snapshot.enabled,contextKey});message=snapshot.enabled?'已添加归属（未改变自动应用绑定）':'已移出归属';
       } else if (action === 'apply') {
         result = await host.request('snapshot-apply', {id: snapshot.id, contextKey});
         if (result.needsConfirmation) {

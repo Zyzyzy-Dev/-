@@ -634,7 +634,7 @@ function snapshotContext(env) {
   const metadata = env.script.chat_metadata || ctx.chatMetadata;
   const store = snapshotStore(env);
   const context = {
-    key: JSON.stringify([scope, presetName]), scope, characterKey, chatKey: JSON.stringify([group || '',characterKey,chatId ?? '']), presetName,
+    key: JSON.stringify([scope, presetName]), scope, characterKey, presetName,
     characterName: character?.name || (group ? '群聊' : '未选择角色'),
     chatName: chatId == null || chatId === '' ? '未打开聊天' : String(chatId),
     canBindChat: Boolean((characterKey || group) && chatId != null && chatId !== '' && metadata),
@@ -1293,18 +1293,9 @@ async function handleSnapshotRequest(method, payload) {
       }
       assertSnapshotContext(env,payload.contextKey);
       if (existing) snapshot.createdAt = existing.createdAt;
-      snapshot.associations=existing?clone(existing.associations||{}):{characters:context.canBindCharacter?[context.characterKey]:[],chats:context.canBindChat?[context.chatKey]:[]};
       const previous = store.snapshots;
       store.snapshots = existing ? previous.map(s => s.id === existing.id ? snapshot : s) : [...previous, snapshot];
       try {await saveSnapshotSettings(env);} catch (error) {store.snapshots = previous; throw error;}
-    } else if (method === 'snapshot-associate') {
-      if(!existing)throw new Error('快照已删除');assertSnapshotContext(env,payload.contextKey);
-      const target=payload.target;if(!['character','chat'].includes(target)||typeof payload.enabled!=='boolean')throw new Error('归属参数无效');
-      if(!(target==='character'?context.canBindCharacter:context.canBindChat))throw new Error('请先打开对应角色或聊天');
-      if(!payload.enabled&&existing.id===(target==='character'?context.characterBindingId:context.chatBindingId))throw new Error('请先解除此快照的自动应用绑定，再移出归属');
-      const field=target==='character'?'characters':'chats',key=target==='character'?context.characterKey:context.chatKey,before=existing.associations;
-      const values=new Set(Array.isArray(before?.[field])?before[field]:[]);payload.enabled?values.add(key):values.delete(key);existing.associations={...before,[field]:[...values]};
-      try{await saveSnapshotSettings(env);}catch(error){if(before===undefined)delete existing.associations;else existing.associations=before;throw error;}
     } else if (method === 'snapshot-rename') {
       if (!existing) throw new Error('快照已删除');
       const previous = existing.name;
