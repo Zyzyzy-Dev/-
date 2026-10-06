@@ -89,3 +89,9 @@
 .pcm-ai-stitch article.pcm-ai-plan-body{border:0;padding:0;margin:0}
 .pcm-ai-plan>details>summary{min-height:28px}
 @media(max-width:900px){.pcm-app.pcm-single>[data-compare]:has(.pcm-ai-stitch){max-height:calc(100dvh - 105px)!important}}
+
+/* 差异通过颜色和正负符号双重标识，原文/模型文本始终以纯文本渲染。 */
+.pcm-ai-content-diff>span{display:block;white-space:pre-wrap;overflow-wrap:anywhere}
+.pcm-ai-diff-add{background:color-mix(in srgb,#3baf70 18%,transparent);border-left:3px solid #3baf70}
+.pcm-ai-diff-remove{background:color-mix(in srgb,#d96868 18%,transparent);border-left:3px solid #d96868}
+.pcm-ai-output-options{font-size:12px}.pcm-ai-output-options>label{max-width:280px;margin-top:8px}

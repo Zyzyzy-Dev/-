@@ -15,6 +15,9 @@ test('拒绝附加参数替换隔离消息、模型和认证头',()=>{
  for(const additional of [{custom_include_body:'messages: []'},{custom_exclude_body:'- model'},{custom_include_headers:'Authorization: bad'}])
  assert.throws(()=>buildIndependentRequest({source:'custom',model:'m',secretId:'a',connection:{custom_url:'https://e.test'},additional},[],s=>s.includes('Authorization')?{Authorization:'bad'}:s.includes('-')?['model']:{messages:[]}),/附加/);
 });
+test('附加参数不能覆盖或删除面板指定的输出上限',()=>{
+ for(const additional of [{custom_include_body:'{"max_tokens":1}'},{custom_include_body:'{"max_completion_tokens":1}'},{custom_exclude_body:'["max_tokens"]'}])assert.throws(()=>buildIndependentRequest({source:'custom',model:'m',secretId:'a',connection:{custom_url:'https://e.test'},additional},[]),/输出上限/);
+});
 test('新建拒绝原名称别名和磁盘同名，无写入',async()=>{
  let writes=0; const store=createOnlyStore({read:async()=>[['taken',{prompts:[]}]],write:async()=>writes++,sync:()=>{}});
  for(const name of ['MAIN.json','taken','../x']) await assert.rejects(store.create({id:name,name,originalName:'main',preset:{prompts:[]}}));

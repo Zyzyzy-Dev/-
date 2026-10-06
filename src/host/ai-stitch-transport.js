@@ -21,10 +21,10 @@ export function buildIndependentRequest(config, messages, parseYaml=JSON.parse) 
  for(const [key,value] of Object.entries(config.additional||{})) {
   if(!value?.trim())continue;
   let parsed;try{parsed=parseYaml(value);}catch{throw Error('附加参数无法解析，请检查 YAML');}
-  const forbidden=new Set(['messages','model','stream','prompt','tools','tool_choice','functions','function_call','n','secret_id','chat_completion_source','custom_url','reverse_proxy','proxy_password','__proto__','constructor','prototype']);
+  const forbidden=new Set(['messages','model','stream','max_tokens','max_completion_tokens','prompt','tools','tool_choice','functions','function_call','n','secret_id','chat_completion_source','custom_url','reverse_proxy','proxy_password','__proto__','constructor','prototype']);
   const fields=key==='custom_exclude_body'?parsed:Object.keys(parsed||{});
   if(!Array.isArray(fields)||!parsed||typeof parsed!=='object'||(key!=='custom_exclude_body'&&Array.isArray(parsed)))throw Error('附加参数结构无效');
-  if(fields.some(k=>typeof k!=='string'||forbidden.has(k)||key==='custom_include_headers'&&/authorization|api[-_]key|cookie|host/i.test(k)))throw Error('附加参数与隔离消息、模型或认证约束冲突');
+  if(fields.some(k=>typeof k!=='string'||forbidden.has(k)||key==='custom_include_headers'&&/authorization|api[-_]key|cookie|host/i.test(k)))throw Error('附加参数与独立请求的消息、模型、输出上限或认证约束冲突');
   body[key]=value;
  }
  return body;

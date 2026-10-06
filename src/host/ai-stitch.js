@@ -61,7 +61,7 @@ export async function handleAiStitch(method,payload={}){
  if(method==='ai-stitch-verify')return (await persistence(e)).verify(payload.id);
  if(method==='ai-stitch-create'){
   const input=makeStitchInput(payload.input.baseline,payload.input.sources,payload.input.guidance,payload.input.sessionId,payload.input.revision);
-  const result=assembleStitch(input,payload.plan,new Set(payload.excluded||[]));
+  const result=assembleStitch(input,payload.plan,new Set(payload.excluded||[]),{approvals:new Map(payload.approvals||[])});
   return (await persistence(e)).create({id:payload.id,name:payload.name,originalName:payload.originalName,preset:result.preset});
  }
  if(method==='ai-stitch-generate'){
@@ -72,10 +72,11 @@ export async function handleAiStitch(method,payload={}){
    const config=await connection(payload.profileId,e);if(controller.signal.aborted)throw Error('已取消生成');
    if(payload.model!==undefined){if(typeof payload.model!=='string'||!payload.model.trim()||payload.model.length>500||/[\r\n\0]/.test(payload.model))throw Error('请输入有效模型名称');config.model=payload.model.trim();}
    const body=applyStitchOverrides(buildIndependentRequest(config,[{role:'system',content:STITCH_INSTRUCTIONS},{role:'user',content:JSON.stringify(stitchContext(input))}],s=>e.lib.yaml.parse(s)),payload.overrides,s=>e.lib.yaml.parse(s));
+   const outputTokens=payload.outputTokens??16384;if(!Number.isInteger(outputTokens)||outputTokens<1024||outputTokens>131072)throw Error('输出上限必须为1024–131072之间的整数tokens');body.max_tokens=outputTokens;
    const response=await json('/api/backends/chat-completions/generate',body,e.script,controller.signal);
    if(controller.signal.aborted)throw Error('已取消生成');
-   const choice=response.choices?.[0];if(!choice||choice.finish_reason==='length'||choice.finish_reason==='content_filter')throw Error('模型输出截断或被过滤，请缩小输入后重试');
-   return parseStitchResponse(choice.message?.content);
+   const choice=response.choices?.[0];if(!choice||choice.finish_reason==='length'||choice.finish_reason==='content_filter')throw Error('模型输出截断或被过滤；请检查输出上限或减少本次材料后重新生成，未保存不完整正文');
+   return parseStitchResponse(choice.message?.content,2);
   }catch(error){if(controller.signal.aborted)throw Error(stitchAbortMessage(controller.signal));throw error;}
   finally{deadline.dispose();tasks.delete(payload.id);}
  }
