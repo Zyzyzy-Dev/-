@@ -57,3 +57,10 @@ test('取消或失败恢复上次方案及确认；成功新方案和输入修�
  const s=createStitchSession({side:'old',name:'主',baseline:{}});s.plan={items:['旧']};s.approvals.set('s','old');s.excluded.add('x');s.begin();s.cancel();assert.deepEqual(s.plan,{items:['旧']});assert.equal(s.approvals.get('s'),'old');assert(s.excluded.has('x'));
  const token=s.begin();s.accept(token,{items:['新']});assert.equal(s.approvals.size,0);s.approvals.set('s','new');s.touch();assert.equal(s.approvals.size,0);assert.equal(s.plan,null);
 });
+test('新条目改名参与确认且不改来源名称、正文或已有条目',()=>{
+ const x=fixture(),before=structuredClone(x.input),approval=reviewStitchItem(x.input,x.item).token;
+ x.item.name='自定义名称';assert.throws(()=>assembleStitch(x.input,x.plan,new Set(),{approvals:new Map([['s',approval]])}),/确认正文变化/);
+ const r=assembleStitch(x.input,x.plan,new Set(),{approvals:new Map([['s',reviewStitchItem(x.input,x.item).token]])});
+ assert.equal(r.preset.prompts[1].name,'自定义名称');assert.equal(r.preset.prompts[1].content,x.item.adaptedContent);assert.deepEqual(x.input,before);
+ x.item.name=' ';assert.throws(()=>assembleStitch(x.input,x.plan,new Set(),{preview:true}),/名称不能为空/);
+});

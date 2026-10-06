@@ -92,10 +92,11 @@ export function assembleStitch(input,plan,excluded=new Set(),{approvals=new Map(
  const active=id=>{const p=map.get(id),o=order.find(x=>idOf(x)===id),g=meta?.groups?.find(g=>g.id===meta?.prompts?.[id]?.groupId);return !!p&&!!o&&o.enabled!==false&&p.enabled!==false&&g?.enabled!==false;};
  const plain=id=>{const p=map.get(id);return active(id)&&!p.marker&&!(p.injection_position>0)&&!p.injection_trigger?.length;};
  for(const source of input.sources){
-  const item=bySource.get(source.id);keys(item,['sourceId','anchorId','placement','groupId','mode','role','reason','variable','scope','readId',...(plan.schemaVersion===2?['adaptedContent','referenceIds','adaptation']:['format'])]);
+  const item=bySource.get(source.id);keys(item,['sourceId','anchorId','placement','groupId','mode','role','reason','variable','scope','readId','name',...(plan.schemaVersion===2?['adaptedContent','referenceIds','adaptation']:['format'])]);
   if(excluded.has(source.id))continue;
   if(item.mode==='pending')fail('待处理：'+String(item.reason||'模型未找到安全位置'));
   if(!['direct','append','define'].includes(item.mode)||!['before','after'].includes(item.placement)||!['system','user','assistant'].includes(item.role)||typeof item.reason!=='string')fail('方案操作或角色无效');
+  if(item.name!==undefined&&(typeof item.name!=='string'||!item.name.trim()))fail('新条目名称不能为空');
   const anchorIssue=stitchAnchorIssue(base,item.anchorId);if(anchorIssue)fail(anchorIssue);
   const gid=meta?.prompts?.[item.anchorId]?.groupId??null;
   if((item.groupId??null)!==gid||gid&&!meta?.groups?.some(g=>g.id===gid))fail('目标分组与锚点不一致或已失效');
@@ -129,7 +130,7 @@ export function assembleStitch(input,plan,excluded=new Set(),{approvals=new Map(
   const tailKey=item.anchorId+':'+item.placement;
   const effective=tails.get(tailKey)||item.anchorId,after=tails.has(tailKey)||item.placement==='after';
   const at=order.findIndex(x=>idOf(x)===effective)+(after?1:0);
-  const prompt={identifier,name:source.name||'缝合材料',content,role:item.role,injection_position:0,injection_depth:4,injection_order:100,system_prompt:false,marker:false};
+  const prompt={identifier,name:item.name??(source.name||'缝合材料'),content,role:item.role,injection_position:0,injection_depth:4,injection_order:100,system_prompt:false,marker:false};
   preset.prompts.splice(preset.prompts.findIndex(p=>p.identifier===effective)+(after?1:0),0,prompt);
   order.splice(at,0,{identifier,enabled:true});tails.set(tailKey,identifier);
   if(gid)Object.defineProperty(meta.prompts,identifier,{value:{groupId:gid},writable:true,configurable:true,enumerable:true});

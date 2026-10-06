@@ -35,7 +35,22 @@ async function openAiStitch(){
   stitchPanel?.dispose();state.activeId=null;state.activeSide=null;
   const detail=document.querySelector('[data-compare]');detail._pcmDisposeHighlight?.();detail.replaceChildren();detail.classList.remove('pcm-hidden');detail.closest('.pcm-app').classList.add('pcm-single-detail');
   stitchPanel=createAiStitchPanel({session,host,isCurrent:()=>JSON.stringify(state[side])===baseline&&state.tavernSource[side]===session.source,onBack:()=>hideCompare(),
-   onArchive:archiveStitchDrafts,onSave:async(result,s)=>{
+   askName:pcmPrompt,onArchive:archiveStitchDrafts,onMerge:async(result,s)=>{
+    if(JSON.stringify(state[side])!==baseline||state.tavernSource[side]!==s.source)throw Error('主预设已改变，未加入草稿，请重新生成');
+    for(const {panel} of variablePanels.values())if(panel.hasDraft?.())throw Error('变量面板有未提交草稿，请先处理');
+    const before=state[side],next=result.preset,byOld=new Map(before.prompts.map(p=>[p.identifier,p]));
+    for(const change of result.changes)if(inlineDrafts.has(byOld.get(change.id)))throw Error('读取宏目标条目有未提交表单，请先保存该表单再缝合');
+    // 不变的条目保留对象身份，避免WeakMap中的正文表单草稿脱落。
+    next.prompts=next.prompts.map(p=>equalValues(p,byOld.get(p.identifier))?byOld.get(p.identifier):p);
+    const oldRegex=getRegexScripts(before),newRegex=getRegexScripts(next);oldRegex.forEach((p,i)=>{if(regexDrafts.has(p)&&newRegex[i])regexDrafts.set(newRegex[i],clone(regexDrafts.get(p)));});
+    pushUndo({type:'stitch',side,before,dirtyBefore:state.dirty[side],modifiedBefore:[...state.modified[side]],draggedBefore:[...state.dragged[side]]});
+    state[side]=next;state.dirty[side]=true;state.query[side]='';state.filter[side]='all';
+    for(const added of result.added){state.modified[side].add(added.id);const gid=next.extensions?.baibaiToolkit?.presetPromptGroups?.prompts?.[added.id]?.groupId;if(gid)state.groupCollapsed['g:'+side+':'+gid]=false;}
+    for(const change of result.changes)state.modified[side].add(change.id);
+    closeVariablesPanel();closeRegexPanel();state.activeId=null;state.activeSide=null;stitchPanel?.dispose();hideCompare();rebuildCache();renderAll(false);updateUndoButton();stitchSessions.delete(key);
+    const first=result.added[0]?.id;requestAnimationFrame(()=>{const button=[...document.querySelectorAll('[data-open]')].find(e=>e.dataset.open===first&&e.dataset.side===side);button?.scrollIntoView({block:'center'});});
+    pcmToastr.success('已按方案位置和分组加入主预设草稿，可一次撤回；点击保存后才会写回酒馆。');
+   },onSave:async(result,s)=>{
     // Archive again after the HTTP await: the user may have edited either pane while it was in flight.
     await archiveStitchDrafts();
     closeVariablesPanel();closeRegexPanel();
@@ -238,7 +253,7 @@ async function deleteProject(id){if(!(await pcmConfirm('确定删除这个已保
 async function refreshProjects(){let projects;try{projects=await listProjects();}catch{return;}const select=document.querySelector('[data-project-select]');if(select){select.replaceChildren();const empty=el('option','',projects.length?'选择已保存项目':'暂无已保存项目');empty.value='';select.append(empty);for(const project of projects){const option=el('option','',project.name+' · '+new Date(project.updatedAt).toLocaleString());option.value=project.id;option.selected=project.id===state.projectId;select.append(option);}}const dropList=document.querySelector('[data-proj-list]');if(dropList&&dropList.closest('.pcm-proj-drop')?.classList.contains('open'))refreshProjList();const current=projects.find(x=>x.id===state.projectId),name=document.querySelector('[data-project-name]');if(name&&current){name.value=current.name;selectedProjectId=current.id;}}
 function pushUndo(action){state.history.push(action);if(state.history.length>50)state.history.shift();updateUndoButton();}
 function updateUndoButton(){document.querySelectorAll('[data-action=undo]').forEach(button=>{button.disabled=!state.history.length;});}
-function undoLast(){const action=state.history.pop();if(!action)return;const side=action.side,preset=state[side];if(action.type==='edit'){const index=preset.prompts.findIndex(p=>p.identifier===action.id);if(index>=0)preset.prompts[index]=action.before;state.modified[side]=new Set(action.modifiedBefore);}else if(action.type==='variables'){preset.prompts=action.prompts;state.modified[side]=new Set(action.modifiedBefore);}else if(action.type==='move'){preset.prompts=action.promptOrder.map(id=>action.prompts.get(id)).filter(Boolean);preset.prompt_order=clone(action.promptOrderData);preset.extensions=clone(action.extensionsBefore);state.dragged[side]=new Set(action.draggedBefore);}else if(action.type==='regex'){if(action.beforeExtensions===undefined)delete preset.extensions;else preset.extensions=clone(action.beforeExtensions);}state.dirty[side]=true;state.activeId=null;hideCompare();rebuildCache();renderAll();updateUndoButton();}
+function undoLast(){const action=state.history.pop();if(!action)return;const side=action.side,preset=state[side];if(action.type==='stitch'){state[side]=action.before;state.modified[side]=new Set(action.modifiedBefore);state.dragged[side]=new Set(action.draggedBefore);}else if(action.type==='edit'){const index=preset.prompts.findIndex(p=>p.identifier===action.id);if(index>=0)preset.prompts[index]=action.before;state.modified[side]=new Set(action.modifiedBefore);}else if(action.type==='variables'){preset.prompts=action.prompts;state.modified[side]=new Set(action.modifiedBefore);}else if(action.type==='move'){preset.prompts=action.promptOrder.map(id=>action.prompts.get(id)).filter(Boolean);preset.prompt_order=clone(action.promptOrderData);preset.extensions=clone(action.extensionsBefore);state.dragged[side]=new Set(action.draggedBefore);}else if(action.type==='regex'){if(action.beforeExtensions===undefined)delete preset.extensions;else preset.extensions=clone(action.beforeExtensions);}state.dirty[side]=action.type==='stitch'?action.dirtyBefore:true;state.activeId=null;hideCompare();rebuildCache();renderAll();updateUndoButton();}
 
 function el(tag,cls,text){const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=String(text);return n;}
 function btn(text,action,cls,side){const n=el('button','menu_button '+(cls||''),text);n.type='button';n.dataset.action=action;if(side)n.dataset.side=side;return n;}

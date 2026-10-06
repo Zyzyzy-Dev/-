@@ -95,3 +95,7 @@
 .pcm-ai-diff-add{background:color-mix(in srgb,#3baf70 18%,transparent);border-left:3px solid #3baf70}
 .pcm-ai-diff-remove{background:color-mix(in srgb,#d96868 18%,transparent);border-left:3px solid #d96868}
 .pcm-ai-output-options{font-size:12px}.pcm-ai-output-options>label{max-width:280px;margin-top:8px}
+
+/* 双保存入口同排；名称仅在点击相应操作时询问。 */
+.pcm-ai-save-actions{display:flex;gap:8px;flex-wrap:wrap}.pcm-ai-save-actions>button{flex:1;min-width:120px}
+.pcm-ai-stitch .pcm-ai-rename{padding:3px 7px;min-width:26px;flex-shrink:0}

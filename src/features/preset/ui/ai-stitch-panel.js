@@ -9,7 +9,7 @@ const button=(label,fn)=>{const b=node('button',label);b.className='menu_button'
 function field(label,value,change,multiline=false){const wrap=node('label'),input=node(multiline?'textarea':'input');wrap.append(node('span',label),input);input.value=value;input.addEventListener('input',()=>change(input.value));return wrap;}
 // 仅连续相邻且属于同一组的条目共用外框，不跨越其他组聚合未分组条目。
 export function stitchEntrySections(items){const sections=[];for(const item of items){let section=sections.at(-1);const key=item.groupId||'';if(!section||section.groupId!==key){section={groupId:key,key:item.sourceId,label:item.groupName||item.sourceName,collapsed:item.collapsed,items:[]};sections.push(section);}section.items.push(item);}return sections;}
-export function createAiStitchPanel({session:s,host,isCurrent,onBack,onSave,onArchive}){
+export function createAiStitchPanel({session:s,host,isCurrent,onBack,onSave,onArchive,onMerge,askName}){
  const root=node('section');root.className='pcm-ai-stitch';let disposed=false,picking=0;const openPlans=new Set(),openComparisons=new Set();
  const status=node('p');status.setAttribute('role','status');
  const report=e=>{status.textContent=e.message||String(e);};
@@ -35,7 +35,7 @@ export function createAiStitchPanel({session:s,host,isCurrent,onBack,onSave,onAr
  const sources=node('div'),picker=node('section'),preview=node('section');picker.className='pcm-ai-picker';preview.className='pcm-ai-preview';
  s.pickerState??={};s.manualDrafts??=[''];s.guidanceDraft??=s.guidance;let view='home';
  function showView(next){view=next;picking++;picker.replaceChildren();picker.hidden=next==='home';sources.hidden=next!=='home';for(const b of add.children)b.setAttribute('aria-pressed',String(b.dataset.view===next));refreshHome();}
- function refreshHome(){const visible=view==='home'&&(s.sources.length>0||!!s.guidance);for(const e of [actions,status,preview,saveName,saveStatus,save,verify])e.hidden=!visible;verify.hidden=!visible||!s.saveId;}
+ function refreshHome(){const visible=view==='home'&&(s.sources.length>0||!!s.guidance);for(const e of [actions,status,preview,saveStatus,saveActions,verify])e.hidden=!visible;verify.hidden=!visible||!s.saveId;}
  function renderSources(){sources.replaceChildren();for(const [kind,label] of [['preset','已添加的预设条目'],['world','已添加的世界书条目'],['manual','已添加的手动填写文本']]){
   const items=s.sources.filter(x=>(x.kind||'manual')===kind);if(!items.length)continue;sources.append(node('h4',label));
   for(const source of items){const card=node('article'),body=field('正文',source.content,v=>{source.content=v;touch();},true);card.dataset.sourceKind=kind;
@@ -69,22 +69,23 @@ export function createAiStitchPanel({session:s,host,isCurrent,onBack,onSave,onAr
  const add=node('div');add.className='pcm-ai-tabs';for(const [label,key,fn] of [['导入预设条目','preset',()=>choose('preset')],['导入世界书条目','world',()=>choose('world')],['手动填写','manual',manual],['缝合指导','guidance',guidance]]){const b=button(label,fn);b.dataset.view=key;add.append(b);}controls.append(add,picker,sources);
  const generate=button('生成方案',async()=>{let token;try{check();stitchTimeoutMs(s.timeoutMinutes);if(!Number.isInteger(s.outputTokens)||s.outputTokens<1024||s.outputTokens>131072)throw Error('输出上限必须为1024–131072之间的整数tokens');const data=input();token=s.begin();renderPreview();generate.disabled=true;controls.disabled=true;status.textContent='正在独立分析，最多等待 '+s.timeoutMinutes+' 分钟，可随时取消…';const plan=await host.request('ai-stitch-generate',{id:token.id,input:data,profileId:s.profileId,model:s.model,timeoutMinutes:s.timeoutMinutes,overrides:s.overrides,outputTokens:s.outputTokens});if(s.accept(token,plan)){renderPreview();status.textContent='方案已返回，请核对预览。';}}catch(e){if(!token||s.task===token.id){if(token)s.cancel();renderPreview();report(e);}}finally{generate.disabled=s.status==='generating'||!!s.saveId;controls.disabled=s.status==='generating'||!!s.saveId;}});
  const cancel=button('取消生成',()=>{if(s.status==='saving'||s.saveId)return;const id=s.task;s.cancel();if(id)void host.request('ai-stitch-cancel',{id}).catch(report);generate.disabled=false;controls.disabled=!!s.saveId;renderPreview();status.textContent='已取消，材料和已有方案保留';});
- const saveName=field('新预设名称',s.name,v=>{s.name=v;s.saveMessage='';renderPreview();}),nameControl=saveName.querySelector('input');
  const saveStatus=node('p');saveStatus.className='pcm-ai-save-status';saveStatus.setAttribute('role','status');
- const save=button('另存为新预设',async()=>{try{check();const data=input(),plan=clone(s.plan),excluded=[...s.excluded],approvals=[...s.approvals];assembleStitch(data,plan,new Set(excluded),{approvals:new Map(approvals)});s.status='saving';renderPreview();save.disabled=true;controls.disabled=true;nameControl.disabled=true;generate.disabled=true;await onArchive();check();s.saveId||=createIdentifier();s.saveMessage='正在提交新预设并读盘核验，请稍候…';s.status='saving';renderPreview();const result=await host.request('ai-stitch-create',{id:s.saveId,name:s.name,originalName:s.originalName,input:data,plan,excluded,approvals});await onSave(result,s);s.status='saved';}catch(e){if(e.name==='StitchNotWritten')s.saveId=null;s.status=s.saveId?'uncertain':'preview';s.saveMessage=(s.saveId?'保存尚未确认：':'保存未完成：')+(e.message||String(e));report(e);verify.hidden=!s.saveId;renderPreview();}finally{if(!s.saveId){controls.disabled=false;nameControl.disabled=false;generate.disabled=false;renderPreview();}}});
+ const save=button('另存为新预设',async()=>{try{check();const data=input(),plan=clone(s.plan),excluded=[...s.excluded],approvals=[...s.approvals];assembleStitch(data,plan,new Set(excluded),{approvals:new Map(approvals)});s.status='saving';renderPreview();save.disabled=true;controls.disabled=true;generate.disabled=true;const entered=await askName('新预设名称',s.name);if(entered===null)return;if(!entered.trim())throw Error('新预设名称不能为空');s.name=entered.trim();check();await onArchive();check();s.saveId||=createIdentifier();s.saveMessage='正在提交新预设并读盘核验，请稍候…';s.status='saving';renderPreview();const result=await host.request('ai-stitch-create',{id:s.saveId,name:s.name,originalName:s.originalName,input:data,plan,excluded,approvals});await onSave(result,s);s.status='saved';}catch(e){if(e.name==='StitchNotWritten')s.saveId=null;s.status=s.saveId?'uncertain':'preview';s.saveMessage=(s.saveId?'保存尚未确认：':'保存未完成：')+(e.message||String(e));report(e);verify.hidden=!s.saveId;renderPreview();}finally{if(!s.saveId){if(s.status==='saving')s.status='preview';controls.disabled=false;generate.disabled=false;renderPreview();}}});
+ const merge=button('缝合到主预设',async()=>{try{check();const result=assembleStitch(input(),s.plan,s.excluded,{approvals:s.approvals});s.status='saving';controls.disabled=true;generate.disabled=true;renderPreview();await onArchive();check();await onMerge(result,s);s.status='merged';}catch(e){s.status='preview';s.saveMessage='缝合未完成：'+(e.message||String(e));report(e);}finally{if(s.status==='saving')s.status='preview';controls.disabled=!!s.saveId;generate.disabled=!!s.saveId;renderPreview();}});
+ merge.title='加入当前主预设草稿，之后点击保存写回酒馆';const saveActions=node('div');saveActions.className='pcm-ai-save-actions';saveActions.append(save,merge);
  const verify=button('只读复查保存状态',async()=>{try{verify.disabled=true;verify.textContent='正在只读复查…';s.saveMessage='正在读取保存结果并核验；不会重复写入。';renderPreview();const result=await host.request('ai-stitch-verify',{id:s.saveId});s.saveMessage='已确认写入，正在打开双栏对比…';renderPreview();await onSave(result,s);s.status='saved';s.saveMessage='保存及双栏交接已完成。';}catch(e){s.status='uncertain';s.saveMessage='复查未完成：'+(e.message||String(e));report(e);}finally{verify.disabled=false;verify.textContent='只读复查保存状态';renderPreview();}});verify.hidden=!s.saveId;
- const actions=node('div');actions.className='pcm-ai-actions';const sendHint=node('small','会向 AI 发送内置提示词＋主预设上下文＋所添加材料＋指导');sendHint.className='pcm-ai-send-hint';actions.append(generate,sendHint,cancel);root.append(controls,actions,status,preview,saveName,saveStatus,save,verify);
+ const actions=node('div');actions.className='pcm-ai-actions';const sendHint=node('small','会向 AI 发送内置提示词＋主预设上下文＋所添加材料＋指导');sendHint.className='pcm-ai-send-hint';actions.append(generate,sendHint,cancel);root.append(controls,actions,status,preview,saveStatus,saveActions,verify);
  function renderPreview(){
   cancel.disabled=s.status==='saving'||!!s.saveId;
   preview.querySelectorAll('details[data-plan-id]').forEach(d=>{d.open?openPlans.add(d.dataset.planId):openPlans.delete(d.dataset.planId);});preview.replaceChildren();saveStatus.textContent='';
-  if(!s.plan){save.disabled=true;saveStatus.textContent='请先生成并核对方案。';return;}
+  if(!s.plan){save.disabled=merge.disabled=true;saveStatus.textContent='请先生成并核对方案。';return;}
   let assembled;const locked=!!s.saveId||s.status==='saving'||s.status==='generating';
   try{
    assembled=assembleStitch(input(),s.plan,s.excluded,{approvals:s.approvals,preview:true});
    const pending=assembled.reviews.filter(r=>r.needsApproval&&!r.approved).length;
-   preview.append(node('p',`新增 ${assembled.added.length} 条；已有条目插入宏 ${assembled.changes.length} 处；${pending?'有 '+pending+' 项正文变化待确认':'请核对格式与位置后另存'}。`));save.disabled=locked||!!pending;
-   saveStatus.textContent=s.saveMessage||(s.saveId?'保存结果尚未确认，请只读复查。':pending?'暂不能保存：请展开待确认方案，点击对比并逐项确认正文变化。':'校验通过，可以另存为新预设。');
-  }catch(e){const message='暂不能保存：'+e.message;preview.append(node('p',message));saveStatus.textContent=message+'。请调整位置、取消有问题的材料，或根据原因重新生成；不会强行保存。';save.disabled=true;}
+   preview.append(node('p',`新增 ${assembled.added.length} 条；已有条目插入宏 ${assembled.changes.length} 处；${pending?'有 '+pending+' 项正文变化待确认':'请核对格式与位置后保存或加入草稿'}。`));save.disabled=merge.disabled=locked||!!pending||s.status==='merged';
+   saveStatus.textContent=s.saveMessage||(s.saveId?'保存结果尚未确认，请只读复查。':pending?'暂不能保存：请展开待确认方案，点击对比并逐项确认正文变化。':'校验通过，可另存为新预设或缝合到主预设草稿。');
+  }catch(e){const message='暂不能保存：'+e.message;preview.append(node('p',message));saveStatus.textContent=message+'。请调整位置、取消有问题的材料，或根据原因重新生成；不会强行保存。';save.disabled=merge.disabled=true;}
   if(!Array.isArray(s.plan.items))return;
   const order=findPromptOrderEntry(s.baseline)?.order||[],ids=order.map(o=>typeof o==='string'?o:o.identifier);
   for(const item of s.plan.items){
@@ -93,7 +94,7 @@ export function createAiStitchPanel({session:s,host,isCurrent,onBack,onSave,onAr
    const approved=review&&s.approvals.get(source.id)===review.token;
    const outer=node('article'),details=node('details'),title=node('summary'),card=node('div'),toggle=node('input');outer.className='pcm-ai-plan';card.className='pcm-ai-plan-body';details.dataset.planId=source.id;details.open=openPlans.has(source.id);
    toggle.type='checkbox';toggle.setAttribute('aria-label','采用方案 '+source.name);toggle.checked=!s.excluded.has(source.id);toggle.disabled=locked;toggle.addEventListener('click',e=>e.stopPropagation());toggle.addEventListener('change',()=>{toggle.checked?s.excluded.delete(source.id):s.excluded.add(source.id);s.approvals.delete(source.id);renderPreview();});
-   title.append(toggle,node('span',source.name));if(review?.needsApproval&&!s.excluded.has(source.id))title.append(node('small',approved?'变化已确认':'正文变化待确认'));details.append(title,card);outer.append(details);
+   const rename=button('✎',async e=>{e.preventDefault();e.stopPropagation();if(locked)return;try{const currentPlan=s.plan;const entered=await askName('新条目名称',item.name??source.name);if(entered===null)return;if(disposed||s.plan!==currentPlan||s.saveId||s.status==='saving')return;if(!entered.trim())throw Error('条目名称不能为空');if(entered.trim()===(item.name??source.name))return;item.name=entered.trim();s.approvals.delete(source.id);renderPreview();}catch(e){report(e);}});rename.className+=' pcm-ai-rename';rename.setAttribute('aria-label','编辑条目名称 '+(item.name??source.name));rename.title='编辑新条目名称';rename.disabled=locked;title.append(toggle,node('span',item.name??source.name),rename);if(review?.needsApproval&&!s.excluded.has(source.id))title.append(node('small',approved?'变化已确认':'正文变化待确认'));details.append(title,card);outer.append(details);
    card.append(node('p',item.reason),node('p',`插入方式：${({direct:'直接插入',append:'追加到已有变量',define:'定义新变量并追加读取',pending:'待处理'})[item.mode]||'未知'}；身份：${({system:'系统',user:'用户',assistant:'助手'})[item.role]||'待确认'}；变量：${item.variable||'无'}`));
    const name=id=>s.baseline.prompts.find(p=>p.identifier===id)?.name||id||'边界';
    if(s.plan.schemaVersion===2){card.append(node('p','格式参考：'+(Array.isArray(item.referenceIds)?item.referenceIds.map(name).join('、'):'未提供')),node('p','AI调整说明：'+(item.adaptation||'未提供')),node('strong',review?.label||reviewError||'尚无适配正文'));}
@@ -118,6 +119,6 @@ export function createAiStitchPanel({session:s,host,isCurrent,onBack,onSave,onAr
   }
  }
 
- renderSources();renderPreview();showView('home');controls.disabled=!!s.saveId;nameControl.disabled=!!s.saveId;generate.disabled=!!s.saveId;
+ renderSources();renderPreview();showView('home');controls.disabled=!!s.saveId;generate.disabled=!!s.saveId;
  return {element:root,dispose(){disposed=true;picking++;},session:s};
 }
