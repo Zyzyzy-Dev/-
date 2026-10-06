@@ -118,3 +118,8 @@
 .pcm-ai-stitch .pcm-ai-confirm{flex:0 0 auto;padding:4px 7px;font-size:12px;white-space:nowrap}
 .pcm-ai-stitch .pcm-ai-confirm[aria-pressed=true]{background:var(--pcm-accent,#727b48);color:var(--pcm-accent-text,#fff)}
 @media(max-width:600px){.pcm-ai-stitch article summary .pcm-ai-review-badge{font-size:9px;padding:2px 3px}.pcm-ai-stitch .pcm-ai-confirm{font-size:10px;padding:4px}.pcm-ai-stitch article summary>span{flex:1 1 0}}
+/* 折叠标题不显示浏览器触摸色块或文本选中，保留键盘焦点可见性。 */
+.pcm-ai-stitch article summary{-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+.pcm-ai-stitch article summary:focus:not(:focus-visible){outline:none}
+.pcm-ai-stitch article summary:focus-visible{outline:2px solid var(--pcm-accent,var(--SmartThemeBodyColor));outline-offset:2px}
+.pcm-ai-stitch .pcm-ai-confirm{-webkit-tap-highlight-color:transparent}
