@@ -57,3 +57,24 @@ test('导入显示按连续分组段保留原顺序，不聚合跨组的未分�
  const items=['','g','','h','g','g',''].map((groupId,i)=>({sourceId:String(i),groupId,content:'原文'+i}));
  const sections=stitchEntrySections(items);assert.deepEqual(sections.map(s=>s.items.map(i=>i.sourceId)),[['0'],['1'],['2'],['3'],['4','5'],['6']]);assert.deepEqual(sections.flatMap(s=>s.items),items);assert.equal(new Set(sections.map(s=>s.key)).size,6);
 });
+
+test('Phase/Step格式与变量可组合，材料字符和CRLF不改写，预览与保存一致',()=>{
+ const i=input('人格校验\r\n\r\n人格一致性校验😀\r\n这一轮{{user}}是否符合原有特质？');
+ i.baseline.prompts[0].content+='\n## Phase 【认知边界】\n### Step 1. 范例';
+ const format={lines:[{line:1,style:'phase'},{line:3,style:'step'}]},p=plan(i,{mode:'append',scope:'local',variable:'tone',format});
+ const before=structuredClone(i),r=assembleStitch(i,p);
+ assert.equal(r.added[0].content,'{{addvar::tone::## Phase 【人格校验】\r\n\r\n### Step 1. 人格一致性校验😀\r\n这一轮{{user}}是否符合原有特质？}}');
+ assert.equal(previewStitchSource(i.sources[0],p.items[0],i.baseline),r.added[0].content);assert.deepEqual(i,before);
+ assert.deepEqual(r.preset.prompts.filter(x=>['a','b'].includes(x.identifier)),i.baseline.prompts);
+});
+test('格式方案不能改写、越界、重复包装或臆造目标模板',()=>{
+ for(const format of [{content:'篡改'},{lines:[{line:0,style:'heading2'}]},{lines:[{line:1,style:'phase'}]},{lines:[{line:1,style:'heading2'},{line:1,style:'heading3'}]},{lines:[{line:1,style:'rewrite'}]},{tag:'script'},{lines:[{line:1,style:'heading2',text:'改写'}]}]){
+  const i=input('标题');assert.throws(()=>assembleStitch(i,plan(i,{format})));
+ }
+ for(const content of ['## 已有标题','{{user}}','<tag>','```js','  ']){const i=input(content);assert.throws(()=>assembleStitch(i,plan(i,{format:{lines:[{line:1,style:'heading2'}]}})));}
+});
+test('标签只复制目标中已有配对结构，不执行模板，改锚点后重新校验',()=>{
+ const i=input('正文\r\n{{user}}');i.baseline.prompts[0].content+='\n<思考>示例</思考>';
+ const p=plan(i,{format:{tag:'思考'}});assert.equal(assembleStitch(i,p).added[0].content,'<思考>\n正文\r\n{{user}}\n</思考>');
+ p.items[0].anchorId='b';assert.throws(()=>assembleStitch(i,p),/目标标签/);
+});

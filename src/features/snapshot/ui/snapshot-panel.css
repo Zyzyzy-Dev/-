@@ -99,3 +99,8 @@
 /* 名称搜索仅筛选显示，沿用快照主题。 */
 .pcm-snapshot-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
 .pcm-snapshot-search{flex:1;min-width:100px;max-width:100%;box-sizing:border-box;border:1px solid var(--snap-border);border-radius:8px;padding:8px;color:var(--snap-fg);background:var(--snap-card);font:inherit}
+
+/* 搜索与快照卡片同一内容列，桌面限制输入宽度。 */
+.pcm-snapshot-filters{max-width:1000px;margin:12px auto;width:100%;box-sizing:border-box}
+.pcm-snapshot-search{flex:0 1 360px;width:360px}
+@media(max-width:650px){.pcm-snapshot-search{flex:1;width:0}}

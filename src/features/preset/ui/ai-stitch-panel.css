@@ -79,3 +79,13 @@
 .pcm-ai-stitch .pcm-ai-scroll button{height:auto!important;min-height:32px;max-height:none;flex-shrink:0;white-space:normal!important;overflow-wrap:anywhere;line-height:1.4}
 .pcm-ai-scroll{touch-action:pan-y;overscroll-behavior-y:contain;min-height:0}
 .pcm-ai-import-group>summary{touch-action:pan-y;overflow-wrap:anywhere}
+
+/* 详情父容器负责整页滚动，面板不创建第二个不可收缩的滚动层。 */
+.pcm-app.pcm-single>[data-compare]:has(.pcm-ai-stitch){min-height:0!important;overflow-y:auto!important;touch-action:pan-y;scrollbar-width:none}
+.pcm-ai-stitch{overflow:visible;flex-shrink:0}
+.pcm-ai-stitch>*{flex-shrink:0}
+.pcm-ai-stitch pre,.pcm-ai-stitch textarea{scrollbar-width:none;touch-action:pan-y;overscroll-behavior-y:auto}
+.pcm-ai-stitch pre::-webkit-scrollbar,.pcm-ai-stitch textarea::-webkit-scrollbar,[data-compare]:has(.pcm-ai-stitch)::-webkit-scrollbar{display:none;width:0;height:0}
+.pcm-ai-stitch article.pcm-ai-plan-body{border:0;padding:0;margin:0}
+.pcm-ai-plan>details>summary{min-height:28px}
+@media(max-width:900px){.pcm-app.pcm-single>[data-compare]:has(.pcm-ai-stitch){max-height:calc(100dvh - 105px)!important}}
