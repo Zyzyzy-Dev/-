@@ -112,3 +112,9 @@
  .pcm-ai-api-row>label:last-child input{width:36px;min-width:0;flex:0 1 36px}
  .pcm-ai-api-row>label:last-child span{display:inline;font-size:10px;white-space:nowrap}
 }
+
+/* 核对状态与操作留在标题栏，不随方案正文折叠。 */
+.pcm-ai-stitch article summary .pcm-ai-review-badge{flex:0 0 auto;font-size:11px;padding:2px 5px;border:1px solid var(--pcm-border,#8886);border-radius:5px;white-space:nowrap}
+.pcm-ai-stitch .pcm-ai-confirm{flex:0 0 auto;padding:4px 7px;font-size:12px;white-space:nowrap}
+.pcm-ai-stitch .pcm-ai-confirm[aria-pressed=true]{background:var(--pcm-accent,#727b48);color:var(--pcm-accent-text,#fff)}
+@media(max-width:600px){.pcm-ai-stitch article summary .pcm-ai-review-badge{font-size:9px;padding:2px 3px}.pcm-ai-stitch .pcm-ai-confirm{font-size:10px;padding:4px}.pcm-ai-stitch article summary>span{flex:1 1 0}}

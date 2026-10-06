@@ -1,7 +1,8 @@
 // 新变量的初始化、正文赋值及读取必须作为同一项原子组装。
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {assembleStitch,makeStitchInput} from '../src/features/preset/ai-stitch/core.js';
+import {assembleStitch as assemble,makeStitchInput} from '../src/features/preset/ai-stitch/core.js';
+const assembleStitch=(input,plan,excluded=new Set(),options={})=>assemble(input,plan,excluded,{preview:true,...options});
 function fixture(scope='local'){
  const suffix=scope==='global'?'globalvar':'var';
  const baseline={prompts:[{identifier:'init',name:'获取变量',content:`初始\r\n{{set${suffix}::已有:: }}`},{identifier:'read',name:'思考读取',content:`{{get${suffix}::已有}}`}],prompt_order:[{character_id:100001,order:[{identifier:'init',enabled:true},{identifier:'read',enabled:true}]}]};
