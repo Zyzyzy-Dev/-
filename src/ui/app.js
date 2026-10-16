@@ -31,6 +31,7 @@ async function openAiStitch(){
   const form=document.querySelector('.pcm-inline-form');
   if(form&&inlineDrafts.has(byId(side).get(form.dataset.id))){if(!(await pcmConfirm('当前条目表单尚未保存。先保存到编辑器草稿，再以该草稿开始缝合？取消可返回继续编辑。')))return;applyInlineForm(form);}
   const baseline=JSON.stringify(state[side]),key=side+':'+state[side+'Name']+':'+baseline;
+  // 会话包含未添加的输入、已选材料和确认状态；切换基线不能静默淘汰用户草稿。
   let session=stitchSessions.get(key);if(!session){session=createStitchSession({side,name:state[side+'Name']||'预设',baseline:state[side],dirty:state.dirty[side],source:state.tavernSource[side]});stitchSessions.set(key,session);}
   stitchPanel?.dispose();state.activeId=null;state.activeSide=null;
   const detail=document.querySelector('[data-compare]');detail._pcmDisposeHighlight?.();detail.replaceChildren();detail.classList.remove('pcm-hidden');detail.closest('.pcm-app').classList.add('pcm-single-detail');
@@ -52,7 +53,7 @@ async function openAiStitch(){
     pcmToastr.success('已按方案位置和分组加入主预设草稿，可一次撤回；点击保存后才会写回酒馆。');
    },onSave:async(result,s)=>{
     // Archive again after the HTTP await: the user may have edited either pane while it was in flight.
-    await archiveStitchDrafts();
+    try{await archiveStitchDrafts();}catch(error){const e=Error('新预设「'+result.name+'」已写入并核验通过，但切换双栏前备份当前草稿失败：'+(error.message||String(error))+'。处理后点击“只读复查保存状态”即可完成切换，不会重复写入。');e.name='StitchHandoffPending';throw e;}
     closeVariablesPanel();closeRegexPanel();
     if(singleSide)setSingleSide(singleSide);
     state.old=clone(s.baseline);state.new=clone(result.preset);state.oldName=s.originalName+'.json';state.newName=result.name+'.json';
@@ -624,7 +625,32 @@ function overwriteContentDraft(sourceSide,targetSide,id,targetId=id){
   pcmToastr.info('正文已覆盖，尚未保存；请点击「保存'+(targetSide==='old'?'旧版':'新版')+'条目」');
 }
 function migrate(sourceSide){const targetSide=sourceSide==='old'?'new':'old',source=state[sourceSide],target=state[targetSide],prompt=comparisonPrompts(state.activeId)[sourceSide];if(!source||!target||!prompt){pcmToastr.error('请先导入两份预设');return;}const counterpart=comparisonPrompts(state.activeId)[targetSide];if(counterpart){overwriteContentDraft(sourceSide,targetSide,prompt.identifier,counterpart.identifier);return;}else{const sourceIds=ordered(sourceSide).map(p=>p.identifier),targetIds=ordered(targetSide).map(p=>p.identifier),sourceIndex=sourceIds.indexOf(prompt.identifier);let beforeId=null,afterId=null;for(let i=sourceIndex-1;i>=0;i--)if(targetIds.includes(sourceIds[i])){beforeId=sourceIds[i];break;}if(!beforeId)for(let i=sourceIndex+1;i<sourceIds.length;i++)if(targetIds.includes(sourceIds[i])){afterId=sourceIds[i];break;}let promptIndex=target.prompts.length;if(beforeId){const i=target.prompts.findIndex(p=>p.identifier===beforeId);promptIndex=i+1;}else if(afterId){const i=target.prompts.findIndex(p=>p.identifier===afterId);promptIndex=i;}target.prompts.splice(Math.max(0,promptIndex),0,clone(prompt));const order=orderArray(target),oldOrderIndex=order.findIndex(x=>x.identifier===prompt.identifier);if(oldOrderIndex>=0)order.splice(oldOrderIndex,1);let orderIndex=order.length;if(beforeId){const i=order.findIndex(x=>x.identifier===beforeId);orderIndex=i+1;}else if(afterId){const i=order.findIndex(x=>x.identifier===afterId);orderIndex=i;}order.splice(Math.max(0,orderIndex),0,{identifier:prompt.identifier,enabled:prompt.enabled!==false});}state.dirty[targetSide]=true;rebuildCache();renderAll();pcmToastr.success('条目已迁移到'+(targetSide==='old'?'旧版':'新版')+'的对应位置');}
-function exportPreset(side){const preset=state[side];if(!preset)return;const blob=new Blob([JSON.stringify(preset,null,2)],{type:'application/json;charset=utf-8'}),link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=(state[side+'Name']||side+'-preset').replace(/\.json$/i,'')+'-已编辑.json';link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);state.dirty[side]=false;renderList(side);}
+const exportingPresets = new Set();
+async function exportPreset(side) {
+  const preset = state[side];
+  if (!preset || exportingPresets.has(side)) return;
+  exportingPresets.add(side);
+  const button = document.querySelector('[data-action="export"][data-side="'+side+'"]');
+  if (button) button.disabled = true;
+  try {
+    const originalName = state[side+'Name'], snapshot = JSON.stringify(preset);
+    const name = (originalName || side+'-preset').replace(/\.json$/i, '')+'-已编辑.json';
+    const result = await host.request('export-preset', {name, preset: JSON.parse(snapshot)});
+    if (result?.status === 'cancelled') {pcmToast('已取消导出，编辑内容已保留', 'info'); return;}
+    if (result?.status !== 'saved' && result?.status !== 'started') throw new Error('酒馆未返回有效的导出状态');
+    if (result.status === 'saved' && state[side] === preset && state[side+'Name'] === originalName && JSON.stringify(preset) === snapshot) {
+      state.dirty[side] = false;
+      updateSummary(side);
+    }
+    pcmToast(result.status === 'saved' ? '预设文件已导出' : '已发起导出，请在下载目录或系统保存窗口确认文件；编辑内容已保留', 'success');
+  } catch (error) {
+    console.error('[preset-compare-migrator] export failed', error);
+    pcmToast('导出未完成：'+error.message+'。编辑内容已保留，请确认下载状态后再重试', 'error');
+  } finally {
+    exportingPresets.delete(side);
+    if (button) button.disabled = false;
+  }
+}
 function rowById(list,id){if(!list)return null;return[...list.querySelectorAll('.pcm-row')].find(row=>row.dataset.dragId===id)||null;}
 function updateRowOperationTags(row,side,id){if(!row)return;let tags=row.querySelector('.pcm-operation-tags');if(!tags){tags=el('span','pcm-operation-tags');row.querySelector('.pcm-row-title')?.append(tags);}tags.querySelectorAll('.pcm-op-tag').forEach(t=>t.remove());if(state.dragged[side].has(id))tags.append(el('span','pcm-op-tag pcm-op-dragged','已拖拽'));if(state.modified[side].has(id))tags.append(el('span','pcm-op-tag pcm-op-modified','已修改'));}
 function updateRowBadge(row,id,side){if(!row)return;const status=statusOf(id),badge=row.querySelector('.pcm-badge');if(badge){badge.className='pcm-badge pcm-'+status;badge.textContent=badgeText(id,side);}}
