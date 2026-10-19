@@ -2,6 +2,7 @@
 import { installNativeGroups } from './native-groups.js';
 import { handleAiStitch } from './ai-stitch.js';
 import { exportPresetFile } from './preset-export.js';
+import { readHostDiagnostics } from '../shared/diagnostics.js';
 import { clone } from '../shared/clone.js';
 import { API_BINDINGS_KEY, bindApiSnapshot, isApiProfileActive } from '../features/api/api-bindings.js';
 // 扩展菜单入口、外层 dialog/iframe 外壳、preset-manager/openai 动态读取与保存、
@@ -128,6 +129,10 @@ async function listTavernPresets() {
 }
 
 async function handleRequest(method, payload) {
+  if (method === 'diagnostics-context') return readHostDiagnostics({
+    tauri: Boolean(globalThis.__TAURITAVERN__),
+    versionText: document.getElementById('version_display')?.textContent || document.getElementById('version_display_welcome')?.textContent || '',
+  });
   if (method === 'export-preset') {
     // 下载必须在主窗口调用酒馆接口，由 ST/TT 选择各自的下载实现。
     const {download} = await import('/scripts/utils.js');
@@ -1299,6 +1304,7 @@ async function handleSnapshotRequest(method, payload) {
       }
       assertSnapshotContext(env,payload.contextKey);
       if (existing) snapshot.createdAt = existing.createdAt;
+      if (existing?.favorite === true) snapshot.favorite = true;
       const previous = store.snapshots;
       store.snapshots = existing ? previous.map(s => s.id === existing.id ? snapshot : s) : [...previous, snapshot];
       try {await saveSnapshotSettings(env);} catch (error) {store.snapshots = previous; throw error;}
@@ -1307,6 +1313,15 @@ async function handleSnapshotRequest(method, payload) {
       const previous = existing.name;
       existing.name = normalizeSnapshotName(payload.name);
       try {await saveSnapshotSettings(env);} catch (error) {existing.name = previous; throw error;}
+    } else if (method === 'snapshot-favorite') {
+      if (!existing) throw new Error('快照已删除，请刷新列表');
+      if (typeof payload.favorite !== 'boolean') throw new Error('收藏状态无效');
+      if ((existing.favorite === true) !== payload.favorite) {
+        const previous=store.snapshots, next={...existing};
+        if(payload.favorite)next.favorite=true;else delete next.favorite;
+        store.snapshots=previous.map(snapshot=>snapshot===existing?next:snapshot);
+        try {await saveSnapshotSettings(env);} catch (error) {store.snapshots=previous;throw error;}
+      }
     } else if (method === 'snapshot-delete') {
       if (!existing) throw new Error('快照已删除');
       const before = clone(store);
