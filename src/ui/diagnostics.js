@@ -56,7 +56,7 @@ function showManualCopy(text, trigger) {
 
 export function createDiagnosticsAction({host, toast, className = 'menu_button'} = {}) {
   const button = document.createElement('button');
-  button.type = 'button';button.className = className;button.textContent = '复制问题信息';
+  button.type = 'button';button.className = className;button.textContent = '诊断';
   button.dataset.diagnostics = 'copy';
   button.title = '复制版本、运行环境及最近操作状态，不包含密钥、正文或名称';
   // Warm only safe metadata, once per iframe; a later click can retain its clipboard user gesture.

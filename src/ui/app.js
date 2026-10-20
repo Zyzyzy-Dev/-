@@ -174,7 +174,7 @@ function manageWorldbook(side) {
 
 const APP_ID='preset-compare-migrator';const APP_TITLE='酒馆盒子';
 let toolboxView='home';
-function toolboxHome(){const home=createToolboxHome({themeIcon:UI_THEME_ICONS[state.uiTheme]||'',onCycleTheme:cycleUiTheme});const diagnostics=createDiagnosticsAction({host,toast:pcmToast});diagnostics.style.cssText='display:block;margin:12px auto;font-size:12px';home.append(diagnostics);return home;}
+function toolboxHome(){const home=createToolboxHome({themeIcon:UI_THEME_ICONS[state.uiTheme]||'',onCycleTheme:cycleUiTheme});home.querySelector('.pcm-toolbox-home-actions').prepend(createDiagnosticsAction({host,toast:pcmToast,className:'pcm-home-diagnostics'}));return home;}
 function closeSnapshotPanel(){snapshotPanel?.destroy();snapshotPanel=null;}
 function closeWorldbookWorkbench(){worldbookWorkbench?.destroy();worldbookWorkbench=null;}
 let panelClosePending=false;
