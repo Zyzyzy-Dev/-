@@ -1,6 +1,7 @@
 // 设置快照纯逻辑：捕获两层开关、按稳定 ID 制定恢复计划及解析聊天/角色绑定，不访问宿主。
 import { createIdentifier, findPromptOrderEntry } from '../preset/core.js';
 import { validateSnapshotResources } from './snapshot-resources.js';
+import { normalizeSnapshotReasoning } from './snapshot-reasoning.js';
 
 // 收藏只改变列表展示顺序，不重排存储；取消收藏后沿用原来的快照顺序。
 export function sortSnapshotFavorites(snapshots) {
@@ -60,6 +61,7 @@ export function validateSnapshot(snapshot) {
   const scope = snapshotScope(snapshot);
   if (scope.preset && (typeof snapshot.presetName !== 'string' || !snapshot.presetName)) throw new Error('快照预设无效');
   normalizeSnapshotName(snapshot.name);
+  if (snapshot.reasoning !== undefined) normalizeSnapshotReasoning(snapshot.reasoning);
   if (scope.preset && !['string', 'number'].includes(typeof snapshot.orderCharacterId)) throw new Error('快照预设节点无效');
   uniqueRecords(snapshot.entries, 'identifier');
   uniqueRecords(snapshot.groups, 'id');

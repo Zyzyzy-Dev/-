@@ -90,6 +90,9 @@
 .pcm-snapshot-card-title h3{flex:1 1 90px}
 .pcm-snapshots .pcm-snapshot-favorite{font-size:21px;line-height:1;padding:2px}
 .pcm-snapshots .pcm-snapshot-favorite[aria-pressed=true]{color:var(--snap-accent);background:color-mix(in srgb,var(--snap-accent) 14%,var(--snap-card));border-color:var(--snap-accent)}
+.pcm-snapshots .pcm-snapshot-favorite[aria-busy=true]{opacity:.75;cursor:progress}
+.pcm-snapshot-favorite-status{display:block;margin:5px 0;color:var(--snap-muted);font-size:11px}
+.pcm-snapshot-favorite-status[hidden]{display:none}
 .pcm-snapshot-card-title>.pcm-snapshot-badge{margin-left:auto;max-width:85px;flex:none;text-align:center}
 .pcm-snapshots .pcm-snapshot-delete:hover{color:#b75b50;border-color:#b75b5050;background:#b75b5010}
 .pcm-snapshot-summary{opacity:1;color:var(--snap-muted);margin:9px 0 5px}

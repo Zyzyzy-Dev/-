@@ -1,6 +1,7 @@
 // 设置快照页面：保存、恢复与聊天/角色绑定，通过 iframe 通信桥调用宿主，不访问酒馆全局。
 import { chooseApiSnapshotBinding } from '../../api/ui/api-snapshot-bind.js';
 import { createSnapshotEditor } from './snapshot-editor.js';
+import { chooseSnapshotReasoning } from './snapshot-reasoning-dialog.js';
 import { snapshotScope, sortSnapshotFavorites } from '../snapshot.js';
 import { createSnapshotScopePicker, snapshotScopeLabels } from './snapshot-scope.js';
 // 搜索仅筛选展示，不修改快照或绑定。
@@ -38,7 +39,13 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
   const list = node('section', 'pcm-snapshot-list'); list.setAttribute('aria-label', '已保存快照');
   element.append(header, context, toolbar, filters, notice, status, list);
   let data = null, busy = false, disposed = false, revision = 0, refreshPending = false, editor = null;
-  const unsubscribe = host.on('snapshots-changed', () => {if (busy || editor) refreshPending = true; else void refresh();});
+  // 收藏显示与持久化分开；同一快照等待核验，不锁住其它快照和搜索。
+  const pendingFavorites = new Map();
+  const lifetime = new AbortController();
+  const unsubscribe = host.on('snapshots-changed', change => {
+    if (change?.favoriteId && pendingFavorites.has(change.favoriteId)) return;
+    if (busy || editor || pendingFavorites.size) refreshPending = true; else void refresh();
+  });
 
   function button(text, action) {
     const b = node('button', '', text); b.type = 'button';
@@ -59,12 +66,34 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
     busy = value;
     for (const b of element.querySelectorAll('button')) {
       if ([back, close, theme].includes(b)) continue;
-      b.disabled = value || b.dataset.unavailable === 'true';
+      b.disabled = value || b.dataset.unavailable === 'true' || b.dataset.favoritePending === 'true';
     }
     element.setAttribute('aria-busy', String(value));
     for (const input of scopePicker.querySelectorAll('input')) input.disabled=value;
   }
   function bindingName(id) {return data.snapshots.find(s => s.id === id)?.name || (id ? '快照已删除' : '未绑定');}
+  function favoriteValue(snapshot) {return pendingFavorites.get(snapshot.id)?.favorite ?? (snapshot.favorite === true);}
+  function visibleSnapshots() {
+    return sortSnapshotFavorites(searchSnapshotNames(data.snapshots,search.value).map(snapshot => ({...snapshot,favorite:favoriteValue(snapshot)})));
+  }
+  function updateFavoriteView() {
+    if (disposed || !data) return;
+    const focused = document.activeElement, cards = new Map([...list.querySelectorAll('.pcm-snapshot-card')].map(card => [card.dataset.snapshotId,card]));
+    for (const snapshot of data.snapshots) {
+      const card=cards.get(snapshot.id);if(!card)continue;
+      const favorite=card.querySelector('.pcm-snapshot-favorite'),saving=card.querySelector('.pcm-snapshot-favorite-status'),pending=pendingFavorites.has(snapshot.id),value=favoriteValue(snapshot);
+      favorite.setAttribute('aria-pressed',String(value));favorite.setAttribute('aria-busy',String(pending));favorite.dataset.favoritePending=String(pending);
+      favorite.title=value?'取消收藏置顶':'收藏置顶';favorite.setAttribute('aria-label',favorite.title);favorite.querySelector('svg').setAttribute('fill',value?'currentColor':'none');
+      favorite.disabled=busy||pending;saving.hidden=!pending;saving.textContent=pending?(value?'正在保存收藏…':'正在取消收藏…'):'';
+    }
+    let next=list.firstElementChild;
+    for(const snapshot of visibleSnapshots()){
+      const card=cards.get(snapshot.id);if(!card)continue;
+      if(card!==next)list.insertBefore(card,next);
+      next=card.nextElementSibling;
+    }
+    if(focused?.isConnected&&list.contains(focused)&&!focused.disabled&&document.activeElement!==focused)focused.focus({preventScroll:true});
+  }
   function render() {
     if (disposed || !data) return;
     const expanded = new Set([...contextBody.querySelectorAll('details[open]')].map(d => d.dataset.regexScope));
@@ -94,12 +123,13 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
       empty.append(node('strong', '', '把常用设置存成一份快照'), node('p', '', '保存当前设置，或点击「创建快照」自由搭配。'));
       list.append(empty);
     }
-    const visibleSnapshots=sortSnapshotFavorites(searchSnapshotNames(data.snapshots,search.value));
-    if(data.snapshots.length&&!visibleSnapshots.length)list.append(node('p','pcm-snapshot-empty','没有匹配的快照，请修改名称关键词或清空搜索。'));
-    for (const snapshot of visibleSnapshots) {
+    const visible=visibleSnapshots();
+    if(data.snapshots.length&&!visible.length)list.append(node('p','pcm-snapshot-empty','没有匹配的快照，请修改名称关键词或清空搜索。'));
+    for (const snapshot of visible) {
       const card = node('article', 'pcm-snapshot-card'); card.dataset.snapshotId = snapshot.id;
       const overwrite=button('覆',()=>execute('update',snapshot));overwrite.title='用当前设置覆盖快照';overwrite.setAttribute('aria-label',overwrite.title);
-      const favorite=button('',()=>execute('favorite',snapshot));favorite.className='pcm-snapshot-icon pcm-snapshot-favorite';favorite.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" fill="'+(snapshot.favorite===true?'currentColor':'none')+'"><path d="m12 3 2.8 5.7 6.3.9-4.6 4.5 1.1 6.3-5.6-3-5.6 3 1.1-6.3L2.9 9.6l6.3-.9Z"/></svg>';favorite.title=snapshot.favorite===true?'取消收藏置顶':'收藏置顶';favorite.setAttribute('aria-label',favorite.title);favorite.setAttribute('aria-pressed',String(snapshot.favorite===true));
+      const favorite=button('',()=>saveFavorite(snapshot.id));favorite.className='pcm-snapshot-icon pcm-snapshot-favorite';favorite.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" fill="none"><path d="m12 3 2.8 5.7 6.3.9-4.6 4.5 1.1 6.3-5.6-3-5.6 3 1.1-6.3L2.9 9.6l6.3-.9Z"/></svg>';
+      const favoriteStatus=node('small','pcm-snapshot-favorite-status');favoriteStatus.setAttribute('role','status');
       const top = node('div', 'pcm-snapshot-card-title'); top.append(node('h3', '', snapshot.name),favorite,overwrite,iconButton('编辑快照详情','rename',()=>openEditor(snapshot.id)),iconButton('删除','delete',()=>execute('delete',snapshot)));top.lastElementChild.classList.add('pcm-snapshot-delete');
       if (snapshot.id === c.chatBindingId || snapshot.id === c.characterBindingId) top.append(node('span', 'pcm-snapshot-badge', [snapshot.id === c.chatBindingId ? '此聊天' : '', snapshot.id === c.characterBindingId ? '此角色' : ''].filter(Boolean).join(' / ')));
       const books = snapshot.resources?.worlds?.global || snapshot.worldNames || [];
@@ -116,15 +146,19 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
       actions.append(button('绑定api',async()=>{try{await chooseApiSnapshotBinding({host,parent:element,snapshotId:snapshot.id});}catch(error){showStatus(error.message,true);}}), chat, character);
       const manage = node('div', 'pcm-snapshot-actions');
       manage.classList.add('pcm-snapshot-manage');
-      card.append(top, range, summary, mounts);
+      const reasoning=button('自动解析设置',()=>openReasoning(snapshot.id));
+      reasoning.setAttribute('aria-pressed',String(!!snapshot.reasoning));
+      reasoning.title=snapshot.reasoning?'已绑定自动解析设置':'绑定自动解析开关与推理格式';manage.append(reasoning);
+      card.append(top, favoriteStatus, range, summary, mounts);
       card.append(actions,manage);list.append(card);
     }
+    updateFavoriteView();
     setBusy(busy);
   }
 
   async function refresh() {
     if (disposed) return;
-    if (busy || editor) {refreshPending = true; return;}
+    if (busy || editor || pendingFavorites.size) {refreshPending = true; return;}
     const token = ++revision;
     setBusy(true);
     try {
@@ -139,12 +173,51 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
     }
   }
 
+  async function saveFavorite(id) {
+    if (busy || disposed || !data || pendingFavorites.has(id)) return;
+    const snapshot=data.snapshots.find(item=>item.id===id);if(!snapshot)return;
+    const favorite=snapshot.favorite!==true;
+    pendingFavorites.set(id,{favorite});updateFavoriteView();
+    try {
+      const result=await host.request('snapshot-favorite',{id,favorite});
+      if(disposed)return;
+      const confirmed=result?.snapshots?.find(item=>item.id===id);
+      if(!confirmed||(confirmed.favorite===true)!==favorite)throw new Error('收藏保存状态未确认，请刷新列表核对');
+      // 只接纳本次收藏状态，不能用较早响应覆盖并行编辑、删除或聊天上下文。
+      data.snapshots=data.snapshots.map(item=>{
+        if(item.id!==id)return item;
+        const next={...item};if(favorite)next.favorite=true;else delete next.favorite;return next;
+      });
+      const message=favorite?'已收藏并置顶':'已取消收藏置顶';
+      if(!busy&&!editor)showStatus(message);
+      toast.success(message);
+    } catch(error) {
+      if(!disposed){if(!busy&&!editor)showStatus(error.message,true);toast.error(error.message);}
+    } finally {
+      pendingFavorites.delete(id);
+      if(!disposed){
+        updateFavoriteView();
+        if(refreshPending&&!pendingFavorites.size&&!busy&&!editor){refreshPending=false;void refresh();}
+      }
+    }
+  }
+
+  async function openReasoning(id) {
+    if(busy||disposed)return;
+    setBusy(true);
+    try {
+      const saved=await chooseSnapshotReasoning({host,snapshotId:id,parent:element,signal:lifetime.signal});
+      if(saved&&!disposed)refreshPending=true;
+    } catch(error) {if(!disposed)showStatus(error.message,true);}
+    finally {if(!disposed){setBusy(false);if(refreshPending){refreshPending=false;void refresh();}}}
+  }
+
   function closeEditor(result) {
     editor?.destroy();editor=null;
     for(const part of [context,toolbar,filters,notice,status,list])part.hidden=false;
     title.textContent='设置快照';back.innerHTML=iconButton('首页','home',()=>{}).innerHTML;
     reload.hidden=false;
-    if(result?.snapshots){data=result;refreshPending=false;render();showStatus('快照已保存');}
+    if(result?.snapshots){data=result;if(!pendingFavorites.size)refreshPending=false;render();showStatus('快照已保存');}
     else void refresh();
     element.closest('dialog')?.scrollTo(0,0);
   }
@@ -178,8 +251,6 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
         const scope=snapshotScope(snapshot),range=Object.keys(snapshotScopeLabels).filter(key=>scope[key]).map(key=>snapshotScopeLabels[key]).join('、');
         if (!(await confirm('用酒馆当前设置覆盖「'+snapshot.name+'」？\n覆盖范围：'+range+'。\n保留方案名称和绑定关系；绑定此方案的聊天和角色以后会使用覆盖后的设置。')) || disposed) return;
         result = await host.request('snapshot-save', {id: snapshot.id, name: snapshot.name, contextKey,scope}); message = '快照已覆盖';
-      } else if (action === 'favorite') {
-        result = await host.request('snapshot-favorite', {id:snapshot.id,favorite:snapshot.favorite!==true});message=snapshot.favorite===true?'已取消收藏置顶':'已收藏并置顶';
       } else if (action === 'delete') {
         if (!(await confirm('删除「'+snapshot.name+'」？它的聊天绑定将失效，角色绑定将解除。')) || disposed) return;
         result = await host.request('snapshot-delete', {id: snapshot.id}); message = '快照已删除';
@@ -198,11 +269,11 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
       if (result?.snapshots) {data = result; render();}
       else {data = await host.request('snapshot-list'); if (!disposed) render();}
       if (disposed) return;
-      refreshPending = false;
+      if(!pendingFavorites.size)refreshPending = false;
       showStatus(message, Boolean(result?.warnings?.length));
       if (result?.warnings?.length) toast.warning(message); else toast.success(message);
     } catch (error) {if (!disposed) {showStatus(error.message, true); toast.error(error.message);}}
     finally {if (!disposed) {setBusy(false); if (refreshPending) {refreshPending = false; void refresh();}}}
   }
-  return {element, refresh, destroy() {disposed = true; revision++; unsubscribe(); editor?.destroy(); element.remove();}};
+  return {element, refresh, destroy() {disposed = true; lifetime.abort(); revision++; unsubscribe(); editor?.destroy(); element.remove();}};
 }

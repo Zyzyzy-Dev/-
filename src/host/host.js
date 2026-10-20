@@ -2,6 +2,8 @@
 import { installNativeGroups } from './native-groups.js';
 import { handleAiStitch } from './ai-stitch.js';
 import { exportPresetFile } from './preset-export.js';
+import { readSnapshotReasoning, snapshotReasoningEnvironment } from './snapshot-reasoning.js';
+import { normalizeSnapshotReasoning, sameSnapshotReasoning } from '../features/snapshot/snapshot-reasoning.js';
 import { readHostDiagnostics } from '../shared/diagnostics.js';
 import { clone } from '../shared/clone.js';
 import { API_BINDINGS_KEY, bindApiSnapshot, isApiProfileActive } from '../features/api/api-bindings.js';
@@ -835,7 +837,7 @@ async function readSnapshotPersistence(env, url, body, {timeoutMs = 8000, label}
   } finally {clearTimeout(timer);}
 }
 
-async function saveSnapshotSettings(env, verifySwitches = false) {
+async function saveSnapshotSettings(env, verifySwitches = false, reasoning = null) {
   // JSON object key order is not persisted content; array order and values remain significant.
   const fingerprint = data => JSON.stringify(data, (_key, value) => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
@@ -847,6 +849,7 @@ async function saveSnapshotSettings(env, verifySwitches = false) {
   const expectedGroups = verifySwitches ? fingerprint(settings.extensions?.baibaiToolkit?.presetPromptGroups || null) : null;
   const expectedWorlds = verifySwitches ? fingerprint(selectedSnapshotWorlds(env)) : null;
   const expectedResources = verifySwitches ? fingerprint({global:env.extensions.extension_settings.regex || [],preset:settings.extensions?.regex_scripts || [],charLore:snapshotWorldSettings(env)?.charLore || []}) : null;
+  const expectedReasoning = reasoning?.current();
   await env.script.saveSettings();
   // Native saveSettings can return before a debounced save, or swallow a write failure.
   // Wait by reading only: never retry a write that could overwrite another editor's changes.
@@ -867,6 +870,8 @@ async function saveSnapshotSettings(env, verifySwitches = false) {
       mismatch = '未确认开关和世界书保存成功，请检查当前设置后重试';
     } else if (verifySwitches && fingerprint({global:persisted?.extension_settings?.regex || [],preset:persisted?.oai_settings?.extensions?.regex_scripts || [],charLore:persisted?.world_info_settings?.world_info?.charLore || []}) !== expectedResources) {
       mismatch = '未确认正则和角色附加世界书保存成功';
+    } else if (reasoning && (!reasoning.matches(expectedReasoning) || !sameSnapshotReasoning(persisted?.power_user?.reasoning, expectedReasoning))) {
+      mismatch = '未确认自动解析设置保存成功，请核对当前设置后重试';
     } else return;
   }
   throw new Error(mismatch);
@@ -1032,7 +1037,7 @@ function snapshotSerial(action, notify = true) {
   const run = snapshotQueue.then(async () => {
     snapshotBusy++;
     try { return await action(); }
-    finally { snapshotBusy--; if (notify) snapshotNotify(); }
+    finally { snapshotBusy--; if (notify) snapshotNotify(typeof notify === 'object' ? notify : undefined); }
   });
   snapshotQueue = run.catch(() => {});
   return run;
@@ -1233,6 +1238,7 @@ async function applySettingsSnapshot(env, snapshot, payload, automatic = false) 
   snapshot=selectSnapshotScope(snapshot);
   if(snapshot.resources)snapshot={...snapshot,resources:normalizeSnapshotResources(snapshot.resources)};
   validateSnapshot(snapshot);
+  const reasoning = snapshot.reasoning === undefined ? null : await snapshotReasoningEnvironment();
   const included=snapshotScope(snapshot);
   const context = snapshotContext(env);
   assertSnapshotContext(env, payload.contextKey);
@@ -1270,18 +1276,19 @@ async function applySettingsSnapshot(env, snapshot, payload, automatic = false) 
     resourceWarnings=await applySnapshotResources(env,prepared,target,journal);
     assertSnapshotScope(env,context.scope,targetName);
     if (included.worlds) {worldsApplied=true;setSnapshotWorlds(env, plan.worldNames);}
-    await saveSnapshotSettings(env, true);
+    if (reasoning) journal.push(reasoning.apply(snapshot.reasoning));
+    await saveSnapshotSettings(env, true, reasoning);
     assertSnapshotScope(env, context.scope, targetName);
     if (included.preset) await refreshSnapshotPrompts(env);
     assertSnapshotScope(env, context.scope, targetName);
   } catch (error) {
-    for (const rollback of journal.reverse()) {try {await rollback();} catch {error.message+='；部分资源恢复失败，请检查世界书和正则';}}
+    for (const rollback of journal.reverse()) {try {await rollback();} catch (rollbackError) {error.message+='；部分设置恢复失败：'+rollbackError.message;}}
     if (journal.length && error.name==='SnapshotContextChanged') error.name='SnapshotPartialApply';
     undo();
     try {
       if(worldsApplied&&sameSnapshotWorlds(selectedSnapshotWorlds(env),plan.worldNames))setSnapshotWorlds(env,worldsBefore);
       const rollbackContext=snapshotContext(env);await waitSnapshotPreset(env,rollbackContext);
-      await saveSnapshotSettings(env,true);
+      await saveSnapshotSettings(env,true,reasoning);
       if(included.preset&&rollbackContext.scope===context.scope&&rollbackContext.presetName===targetName)await refreshSnapshotPrompts(env);
     } catch {error.message += '；恢复未完成，请检查当前开关';}
     throw error;
@@ -1320,6 +1327,12 @@ async function handleSnapshotRequest(method, payload) {
     clearTimeout(snapshotAutoTimer);
   }
   if (method === 'snapshot-list') {await snapshotQueue; return snapshotList(await snapshotEnvironment());}
+  if (method === 'snapshot-reasoning-read') {
+    await snapshotQueue;
+    const existing = snapshotStore(await snapshotEnvironment()).snapshots.find(item => item.id === payload.id);
+    if (!existing) throw new Error('快照已删除，请刷新列表');
+    return readSnapshotReasoning(existing.reasoning);
+  }
   if (['snapshot-editor','snapshot-draft-preset','snapshot-draft-worlds'].includes(method)) {await snapshotQueue;return readSnapshotEditor(await snapshotEnvironment(),payload);}
   return snapshotSerial(async () => {
     const env = await snapshotEnvironment(), store = snapshotStore(env);
@@ -1369,8 +1382,17 @@ async function handleSnapshotRequest(method, payload) {
       assertSnapshotContext(env,payload.contextKey);
       if (existing) snapshot.createdAt = existing.createdAt;
       if (existing?.favorite === true) snapshot.favorite = true;
+      if (existing?.reasoning !== undefined) snapshot.reasoning = normalizeSnapshotReasoning(existing.reasoning);
       const previous = store.snapshots;
       store.snapshots = existing ? previous.map(s => s.id === existing.id ? snapshot : s) : [...previous, snapshot];
+      try {await saveSnapshotSettings(env);} catch (error) {store.snapshots = previous; throw error;}
+    } else if (method === 'snapshot-reasoning-save') {
+      if (!existing) throw new Error('快照已删除，请刷新列表');
+      const next = {...existing};
+      if (payload.config === null) delete next.reasoning;
+      else next.reasoning = normalizeSnapshotReasoning(payload.config);
+      const previous = store.snapshots;
+      store.snapshots = previous.map(item => item === existing ? next : item);
       try {await saveSnapshotSettings(env);} catch (error) {store.snapshots = previous; throw error;}
     } else if (method === 'snapshot-rename') {
       if (!existing) throw new Error('快照已删除');
@@ -1415,7 +1437,7 @@ async function handleSnapshotRequest(method, payload) {
     } else throw new Error('未知快照操作');
     const result = snapshotList(env); result.busy = false;
     return result;
-  });
+  }, method === 'snapshot-favorite' ? {favoriteId:payload.id} : true);
 }
 
 async function installSnapshotBindings(controller) {
@@ -1423,7 +1445,7 @@ async function installSnapshotBindings(controller) {
   const script = await import('/script.js');
   if (!script.eventSource?.on) return;
   snapshotInstalled = true;
-  snapshotNotify = () => controller.sendEvent('snapshots-changed');
+  snapshotNotify = detail => controller.sendEvent('snapshots-changed', detail);
   const before = script.event_types?.OAI_PRESET_CHANGED_BEFORE;
   const after = script.event_types?.OAI_PRESET_CHANGED_AFTER;
   const first = (name, handler) => (script.eventSource.makeFirst || script.eventSource.on).call(script.eventSource, name, handler);
