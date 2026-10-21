@@ -1,4 +1,4 @@
-// 快照草稿编辑页：独立编辑预设/正则分组开关与全局世界书配置，正文只读，保存前不改变宿主。
+// 快照草稿编辑页：独立编辑预设/正则分组、世界书挂载和条目开关及推理设置，正文只读，保存前不改变宿主。
 import {regexGroupState, toggleRegexGroup} from '../snapshot-resources.js';
 import {snapshotPresetSections, snapshotScope} from '../snapshot.js';
 import {createSnapshotScopePicker} from './snapshot-scope.js';
@@ -216,69 +216,21 @@ export function createSnapshotEditor({host, model, existingId, onCancel, onSaved
     const summary=node('summary','pcm-snapshot-world-summary');
     const enabled=makeSwitch((entry.name||entry.uid)+' · 条目开关',!entry.settings.disable);
     const title=node('span','pcm-snapshot-world-name',entry.name||entry.uid);title.title=entry.name||entry.uid;
-    const state=node('select','pcm-snapshot-trigger');state.setAttribute('aria-label','触发状态');state.title='触发状态：蓝色常驻 / 绿色关键词 / 紫色向量';
-    for(const [value,text] of [['constant','🔵'],['keyword','🟢'],['vector','🟣']]){addOption(state,value,text);state.lastChild.label=({constant:'🔵 常驻',keyword:'🟢 关键词',vector:'🟣 向量'})[value];}
-    const position=node('select','pcm-snapshot-position');position.setAttribute('aria-label','插入方式');position.title='插入位置';
-    for(const [value,text] of [[0,'角色定义前'],[1,'角色定义后'],[2,'作者注释前'],[3,'作者注释后'],[4,'指定深度 @D'],[5,'示例消息前'],[6,'示例消息后'],[7,'出口']])addOption(position,value,text);
-    function numeric(key,text,fallback){const input=node('input');input.type='number';input.step='any';input.value=entry.settings[key]??fallback;input.setAttribute('aria-label',text);input.title=text;return input;}
-    const depth=numeric('depth','深度',4),order=numeric('order','顺序',100),probability=numeric('probability','概率',100);probability.min='0';probability.max='100';
-    const numbers=node('span','pcm-snapshot-world-numbers');numbers.append(label('深度',depth),label('顺序',order),label('概率 %',probability));
-    const placement=node('span','pcm-snapshot-world-placement');placement.append(position,numbers);
-    summary.append(enabled,title,state,placement);
+    summary.append(enabled,title);
     const body=node('div','pcm-snapshot-world-body');
     const content=node('textarea','pcm-snapshot-world-content');content.readOnly=true;content.rows=5;content.spellcheck=false;content.setAttribute('aria-label','条目正文（只读）');
     content.value=contentCache.get(book.name)?.get(String(entry.uid))??'';
     content.placeholder=contentCache.get(book.name)?.has(String(entry.uid))?'正文为空':'宿主未提供此条目的正文';
     body.append(label('条目正文 · 只读',content));
-    const fields=node('div','pcm-snapshot-entry-fields');
-    const keys=node('textarea');keys.rows=2;keys.setAttribute('aria-label','主要关键词');
-    const secondary=node('textarea');secondary.rows=2;secondary.setAttribute('aria-label','辅助关键词');
-    fields.append(label('主要关键词 · 每行一个',keys),label('辅助关键词 · 每行一个',secondary));
-    const toggles=[['selective','启用辅助关键词'],['useProbability','启用概率'],['excludeRecursion','排除递归'],['preventRecursion','阻止后续递归']].map(([key,text])=>({key,input:makeSwitch(text,entry.settings[key]===true),text}));
-    const toggleFields=node('div','pcm-snapshot-world-toggles');for(const {input,text} of toggles)toggleFields.append(switchRow(text,input));
-    const advanced=node('details','pcm-snapshot-json');advanced.append(node('summary','','全部条目配置（JSON）'));
-    const json=node('textarea');json.rows=9;json.spellcheck=false;json.setAttribute('aria-label','全部条目配置');advanced.append(json);
-    // 无效 JSON 留在原输入框，挂载/取消挂载或切换预设均不丢失尚未修正的文本。
-    const syncJson=()=>{if(!json.validity.customError)json.value=JSON.stringify(entry.settings,null,2);};
-    const syncDepthAvailability=()=>{
-      const unavailable=Number(entry.settings.position??0)!==4;
-      depth.dataset.unavailable=String(unavailable);depth.disabled=busy||unavailable;
-      depth.title=unavailable?'仅指定深度插入时可设置':'深度';
-      if(unavailable){depth.value=entry.settings.depth??4;depth.setCustomValidity('');}
-    };
-    const syncControls=()=>{
-      const value=entry.settings;enabled.checked=!value.disable;summary.classList.toggle('is-off',!!value.disable);
-      state.value=value.constant?'constant':value.vectorized?'vector':'keyword';state.dataset.state=state.value;
-      if(![...position.options].some(option=>option.value===String(value.position??0)))addOption(position,value.position,'位置 '+value.position);
-      position.value=String(value.position??0);depth.value=value.depth??4;order.value=value.order??100;probability.value=value.probability??100;
-      for(const input of [depth,order,probability])input.setCustomValidity('');
-      keys.value=(value.key||[]).join('\n');secondary.value=(value.keysecondary||[]).join('\n');
-      for(const {key,input} of toggles)input.checked=value[key]===true;
-      syncDepthAvailability();
-    };
-    enabled.addEventListener('change',()=>{entry.settings.disable=!enabled.checked;summary.classList.toggle('is-off',!enabled.checked);syncJson();});
-    state.addEventListener('change',()=>{entry.settings.constant=state.value==='constant';entry.settings.vectorized=state.value==='vector';state.dataset.state=state.value;syncJson();});
-    position.addEventListener('change',()=>{entry.settings.position=Number(position.value);syncDepthAvailability();syncJson();});
-    for(const [input,key] of [[depth,'depth'],[order,'order'],[probability,'probability']])input.addEventListener('input',()=>{
-      input.setCustomValidity('');
-      if(input.value!==''&&Number.isFinite(input.valueAsNumber)&&input.validity.valid){entry.settings[key]=input.valueAsNumber;syncJson();}else input.setCustomValidity(key==='probability'?'概率须为 0–100 的数字':'请输入有效数字');
+    // 只编辑条目开关；其它已保存配置原样保留，不因精简界面重置。
+    summary.classList.toggle('is-off',!!entry.settings.disable);
+    enabled.addEventListener('change',()=>{
+      entry.settings.disable=!enabled.checked;
+      summary.classList.toggle('is-off',!enabled.checked);
     });
-    for(const [input,key] of [[keys,'key'],[secondary,'keysecondary']])input.addEventListener('input',()=>{entry.settings[key]=input.value.split('\n').map(s=>s.trim()).filter(Boolean);syncJson();});
-    for(const {key,input} of toggles)input.addEventListener('change',()=>{entry.settings[key]=input.checked;syncJson();});
-    function validSettings(value){
-      if(!value||Array.isArray(value)||typeof value!=='object'||['content','comment','uid'].some(key=>Object.hasOwn(value,key)))return false;
-      const safe=item=>item===null||typeof item!=='object'||Object.entries(item).every(([key,child])=>!['__proto__','constructor','prototype'].includes(key)&&safe(child));
-      if(!safe(value))return false;
-      for(const key of ['key','keysecondary'])if(value[key]!==undefined&&(!Array.isArray(value[key])||value[key].some(item=>typeof item!=='string')))return false;
-      for(const key of ['position','depth','order','probability'])if(value[key]!==undefined&&!Number.isFinite(value[key]))return false;
-      if(value.probability!==undefined&&(value.probability<0||value.probability>100))return false;
-      for(const key of ['disable','constant','vectorized','selective','useProbability','excludeRecursion','preventRecursion'])if(value[key]!==undefined&&typeof value[key]!=='boolean')return false;
-      return true;
-    }
-    json.addEventListener('input',()=>{try{const value=JSON.parse(json.value);if(!validSettings(value))throw Error();entry.settings=value;json.setCustomValidity('');syncControls();}catch{json.setCustomValidity('请输入有效的条目配置 JSON；不能包含正文、名称或 UID，概率须为 0–100');}});
-    for(const control of [state,position,depth,order,probability])control.addEventListener('click',event=>event.stopPropagation());
-    syncControls();syncJson();body.append(fields,toggleFields,advanced);row.append(summary,body);return row;
+    row.append(summary,body);return row;
   }
+
   async function persist(overwrite){
     if(busy||disposed)return;
     for(const input of element.querySelectorAll('input,select,textarea'))if(!input.checkValidity()){
