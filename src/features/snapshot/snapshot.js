@@ -11,15 +11,17 @@ export function sortSnapshotFavorites(snapshots) {
 export function snapshotScope(snapshot) {
   // 存储损坏时恢复流程的第一个入口就会走到这里，先给出可读提示。
   if (!snapshot || typeof snapshot !== 'object') throw new Error('快照数据无效，请重新保存');
-  if (snapshot.scope === undefined) return {preset:true, worlds:true, regex:!!snapshot.resources};
+  if (snapshot.scope === undefined) return {preset:true, worlds:true, regex:!!snapshot.resources, reasoning:snapshot.reasoning !== undefined};
   const scope = snapshot.scope;
-  if (!scope || ['preset','worlds','regex'].some(key => typeof scope[key] !== 'boolean') || !['preset','worlds','regex'].some(key => scope[key])) throw new Error('请至少勾选一项有效的快照保存范围');
-  return {preset:scope.preset, worlds:scope.worlds, regex:scope.regex};
+  const reasoning = scope && Object.hasOwn(scope,'reasoning') ? scope.reasoning : (snapshot.reasoning !== undefined);
+  if (!scope || ['preset','worlds','regex'].some(key => typeof scope[key] !== 'boolean') || typeof reasoning !== 'boolean' || (!reasoning && !['preset','worlds','regex'].some(key => scope[key]))) throw new Error('请至少勾选一项有效的快照保存范围');
+  return {preset:scope.preset, worlds:scope.worlds, regex:scope.regex, reasoning};
 }
 
 // 未选范围从持久化副本中移除；编辑页仍保留本轮草稿，重新勾选不会丢失修改。
 export function selectSnapshotScope(snapshot) {
   const scope = snapshotScope(snapshot), saved = {...snapshot, scope};
+  if (!scope.reasoning) delete saved.reasoning;
   if (!scope.preset) {saved.entries=[];saved.groups=[];}
   if (!scope.worlds) saved.worldNames=[];
   if (snapshot.resources) saved.resources = {...snapshot.resources,
@@ -61,6 +63,7 @@ export function validateSnapshot(snapshot) {
   const scope = snapshotScope(snapshot);
   if (scope.preset && (typeof snapshot.presetName !== 'string' || !snapshot.presetName)) throw new Error('快照预设无效');
   normalizeSnapshotName(snapshot.name);
+  if (scope.reasoning && snapshot.reasoning === undefined) throw new Error('推理设置尚未读取，请重新保存');
   if (snapshot.reasoning !== undefined) normalizeSnapshotReasoning(snapshot.reasoning);
   if (scope.preset && !['string', 'number'].includes(typeof snapshot.orderCharacterId)) throw new Error('快照预设节点无效');
   uniqueRecords(snapshot.entries, 'identifier');

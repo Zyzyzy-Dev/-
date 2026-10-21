@@ -2,10 +2,13 @@
 import {regexGroupState, toggleRegexGroup} from '../snapshot-resources.js';
 import {snapshotPresetSections, snapshotScope} from '../snapshot.js';
 import {createSnapshotScopePicker} from './snapshot-scope.js';
-export function createSnapshotEditor({host, model, existingId, onCancel, onSaved, toast}) {
+import {createSnapshotReasoningForm} from './snapshot-reasoning-form.js';
+import {captureFullSnapshotReasoning} from '../snapshot-reasoning.js';
+export function createSnapshotEditor({host, model, existingId, onCancel, onSaved, toast, prompt, confirm}) {
   const copy=value=>JSON.parse(JSON.stringify(value));
   const draft=copy(model.draft),context=model.context;
   draft.scope=snapshotScope(draft);
+  const reasoningValue=model.reasoning?.current?captureFullSnapshotReasoning({...model.reasoning.current,...draft.reasoning}):null;
   let editor=copy(model.editor||{}),disposed=false,busy=false;
   draft.resources.version=2;
   draft.resources.worlds={global:[...draft.resources.worlds.global]};
@@ -16,7 +19,7 @@ export function createSnapshotEditor({host, model, existingId, onCancel, onSaved
   const form=node('div','pcm-snapshot-form');
   const name=node('input');name.type='text';name.maxLength=120;name.value=existingId?draft.name:'';name.placeholder='给这份设置起个名字';
   form.append(label('快照名称',name));
-  form.append(createSnapshotScopePicker(draft.scope,()=>setBusy(busy)));
+  form.append(createSnapshotScopePicker(draft.scope,key=>{if(key==='reasoning'&&draft.scope.reasoning&&reasoningValue)draft.reasoning={...reasoningValue};setBusy(busy);}));
   const preset=node('select');preset.setAttribute('aria-label','预设选择');
   const presetNames=[...new Set([draft.presetName,...model.presets])];
   const presetSearch=node('input');presetSearch.type='search';presetSearch.placeholder='搜索预设';presetSearch.setAttribute('aria-label','搜索预设');
@@ -73,13 +76,20 @@ export function createSnapshotEditor({host, model, existingId, onCancel, onSaved
   }
   const regex=node('section','pcm-snapshot-editor-regex');
   regex.dataset.snapshotScope='regex';
+  const reasoning=node('section','pcm-snapshot-editor-reasoning');reasoning.dataset.snapshotScope='reasoning';reasoning.append(node('h3','','推理设置'));
+  if(reasoningValue){
+    reasoning.append(createSnapshotReasoningForm({value:reasoningValue,templates:model.reasoning.templates,host,contextKey:context.key,run,prompt,confirm,isDisposed:()=>disposed,onChange:()=>{draft.reasoning={...reasoningValue};}}).element);
+    if(draft.reasoning?.version===1)reasoning.append(node('small','pcm-snapshot-notice','旧快照仅保存自动解析和格式。修改这里的推理选项或重新开启推理保存范围后，才会保存全部推理设置。'));
+  }
+  else reasoning.append(node('p','pcm-snapshot-notice',model.reasoning?.error||'推理设置尚未读取，请重新打开编辑页'));
   const controls=node('div','pcm-snapshot-editor-actions');
   const save=button('保存',()=>{if(existingId){saveChoices.hidden=false;}else void persist(false);});save.className='pcm-snapshot-primary';
   const cancel=button('取消编辑',onCancel);
   const saveChoices=node('div','pcm-snapshot-save-choices');saveChoices.hidden=true;
   saveChoices.append(node('span','','保存方式'),button('覆盖当前快照',()=>persist(true)),button('另存为一个新的快照',()=>persist(false)),button('返回编辑',()=>{saveChoices.hidden=true;}));
   controls.append(save,cancel);
-  element.append(form,mounts,bookDetails,regex,node('p','pcm-snapshot-notice','这里的修改只保存在快照中，应用快照后才会改变酒馆设置。世界书正文只读，应用配置会影响所有引用同一本书的位置。'),status,controls,saveChoices);
+  mounts.append(bookDetails);
+  element.append(form,mounts,regex,reasoning,node('p','pcm-snapshot-notice','开关和格式只保存在快照中，应用快照后才会改变酒馆设置。世界书正文只读，应用配置会影响所有引用同一本书的位置。'),status,controls,saveChoices);
   for(const warning of [...(model.warnings||[]),...(context.regexAuthorization||[])])form.append(node('p','pcm-snapshot-notice',warning));
   renderPreset();renderRegex();renderBooks();setBusy(false);
 

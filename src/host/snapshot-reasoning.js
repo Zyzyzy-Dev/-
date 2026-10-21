@@ -1,5 +1,5 @@
 // 酒馆自动解析设置适配：按白名单更新原生数据，独立同步控件，保留条件回滚能力。
-import {REASONING_FIELDS, captureSnapshotReasoning, normalizeSnapshotReasoning, sameSnapshotReasoning} from '../features/snapshot/snapshot-reasoning.js';
+import {FULL_REASONING_FIELDS, REASONING_SWITCHES, reasoningFields, captureFullSnapshotReasoning, normalizeSnapshotReasoning, sameSnapshotReasoning} from '../features/snapshot/snapshot-reasoning.js';
 
 let pendingSync = null;
 const formatNotes = new WeakMap();
@@ -12,11 +12,11 @@ function syncReasoningControls(powerUser, cachedSelect, sourceName) {
     // The preset manager retains TT's original select while the drawer is parked.
     const parkedRoot = cachedSelect?.getRootNode?.();
     let complete = true;
-    for (const key of REASONING_FIELDS) {
+    for (const key of FULL_REASONING_FIELDS) {
       const id = key === 'name' ? 'reasoning_select' : 'reasoning_' + key;
       const control = document.getElementById(id) || parkedRoot?.querySelector?.('#' + id);
       if (!control) {complete = false; continue;}
-      if (key === 'auto_parse') control.checked = value.auto_parse;
+      if (REASONING_SWITCHES.includes(key)) control.checked = value[key];
       else if (key === 'name') {
         control.value = value.name || '';
         // Native template actions assume every option belongs to the real array.
@@ -41,8 +41,7 @@ function syncReasoningControls(powerUser, cachedSelect, sourceName) {
   const root = document.getElementById('AdvancedFormatting');
   if (!root) return;
   pendingSync = new MutationObserver(() => {
-    if (document.getElementById('reasoning_auto_parse') && document.getElementById('reasoning_select')
-      && ['prefix','suffix','separator'].every(key => document.getElementById('reasoning_' + key))) {
+    if (FULL_REASONING_FIELDS.every(key => document.getElementById(key === 'name' ? 'reasoning_select' : 'reasoning_' + key))) {
       pendingSync?.disconnect(); pendingSync = null; sync();
     }
   });
@@ -58,24 +57,34 @@ export async function snapshotReasoningEnvironment() {
   }
   catch {throw new Error('当前酒馆无法读取自动解析设置，请更新酒馆后重试');}
   if (!powerUser?.reasoning) throw new Error('酒馆自动解析设置尚未就绪');
-  captureSnapshotReasoning(powerUser.reasoning);
+  captureFullSnapshotReasoning(powerUser.reasoning);
   let cachedSelect;
   try {cachedSelect = (await import('/scripts/preset-manager.js')).getPresetManager?.('reasoning')?.select?.[0];}
   catch { /* Older hosts can still synchronize their mounted drawer. */ }
   return {
-    current:() => captureSnapshotReasoning(powerUser.reasoning),
+    current:() => captureFullSnapshotReasoning(powerUser.reasoning),
     matches:binding => sameSnapshotReasoning(powerUser.reasoning, binding),
     apply(binding) {
-      const saved = normalizeSnapshotReasoning(binding), before = captureSnapshotReasoning(powerUser.reasoning);
+      const saved = normalizeSnapshotReasoning(binding), before = captureFullSnapshotReasoning(powerUser.reasoning);
+      const fields = reasoningFields(saved);
+      const syncChat = () => {
+        if (saved.version !== 2) return;
+        for (const block of document.querySelectorAll('details.mes_reasoning_details')) block.open = powerUser.reasoning.auto_expand;
+        const chat = document.getElementById('chat');
+        if (powerUser.reasoning.show_hidden) chat?.setAttribute('data-show-hidden-reasoning','true');
+        else chat?.removeAttribute('data-show-hidden-reasoning');
+      };
       const names=(reasoningModule.reasoning_templates || []).map(template=>template.name).filter(name=>typeof name==='string'&&name);
       if(!names.includes(saved.name))saved.name=names.includes(before.name)?before.name:(names[0] || '');
-      for (const key of REASONING_FIELDS) powerUser.reasoning[key] = saved[key];
+      for (const key of fields) powerUser.reasoning[key] = saved[key];
       syncReasoningControls(powerUser, cachedSelect, binding.name);
+      syncChat();
       return () => {
         // Never overwrite an intervening native edit during a failed save.
         if (!sameSnapshotReasoning(powerUser.reasoning, saved)) throw new Error('自动解析已被另外修改，请检查当前设置');
-        for (const key of REASONING_FIELDS) powerUser.reasoning[key] = before[key];
+        for (const key of fields) powerUser.reasoning[key] = before[key];
         syncReasoningControls(powerUser, cachedSelect);
+        syncChat();
       };
     },
   };

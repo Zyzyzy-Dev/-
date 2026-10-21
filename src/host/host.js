@@ -3,7 +3,8 @@ import { installNativeGroups } from './native-groups.js';
 import { handleAiStitch } from './ai-stitch.js';
 import { exportPresetFile } from './preset-export.js';
 import { readSnapshotReasoning, snapshotReasoningEnvironment } from './snapshot-reasoning.js';
-import { normalizeSnapshotReasoning, sameSnapshotReasoning } from '../features/snapshot/snapshot-reasoning.js';
+import { manageReasoningTemplate } from './reasoning-templates.js';
+import { captureSnapshotReasoning, normalizeSnapshotReasoning, sameSnapshotReasoning } from '../features/snapshot/snapshot-reasoning.js';
 import { readHostDiagnostics } from '../shared/diagnostics.js';
 import { clone } from '../shared/clone.js';
 import { API_BINDINGS_KEY, bindApiSnapshot, isApiProfileActive } from '../features/api/api-bindings.js';
@@ -730,7 +731,15 @@ async function readSnapshotEditor(env, payload) {
   const existing=snapshotStore(env).snapshots.find(s=>s.id===payload.id);
   if(payload.id&&!existing)throw new Error('快照已删除，请刷新');
   const warnings=[],draft=existing?clone(existing):snapshotPresetDraft(env,context.presetName,snapshotSettings(env).orderCharacterId);
-  draft.scope=existing?snapshotScope(existing):{preset:true,worlds:true,regex:true};
+  draft.scope=existing?snapshotScope(existing):{preset:true,worlds:true,regex:true,reasoning:true};
+  let reasoning;
+  try {
+    reasoning=await readSnapshotReasoning(existing?.reasoning);
+    draft.reasoning=reasoning.binding || reasoning.current;
+  } catch(error) {
+    reasoning={error:error.message};
+    if(!existing)draft.scope.reasoning=false;
+  }
   if (!draft.scope.preset) {
     const current=snapshotPresetDraft(env,context.presetName,snapshotSettings(env).orderCharacterId);
     for (const key of ['presetName','orderCharacterId','entries','groups']) draft[key]=current[key];
@@ -762,7 +771,7 @@ async function readSnapshotEditor(env, payload) {
   for(const name of draft.resources.worlds.global)if(!available.includes(name))warnings.push('世界书「'+name+'」已缺失，可取消挂载后保存。');
   assertSnapshotContext(env,payload.contextKey);
   const {preset_names}=env.manager.getPresetList();
-  return clone({draft,editor,presets:Array.isArray(preset_names)?preset_names:Object.keys(preset_names||{}),worldNames:env.world.world_names||[],context,warnings});
+  return clone({draft,editor,reasoning,presets:Array.isArray(preset_names)?preset_names:Object.keys(preset_names||{}),worldNames:env.world.world_names||[],context,warnings});
 }
 
 function assertSnapshotContext(env, key) {
@@ -815,8 +824,9 @@ function selectedSnapshotWorlds(env) {
   return [...value];
 }
 
-function snapshotList(env) {
+async function snapshotList(env) {
   const store = snapshotStore(env), context = snapshotContext(env);
+  try {context.reasoning=(await readSnapshotReasoning()).current;} catch(error) {context.reasoningError=error.message;}
   const active = resolveSnapshotBinding(store, context.canBindChat ? context.chatBindingId : null, context.characterKey);
   return clone({snapshots: store.snapshots, context, activeBinding: active ? {id: active.snapshot.id, name: active.snapshot.name, source: active.source} : null, busy: snapshotBusy > 0});
 }
@@ -1338,6 +1348,10 @@ async function handleSnapshotRequest(method, payload) {
     const env = await snapshotEnvironment(), store = snapshotStore(env);
     const context = snapshotContext(env);
     const existing = store.snapshots.find(item => item.id === payload.id);
+    if(method==='snapshot-reasoning-template'){
+      assertSnapshotContext(env,payload.contextKey);assertSnapshotIdle(env);
+      return manageReasoningTemplate(payload,env.script.getRequestHeaders||globalThis.SillyTavern?.getContext?.().getRequestHeaders,async()=>saveSnapshotSettings(env,false,await snapshotReasoningEnvironment()));
+    }
     if (method === 'snapshot-apply') {
       if (!existing) throw new Error('快照已删除，请刷新列表');
       assertSnapshotContext(env, payload.contextKey);
@@ -1363,7 +1377,8 @@ async function handleSnapshotRequest(method, payload) {
         snapshot.createdAt=existing?.createdAt || Date.now();snapshot.updatedAt=Date.now();
         snapshot.resources=normalizeSnapshotResources(snapshot.resources);
         // 只保留快照字段，不持久化前端携带的预览正文或分组归属。
-        snapshot=Object.fromEntries(['id','name','presetName','orderCharacterId','createdAt','updatedAt','entries','groups','worldNames','resources','scope'].map(key=>[key,snapshot[key]]));
+        snapshot=Object.fromEntries(['id','name','presetName','orderCharacterId','createdAt','updatedAt','entries','groups','worldNames','resources','scope','reasoning'].filter(key=>snapshot[key]!==undefined).map(key=>[key,snapshot[key]]));
+        if(included.reasoning)snapshot.reasoning=normalizeSnapshotReasoning(snapshot.reasoning);
         snapshot.entries=snapshot.entries.map(({identifier,name,enabled})=>({identifier,name,enabled}));
         snapshot.groups=snapshot.groups.map(({id,name,enabled})=>({id,name,enabled}));
         snapshot.worldNames=[...snapshot.resources.worlds.global];
@@ -1375,6 +1390,11 @@ async function handleSnapshotRequest(method, payload) {
       } else {
         snapshot = included.preset ? captureSnapshot({id: existing?.id, name: payload.name, presetName: context.presetName, settings, orderCharacterId, groupState: snapshotGroups(env), worldNames: included.worlds ? selectedSnapshotWorlds(env) : []}) : {id:existing?.id||createIdentifier(),name:normalizeSnapshotName(payload.name),presetName:context.presetName,orderCharacterId:null,entries:[],groups:[],createdAt:Date.now(),updatedAt:Date.now()};
         snapshot.scope=included;
+        if(included.reasoning){
+          const current=(await snapshotReasoningEnvironment()).current();
+          // An unchanged v1 scope continues to capture only the original five fields.
+          snapshot.reasoning=existing?.reasoning?.version===1?captureSnapshotReasoning(current):current;
+        }
         snapshot.resources=await snapshotCaptureResources(env,context,included);
         snapshot.worldNames=[...snapshot.resources.worlds.global];
         validateSnapshot(snapshot);
@@ -1382,7 +1402,6 @@ async function handleSnapshotRequest(method, payload) {
       assertSnapshotContext(env,payload.contextKey);
       if (existing) snapshot.createdAt = existing.createdAt;
       if (existing?.favorite === true) snapshot.favorite = true;
-      if (existing?.reasoning !== undefined) snapshot.reasoning = normalizeSnapshotReasoning(existing.reasoning);
       const previous = store.snapshots;
       store.snapshots = existing ? previous.map(s => s.id === existing.id ? snapshot : s) : [...previous, snapshot];
       try {await saveSnapshotSettings(env);} catch (error) {store.snapshots = previous; throw error;}
@@ -1391,6 +1410,8 @@ async function handleSnapshotRequest(method, payload) {
       const next = {...existing};
       if (payload.config === null) delete next.reasoning;
       else next.reasoning = normalizeSnapshotReasoning(payload.config);
+      next.scope={...snapshotScope(existing),reasoning:payload.config!==null};
+      validateSnapshot(next);
       const previous = store.snapshots;
       store.snapshots = previous.map(item => item === existing ? next : item);
       try {await saveSnapshotSettings(env);} catch (error) {store.snapshots = previous; throw error;}
@@ -1435,7 +1456,7 @@ async function handleSnapshotRequest(method, payload) {
         try {await saveSnapshotMetadata(env, context, metadata);} catch (error) {if (before === undefined) delete metadata[SNAPSHOT_KEY]; else metadata[SNAPSHOT_KEY] = before; throw error;}
       } else throw new Error('无效绑定目标');
     } else throw new Error('未知快照操作');
-    const result = snapshotList(env); result.busy = false;
+    const result = await snapshotList(env); result.busy = false;
     return result;
   }, method === 'snapshot-favorite' ? {favoriteId:payload.id} : true);
 }
