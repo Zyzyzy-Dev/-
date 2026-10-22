@@ -12,7 +12,7 @@ export function createSnapshotEditor({host, model, existingId, onCancel, onSaved
   let editor=copy(model.editor||{}),disposed=false,busy=false;
   draft.resources.version=2;
   draft.resources.worlds={global:[...draft.resources.worlds.global]};
-  const scopes=['global'],scopeNames={global:'全局正则',preset:'预设正则',character:'角色正则'};
+  const scopes=['preset','global'],scopeNames={global:'全局正则',preset:'预设正则',character:'角色正则'};
   const node=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;};
   const element=node('section','pcm-snapshot-editor');element.setAttribute('aria-label',existingId?'修改快照':'创建快照');
   const status=node('p','pcm-snapshot-status');status.setAttribute('role','status');
@@ -38,12 +38,12 @@ export function createSnapshotEditor({host, model, existingId, onCancel, onSaved
   const presetCache=new Map();
   preset.addEventListener('change',()=>run(async()=>{
     const selected=preset.value;
-    presetCache.set(draft.presetName,{presetName:draft.presetName,orderCharacterId:draft.orderCharacterId,entries:draft.entries,groups:draft.groups,regex:draft.resources.regex.preset,editor:{entries:editor.entries,groups:editor.groups,regex:{preset:editor.regex?.preset},regexGroups:{preset:editor.regexGroups?.preset}}});
+    presetCache.set(draft.presetName,{presetName:draft.presetName,orderCharacterId:draft.orderCharacterId,entries:draft.entries,groups:draft.groups,presetRegex:draft.presetRegex,editor:{entries:editor.entries,groups:editor.groups,regex:{preset:editor.regex?.preset},regexGroups:{preset:editor.regexGroups?.preset}}});
     try {
       const value=presetCache.get(selected)||await host.request('snapshot-draft-preset',{presetName:selected,contextKey:context.key});
       if(disposed)return;
       for(const key of ['presetName','orderCharacterId','entries','groups'])draft[key]=copy(value[key]);
-      draft.resources.regex.preset=copy(value.regex||[]);
+      draft.presetRegex=copy(value.presetRegex);
       editor={...editor,entries:value.editor?.entries||[],groups:value.editor?.groups||[],regex:{...editor.regex,preset:value.editor?.regex?.preset||[]},regexGroups:{...editor.regexGroups,preset:value.editor?.regexGroups?.preset||[]}};
       renderPreset();renderRegex();
     } catch(error){preset.value=draft.presetName;throw error;}
@@ -75,7 +75,6 @@ export function createSnapshotEditor({host, model, existingId, onCancel, onSaved
     }));choices.append(row);
   }
   const regex=node('section','pcm-snapshot-editor-regex');
-  regex.dataset.snapshotScope='regex';
   const reasoning=node('section','pcm-snapshot-editor-reasoning');reasoning.dataset.snapshotScope='reasoning';reasoning.append(node('h3','','推理设置'));
   if(reasoningValue){
     reasoning.append(createSnapshotReasoningForm({value:reasoningValue,templates:model.reasoning.templates,host,contextKey:context.key,run,prompt,confirm,isDisposed:()=>disposed,onChange:()=>{draft.reasoning={...reasoningValue};}}).element);
@@ -101,6 +100,8 @@ export function createSnapshotEditor({host, model, existingId, onCancel, onSaved
   function setBusy(value){
     busy=value;element.setAttribute('aria-busy',String(value));
     for(const section of element.querySelectorAll('[data-snapshot-scope]'))section.hidden=!draft.scope[section.dataset.snapshotScope];
+    regex.hidden=!draft.scope.preset&&!draft.scope.regex;
+    for(const section of regex.querySelectorAll('[data-preset-regex-controls]'))section.hidden=!draft.scope.presetRegex;
     for(const el of element.querySelectorAll('input,select,textarea,button'))el.disabled=(value&&el!==cancel)||el.dataset.unavailable==='true'||!!el.closest('[data-snapshot-scope][hidden]');
     preset.disabled=value||!draft.scope.preset;
     presetSearch.disabled=preset.disabled;
@@ -174,14 +175,34 @@ export function createSnapshotEditor({host, model, existingId, onCancel, onSaved
   }
   function renderRegex(){
     const expanded=new Set([...regex.querySelectorAll('details[open][data-scope]')].map(el=>el.dataset.scope));
-    regex.replaceChildren(node('h3','','全局正则开关'));
+    regex.replaceChildren(node('h3','','正则设置'));
     for(const scope of scopes){
-      const scripts=draft.resources.regex[scope]||[],groups=editor.regexGroups?.[scope]||[];
+      const region=node('div');region.dataset.snapshotScope=scope==='preset'?'preset':'regex';
+      if(scope==='preset'){
+        region.dataset.presetRegexRegion='';
+        const toggle=makeSwitch('预设正则快照',draft.scope.presetRegex);
+        toggle.addEventListener('change',()=>{draft.scope.presetRegex=toggle.checked;setBusy(busy);});
+        region.append(switchRow('预设正则快照',toggle),node('small','pcm-snapshot-notice','保存所选预设正则开关状态，应用快照时随快照切换。'),node('p','pcm-snapshot-notice','所选预设：'+draft.presetName));
+        const reload=button('重新读取所选预设正则',()=>run(async()=>{
+          if(!await confirm('重新读取「'+draft.presetName+'」的正则及开关？这会替换本页该范围未保存的修改，其他设置保留。'))return;
+          if(disposed)return;
+          const value=await host.request('snapshot-draft-preset',{presetName:draft.presetName,contextKey:context.key});
+          if(disposed)return;
+          draft.presetRegex=copy(value.presetRegex);
+          editor.regex={...editor.regex,preset:value.editor?.regex?.preset||[]};
+          editor.regexGroups={...editor.regexGroups,preset:value.editor?.regexGroups?.preset||[]};
+          presetCache.delete(draft.presetName);
+          renderRegex();status.textContent='已重新读取所选预设正则，请核对开关后保存。';
+        }));
+        reload.title='重新捕获当前规则定义和开关，仅替换本页的预设正则草稿';region.append(reload);
+      }
+      const scripts=scope==='preset'?(draft.presetRegex?.switches||[]):(draft.resources.regex[scope]||[]),groups=editor.regexGroups?.[scope]||[];
       const details=node('details','pcm-snapshot-regex-details');details.dataset.scope=scope;details.open=expanded.has(scope);
+      if(scope==='preset')details.dataset.presetRegexControls='';
       const summary=node('summary');const update=()=>{summary.textContent=scopeNames[scope]+' · '+scripts.filter(s=>s.enabled).length+'/'+scripts.length+' 开启';};update();
       const choices=node('div','pcm-snapshot-regex-choices');
       renderGrouped(choices,scripts,groups,editor.regex?.[scope]||[],editor.regexGroups?.[scope]||[],'id',scope==='character'&&!context.canBindCharacter,update,scopeNames[scope]);
-      details.append(summary,choices);regex.append(details);
+      details.append(summary,choices);region.append(details);regex.append(region);
     }
   }
   function cacheBook(book){

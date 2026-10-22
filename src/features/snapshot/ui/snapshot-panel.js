@@ -3,7 +3,7 @@ import { chooseApiSnapshotBinding } from '../../api/ui/api-snapshot-bind.js';
 import { createSnapshotEditor } from './snapshot-editor.js';
 import { createSnapshotReasoningForm } from './snapshot-reasoning-form.js';
 import { snapshotScope, sortSnapshotFavorites } from '../snapshot.js';
-import { createSnapshotScopePicker, snapshotScopeLabels } from './snapshot-scope.js';
+import { createSnapshotScopePicker, snapshotScopeText } from './snapshot-scope.js';
 // 搜索仅筛选展示，不修改快照或绑定。
 export function searchSnapshotNames(snapshots,text){const query=String(text||'').trim().toLocaleLowerCase();return snapshots.filter(s=>String(s.name||'').toLocaleLowerCase().includes(query));}
 export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeIcon, prompt, confirm, toast, quick=false, onApi}) {
@@ -30,8 +30,8 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
   const save = button('＋ 保存当前设置', () => execute('save')); save.classList.add('pcm-snapshot-primary');
   save.addEventListener('click',event=>event.preventDefault());
   contextTitle.append(save);
-  const saveScope={preset:true,worlds:true,regex:true,reasoning:true};
-  const scopePicker=createSnapshotScopePicker(saveScope);
+  const saveScope={preset:true,worlds:true,regex:true,reasoning:true,presetRegex:true};
+  const scopePicker=createSnapshotScopePicker(saveScope,()=>{},{currentPresetRegex:true});
   const create=button('＋ 创建快照',()=>openEditor());create.classList.add('pcm-snapshot-create');toolbar.append(create);
   const filters=node('div','pcm-snapshot-filters'),search=node('input','pcm-snapshot-search');search.type='search';search.placeholder='搜索快照名称';search.setAttribute('aria-label','搜索快照名称');search.addEventListener('input',()=>render());const clearSearch=button('清空搜索',()=>{search.value='';render();search.focus();});filters.append(search,clearSearch);
   const notice = node('p', 'pcm-snapshot-notice', '快照可分别保存预设、全局世界书、正则和推理设置。聊天绑定优先于角色绑定。');
@@ -140,7 +140,7 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
       const included=snapshotScope(snapshot);
       const summary = node('p', 'pcm-snapshot-summary', included.preset ? '当前预设：'+(snapshot.presetName || '无效预设') : '预设：保持当前');
       const mounts = node('p', 'pcm-snapshot-books', !included.worlds ? '全局世界书：保持当前' : books.length ? '全局世界书：'+books.join('、') : '全局世界书：不挂载');
-      const range=node('p','pcm-snapshot-saved-scope','保存范围：'+Object.keys(snapshotScopeLabels).filter(key=>included[key]).map(key=>snapshotScopeLabels[key]).join('、'));
+      const range=node('p','pcm-snapshot-saved-scope','保存范围：'+snapshotScopeText(included));
       const actions = node('div', 'pcm-snapshot-actions');
       const apply = button('切', () => execute('apply', snapshot)); apply.classList.add('pcm-snapshot-primary');
       const chat = button('绑定此聊天', () => execute('bind', {...snapshot, target: 'chat'}));
@@ -238,7 +238,7 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
         result = await host.request(action === 'save' ? 'snapshot-save' : 'snapshot-rename', {id: action === 'rename' ? snapshot.id : undefined, name, contextKey,scope:action==='save'?{...saveScope}:undefined});
         message = action === 'save' ? '快照已保存' : '名称已更新';
       } else if (action === 'update') {
-        const scope=snapshotScope(snapshot),range=Object.keys(snapshotScopeLabels).filter(key=>scope[key]).map(key=>snapshotScopeLabels[key]).join('、');
+        const scope=snapshotScope(snapshot),range=snapshotScopeText(scope);
         if (!(await confirm('用酒馆当前设置覆盖「'+snapshot.name+'」？\n覆盖范围：'+range+'。\n保留方案名称和绑定关系；绑定此方案的聊天和角色以后会使用覆盖后的设置。')) || disposed) return;
         result = await host.request('snapshot-save', {id: snapshot.id, name: snapshot.name, contextKey,scope}); message = '快照已覆盖';
       } else if (action === 'delete') {
