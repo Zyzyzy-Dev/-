@@ -27,20 +27,16 @@ export function collectCheckContext(preset, { drafts = new Map(), generationType
         if (!enabled || blocked.has(id) || (e.triggers.length && !e.triggers.includes(generationType)) || ![0, 1].includes(e.injection_position)) continue;
         entries.push(e);
     }
-    const streams = [], uncertainties = [], relative = { id: 'relative', kind: 'relative', fragments: [] };
-    const source = e => ({ type: 'source', entryId: e.id, start: 0, end: e.text.length, text: e.text });
+    // 与提示词查看器一致：相对条目按顺序拼接；宿主 marker 内容不在预设里，不打断配对；
+    // 聊天深度条目按深度从深到浅插在聊天记录位置，聊天消息本身不计入。
+    const source = (e, afterChat) => ({ type: 'source', entryId: e.id, start: 0, end: e.text.length, text: e.text, afterChat });
+    const depth = entries.filter(e => !e.marker && e.injection_position === 1).sort((a, b) => b.injection_depth - a.injection_depth);
+    const fragments = [];let chat = false;
     for (const e of entries) {
-        if (e.marker) { relative.fragments.push({ type: 'boundary', entryId: e.id, reason: '宿主 marker 内容未检查' }); uncertainties.push('宿主 marker 内容未检查'); }
-        else if (e.injection_position === 0) relative.fragments.push(source(e));
-        else {
-            const id = `depth:${e.injection_depth}:${e.injection_order}:${e.role}`;
-            let stream = streams.find(s => s.id === id);
-            if (!stream) { stream = { id, kind: 'depth', depth: e.injection_depth, order: e.injection_order, role: e.role, fragments: [{ type: 'boundary', reason: '聊天深度注入与聊天及其他角色之间的顺序未知' }] }; streams.push(stream); }
-            stream.fragments.push(source(e));
-        }
+        if (e.marker) { if (e.id === 'chatHistory' && !chat) { chat = true; fragments.push(...depth.map(d => source(d, true))); } }
+        else if (e.injection_position === 0) fragments.push(source(e, chat));
     }
-    for (const stream of streams) { stream.fragments.push({ type: 'boundary', reason: '聊天深度注入边界' }); }
-    if (streams.length) uncertainties.push('聊天深度段独立检查，未模拟最终聊天顺序。');
-    if (relative.fragments.length) streams.unshift(relative);
+    if (!chat) fragments.push(...depth.map(d => source(d, true)));
+    const streams = fragments.length ? [{ id: 'context', kind: 'context', fragments }] : [], uncertainties = [];
     return { entries, streams, uncertainties: [...new Set(uncertainties)] };
 }

@@ -16,3 +16,14 @@ for(const mode of ['source','block'])for(const end of [1,4])test(`${mode} undo r
  else {let selected={start:1,end};adapter.attachView({getSelection:()=>selected,render(){},focusRange(start,end){selected={start,end};}});adapter.captureBeforeInput();selected={start:3,end:3};adapter.updateText('aXYabcdef'.slice(0,3)+'abcdef'.slice(end),selected);}
  adapter.undo();assert.equal(adapter.getText(),'abcdef');assert.deepEqual(adapter.getSelection(),{start:1,end});adapter.dispose();
 });
+test('persisted history survives reopening the same unsaved text and resets when text differs',()=>{
+ const area=new SourceArea();let saved=null;const first=createContentEditorAdapter({area,onState:s=>{saved=s;}});
+ area.value='abcXdef';area.setSelectionRange(4,4);area.dispatchEvent(new Event('input'));assert.equal(first.canUndo(),true);first.dispose();
+ const again=new SourceArea();again.value='abcXdef';const second=createContentEditorAdapter({area:again,initial:saved});
+ assert.equal(second.canUndo(),true);second.undo();assert.equal(again.value,'abcdef');assert.equal(second.canUndo(),false);second.dispose();
+ const other=new SourceArea();other.value='changed elsewhere';const third=createContentEditorAdapter({area:other,initial:saved});assert.equal(third.canUndo(),false);third.dispose();
+});
+test('clearHistory makes the saved text the new undo baseline',()=>{
+ const area=new SourceArea(),adapter=createContentEditorAdapter({area});area.value='abcZ';area.dispatchEvent(new Event('input'));
+ adapter.clearHistory();assert.equal(adapter.canUndo(),false);assert.equal(adapter.undo(),false);assert.equal(area.value,'abcZ');adapter.dispose();
+});

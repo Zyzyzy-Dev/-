@@ -16,7 +16,7 @@ export function openPresetCheckPanel({dialog, title, single=false, getContext, r
   const refreshButton=button('重新检查',()=>scan(true));
   if(!single)controls.append(generation);controls.append(refreshButton);
   const status=node('div','pcm-check-status');status.setAttribute('role','status');
-  const scope=node('p','pcm-check-note',single?'当前条目：仅检查宏、括号与代码围栏，不检查标签。':'当前侧启用组合：按已知顺序检查预设源码，动态聊天与宏展开内容不在检查范围内。');
+  const scope=node('p','pcm-check-note',single?'当前条目：仅检查宏、括号与代码围栏，不检查标签。':'按提示词查看器顺序拼接当前侧已启用条目检查标签：只有独占一行的标签需要闭合，聊天深度条目插在聊天记录位置；角色卡、世界书与聊天内容不计入。');
   const body=node('div','pcm-check-results');
   box.append(head,controls,scope,status,body);element.append(box);dialog.append(element);
   let snapshot=null,result=null,disposed=false,stale=false;
