@@ -1,4 +1,4 @@
-// 预设查找替换面板：按可折叠分组即时筛选条目、局部跨页选择，并在独立窗口对比替换前后，仅确认后通过回调更新草稿。
+// 预设查找替换面板：按默认折叠的分组即时筛选条目、局部跨页选择，并在独立窗口对比替换前后，仅确认后通过回调更新草稿。
 import {findLiteralRanges} from '../text-replace.js';
 import {buildReplacementComparison, buildReplacementView, createEntryReplacementPreview} from './text-replace-view.js';
 
@@ -48,7 +48,7 @@ function highlight(element, text, query, enabled, caseSensitive) {
 export function createTextReplacePanel({title = '', initialQuery = '', initialScope = 'selected', initialSelectedIds, getContext, onApply, onClose}) {
   let disposed = false, busy = false;
   let context = null, contextVersion = null, view = null, previewState = null, page = 0;
-  let selectedIds = new Set(), expanded = new Set(), collapsedGroups = new Set(), previewDialog = null, scope = initialScope === 'all' ? 'all' : 'selected';
+  let selectedIds = new Set(), expanded = new Set(), openGroups = new Set(), previewDialog = null, scope = initialScope === 'all' ? 'all' : 'selected';
   const sequence = ++panelSequence;
   const element = node('section', 'pcm-replace-panel');
   element.dataset.replacePanel = '';
@@ -188,12 +188,12 @@ export function createTextReplacePanel({title = '', initialQuery = '', initialSc
       if (!members.length) continue;
       const section = node('section', 'pcm-replace-group');
       section.dataset.replaceGroup = group.id;
-      const collapsed = collapsedGroups.has(group.id);
+      const collapsed = !openGroups.has(group.id);
       section.classList.toggle('is-collapsed', collapsed);
       const groupHeader = node('div', 'pcm-replace-group-head');
       const toggle = button('', 'data-replace-group-toggle', () => {
         if (busy) return;
-        if (collapsedGroups.has(group.id)) collapsedGroups.delete(group.id); else collapsedGroups.add(group.id);
+        if (openGroups.has(group.id)) openGroups.delete(group.id); else openGroups.add(group.id);
         renderResults({attribute: 'data-replace-group-toggle', value: group.id});
       });
       toggle.classList.add('pcm-replace-group-toggle');

@@ -60,6 +60,19 @@
 .pcm-dialog .pcm-replace-panel .pcm-replace-results :is(.pcm-replace-entry-select,.pcm-replace-entry-toggle,.pcm-replace-group-toggle),.pcm-dialog .pcm-replace-panel .pcm-replace-results :is(.pcm-replace-entry-select,.pcm-replace-entry-toggle,.pcm-replace-group-toggle):is(:hover,:active,:focus){background:transparent!important;border-color:transparent!important;color:inherit!important;transform:none!important}
 .pcm-replace-entry:has(.pcm-replace-entry-head button:hover){border-color:var(--pcm-selection-edge,var(--SmartThemeBorderColor))}
 .pcm-replace-group-toggle:hover h5{text-decoration:underline;text-underline-offset:3px}
+/* 分组默认折叠：以描边、左侧强调条和淡强调色标题区与条目区分；展开后标题下加分隔线。 */
+.pcm-replace-group{gap:0;padding:0;overflow:hidden;border:1px solid var(--pcm-card-edge,var(--SmartThemeBorderColor));background:var(--pcm-card-bg,var(--SmartThemeBlurTintColor));box-shadow:inset 3px 0 var(--pcm-accent,var(--pcm-selection-edge,var(--SmartThemeBodyColor)))}
+.pcm-replace-group-head{padding:5px 8px 5px 10px;background:color-mix(in srgb,var(--pcm-accent,var(--SmartThemeBodyColor)) 11%,var(--pcm-card-bg,var(--SmartThemeBlurTintColor)))}
+.pcm-replace-group:not(.is-collapsed){padding-bottom:6px}
+.pcm-replace-group:not(.is-collapsed)>.pcm-replace-group-head{border-bottom:1px solid var(--pcm-row-edge,var(--SmartThemeBorderColor))}
+.pcm-replace-group>.pcm-replace-entry{margin:6px 7px 0 10px}
+.pcm-replace-panel .pcm-replace-group-head h5{font-size:12.5px;font-weight:700}
+.pcm-replace-chevron{width:14px;font-size:13px;opacity:1;color:var(--pcm-accent,inherit)}
+.pcm-replace-group:hover{border-color:var(--pcm-selection-edge,var(--SmartThemeBorderColor))}
+.pcm-dialog.pcm-theme-night .pcm-replace-group{box-shadow:inset 3px 0 #8ec07c}
+.pcm-dialog.pcm-theme-night .pcm-replace-group-head{background:color-mix(in srgb,#8ec07c 12%,var(--pcm-card-bg,#282828))}
+.pcm-dialog.pcm-theme-night .pcm-replace-chevron{color:#8ec07c}
+@media(max-width:600px){.pcm-replace-group-head{padding:4px 6px 4px 8px}.pcm-replace-group>.pcm-replace-entry{margin:5px 5px 0 8px}}
 /* 替换预览窗口：替换前用查找高亮，替换后用新增色标出插入内容。 */
 .pcm-replace-preview-dialog{display:flex;flex-direction:column;width:min(960px,94vw);max-width:94vw;max-height:88dvh;padding:0;margin:auto;border:1px solid var(--pcm-card-edge,var(--SmartThemeBorderColor));border-radius:12px;color:var(--SmartThemeBodyColor);background:var(--pcm-card-bg,var(--SmartThemeBlurTintColor));box-shadow:0 12px 40px #0005;overflow:hidden;box-sizing:border-box}
 .pcm-replace-preview-dialog:not([open]){display:none}
@@ -83,5 +96,5 @@
 .pcm-dialog.pcm-theme-night .pcm-replace-inserted{background:rgba(110,200,130,.24);box-shadow:inset 0 -2px 0 #7fd18f}
 .pcm-replace-preview-dialog>.pcm-replace-actions{flex:none;padding:10px 14px;border-top:1px solid var(--pcm-row-edge,var(--SmartThemeBorderColor))}
 @media(max-width:600px){.pcm-replace-preview-dialog{width:96vw;max-width:96vw;max-height:92dvh}.pcm-replace-preview-columns{grid-template-columns:minmax(0,1fr)}.pcm-replace-preview-head,.pcm-replace-preview-list,.pcm-replace-preview-dialog>.pcm-replace-actions{padding-inline:9px}.pcm-replace-preview-column .pcm-replace-text{max-height:32dvh}}
-@media(max-width:600px){.pcm-replace-body{padding:6px;gap:5px}.pcm-replace-text-fields{gap:8px}.pcm-replace-field{gap:4px;font-size:11px}.pcm-replace-strip{padding:6px 7px;font-size:11px;column-gap:8px}.pcm-replace-options{row-gap:5px}.pcm-replace-scopes{column-gap:10px}.pcm-replace-scope{gap:6px}.pcm-replace-preset{padding:6px}.pcm-replace-group{padding:6px}.pcm-replace-count{font-size:9px}.pcm-replace-preset-head{flex-wrap:wrap;gap:3px}.pcm-replace-text{font-size:11px}}
+@media(max-width:600px){.pcm-replace-body{padding:6px;gap:5px}.pcm-replace-text-fields{gap:8px}.pcm-replace-field{gap:4px;font-size:11px}.pcm-replace-strip{padding:6px 7px;font-size:11px;column-gap:8px}.pcm-replace-options{row-gap:5px}.pcm-replace-scopes{column-gap:10px}.pcm-replace-scope{gap:6px}.pcm-replace-preset{padding:6px}.pcm-replace-count{font-size:9px}.pcm-replace-preset-head{flex-wrap:wrap;gap:3px}.pcm-replace-text{font-size:11px}}
 @media(max-width:360px){.pcm-replace-options{column-gap:7px}.pcm-replace-strip-label{font-size:10px}.pcm-replace-scopes{column-gap:7px}.pcm-replace-scope{gap:4px}.pcm-replace-panel .pcm-replace-scope input[type=radio]{width:28px!important;min-width:28px!important}.pcm-replace-panel .pcm-replace-scope input[type=radio]:checked::before{transform:translateX(10px)}.pcm-replace-panel .pcm-replace-field textarea{padding-inline:6px}}
