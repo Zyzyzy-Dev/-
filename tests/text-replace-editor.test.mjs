@@ -44,6 +44,16 @@ function apply(env, options = preview(env)) {
   return env.applyTextReplacement('new', options.plan, options.keys, options.context);
 }
 
+test('replacement browser receives the preset label and rendered order including uninjected entries', () => {
+  const env = harness();
+  env.state.cache = {ordered: {new: [env.state.new.prompts[1], env.state.new.prompts[0], env.state.new.prompts[2]]}};
+  const context = env.getTextReplaceContext('new');
+  assert.equal(context.presetName, 'new preset');
+  assert.deepEqual(context.orderedIds, ['b', 'a', 'c']);
+  assert.deepEqual(context.entries.map(entry => entry.identifier), ['a', 'b', 'c']);
+  assert.deepEqual(context.groups[0].ids, ['a', 'b']);
+});
+
 test('editor undo refuses an old replacement after loading another preset with the same IDs', () => {
   const env = harness();
   apply(env);
