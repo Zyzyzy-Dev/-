@@ -1,7 +1,7 @@
 // 查找替换条目视图回归：候选与范围分离、完整分组成员和安全全文预览。
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildReplacementView, createEntryReplacementPreview} from '../src/features/preset/ui/text-replace-view.js';
+import {buildReplacementComparison, buildReplacementView, createEntryReplacementPreview} from '../src/features/preset/ui/text-replace-view.js';
 
 const entries = [
   {identifier: 'a', name: 'Alpha', content: 'first needle\nlast needle'},
@@ -70,4 +70,38 @@ test('duplicate IDs fail preview atomically instead of guessing a target', () =>
   const original = JSON.stringify(duplicate);
   assert.throws(() => createEntryReplacementPreview(duplicate, {query: 'needle', replacement: 'x', fields: ['content']}), /重复/);
   assert.equal(JSON.stringify(duplicate), original);
+});
+
+const joinHits = segments => segments.filter(item => item.hit).map(item => item.text);
+const joinText = segments => segments.map(item => item.text).join('');
+
+test('comparison window marks original hits and inserted replacements in preset order', () => {
+  const source = [
+    {identifier: 'a', name: 'needle title', content: 'x needle y needle'},
+    {identifier: 'c', name: 'Third', content: 'needle'},
+  ];
+  const preview = createEntryReplacementPreview(source, {query: 'needle', replacement: 'pin', fields: ['content', 'name'], caseSensitive: true});
+  const result = buildReplacementComparison(preview.plan, preview.afterById, ['c', 'a']);
+  assert.deepEqual(result.map(item => item.id), ['c', 'a']);
+  const a = result[1];
+  assert.equal(a.count, 3);
+  assert.deepEqual(a.fields.map(item => item.field), ['name', 'content']);
+  const content = a.fields[1];
+  assert.equal(joinText(content.before), 'x needle y needle');
+  assert.equal(joinText(content.after), 'x pin y pin');
+  assert.deepEqual(joinHits(content.before), ['needle', 'needle']);
+  assert.deepEqual(joinHits(content.after), ['pin', 'pin']);
+  assert.equal(a.originalName, 'needle title');
+});
+
+test('comparison handles deletion and longer replacements without shifting marks', () => {
+  const source = [{identifier: 'a', name: 'A', content: 'ab字数cd字数'}];
+  const removed = createEntryReplacementPreview(source, {query: '字数', replacement: '', fields: ['content']});
+  const [entry] = buildReplacementComparison(removed.plan, removed.afterById);
+  assert.equal(joinText(entry.fields[0].after), 'abcd');
+  assert.deepEqual(joinHits(entry.fields[0].after), []);
+  const longer = createEntryReplacementPreview(source, {query: '字数', replacement: '<字数要求>', fields: ['content']});
+  const [next] = buildReplacementComparison(longer.plan, longer.afterById);
+  assert.deepEqual(joinHits(next.fields[0].after), ['<字数要求>', '<字数要求>']);
+  assert.equal(joinText(next.fields[0].after), 'ab<字数要求>cd<字数要求>');
 });

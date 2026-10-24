@@ -1,6 +1,6 @@
-// 预设查找替换面板：按分组即时筛选条目、局部跨页选择与完整预览，仅确认后通过回调更新草稿。
+// 预设查找替换面板：按可折叠分组即时筛选条目、局部跨页选择，并在独立窗口对比替换前后，仅确认后通过回调更新草稿。
 import {findLiteralRanges} from '../text-replace.js';
-import {buildReplacementView, createEntryReplacementPreview} from './text-replace-view.js';
+import {buildReplacementComparison, buildReplacementView, createEntryReplacementPreview} from './text-replace-view.js';
 
 const PAGE_SIZE = 50;
 let panelSequence = 0;
@@ -27,6 +27,9 @@ function checkbox(label, attribute, checked) {
   element.append(control, document.createTextNode(label));
   return {element, control};
 }
+function appendSegments(element, segments, className) {
+  for (const segment of segments) element.append(segment.hit ? node('mark', className, segment.text) : document.createTextNode(segment.text));
+}
 function sameVersion(a, b) {
   return !!a && !!b && ['preset', 'name', 'source', 'signature'].every(key => a[key] === b[key]);
 }
@@ -35,7 +38,7 @@ function highlight(element, text, query, enabled, caseSensitive) {
   if (!query || !enabled) { element.textContent = text; return; }
   let from = 0;
   for (const [start, end] of findLiteralRanges(text, query, {caseSensitive})) {
-    element.append(document.createTextNode(text.slice(from, start)), node('mark', 'pcm-replace-highlight', text.slice(start, end)));
+    element.append(document.createTextNode(text.slice(from, start)), node('mark', 'pcm-search-hit pcm-replace-highlight', text.slice(start, end)));
     from = end;
   }
   element.append(document.createTextNode(text.slice(from)));
@@ -45,21 +48,15 @@ function highlight(element, text, query, enabled, caseSensitive) {
 export function createTextReplacePanel({title = '', initialQuery = '', initialScope = 'selected', initialSelectedIds, getContext, onApply, onClose}) {
   let disposed = false, busy = false;
   let context = null, contextVersion = null, view = null, previewState = null, page = 0;
-  let selectedIds = new Set(), expanded = new Set(), scope = initialScope === 'all' ? 'all' : 'selected';
+  let selectedIds = new Set(), expanded = new Set(), collapsedGroups = new Set(), previewDialog = null, scope = initialScope === 'all' ? 'all' : 'selected';
   const sequence = ++panelSequence;
   const element = node('section', 'pcm-replace-panel');
   element.dataset.replacePanel = '';
   element.setAttribute('role', 'region');
-  const heading = node('h3', '', '查找替换 · ' + title);
-  heading.id = 'pcm-replace-heading-' + sequence;
-  element.setAttribute('aria-labelledby', heading.id);
-  const header = node('header', 'pcm-replace-head');
-  const closeButton = button('×', 'data-replace-close', () => { if (!busy && !disposed) onClose?.(); });
-  closeButton.title = '关闭查找替换';
-  closeButton.setAttribute('aria-label', '关闭查找替换');
-  header.append(heading, closeButton);
+  // 工具栏「替换」按钮本身即开关，面板不再重复显示标题和关闭按钮；Esc 仍可关闭。
+  element.setAttribute('aria-label', '查找替换 · ' + title);
   const body = node('div', 'pcm-replace-body');
-  element.append(header, body);
+  element.append(body);
 
   const query = node('textarea');
   query.rows = 1;
@@ -131,6 +128,7 @@ export function createTextReplacePanel({title = '', initialQuery = '', initialSc
     });
   }
   element.addEventListener('keydown', event => {
+    if (event.target.closest?.('[data-replace-preview-dialog]')) return;
     if (event.key === 'Escape' && !busy) { event.preventDefault(); event.stopPropagation(); onClose?.(); }
   });
 
@@ -145,6 +143,7 @@ export function createTextReplacePanel({title = '', initialQuery = '', initialSc
   function invalidate(message) {
     const hadPreview = !!previewState;
     previewState = null;
+    closePreviewDialog();
     applyButton.disabled = true;
     report(message ?? (hadPreview ? '条件或选择已变更，请重新预览。' : ''));
   }
@@ -189,8 +188,24 @@ export function createTextReplacePanel({title = '', initialQuery = '', initialSc
       if (!members.length) continue;
       const section = node('section', 'pcm-replace-group');
       section.dataset.replaceGroup = group.id;
+      const collapsed = collapsedGroups.has(group.id);
+      section.classList.toggle('is-collapsed', collapsed);
       const groupHeader = node('div', 'pcm-replace-group-head');
-      groupHeader.append(node('h5', '', group.name));
+      const toggle = button('', 'data-replace-group-toggle', () => {
+        if (busy) return;
+        if (collapsedGroups.has(group.id)) collapsedGroups.delete(group.id); else collapsedGroups.add(group.id);
+        renderResults({attribute: 'data-replace-group-toggle', value: group.id});
+      });
+      toggle.classList.add('pcm-replace-group-toggle');
+      toggle.dataset.replaceGroupToggle = group.id;
+      toggle.setAttribute('aria-expanded', String(!collapsed));
+      toggle.setAttribute('aria-label', (collapsed ? '展开分组：' : '折叠分组：') + group.name);
+      toggle.disabled = busy;
+      const chevron = node('span', 'pcm-replace-chevron', '▸');
+      chevron.setAttribute('aria-hidden', 'true');
+      const groupSelected = group.ids.filter(id => selected.has(id)).length;
+      toggle.append(chevron, node('h5', '', group.name), node('span', 'pcm-replace-group-count', members.length + ' 条' + (groupSelected ? ' · 已选 ' + groupSelected : '')));
+      groupHeader.append(toggle);
       const allSelected = group.ids.length > 0 && group.ids.every(id => selected.has(id));
       const selectGroup = button(allSelected ? '取消此分组' : '全选此分组', 'data-replace-group-select', () => {
         changeSelection(selection => {
@@ -205,7 +220,7 @@ export function createTextReplacePanel({title = '', initialQuery = '', initialSc
       selectGroup.disabled = busy || group.ids.length === 0;
       groupHeader.append(selectGroup);
       section.append(groupHeader);
-      for (const item of members) section.append(entryRow(item, selected.has(item.id)));
+      if (!collapsed) for (const item of members) section.append(entryRow(item, selected.has(item.id)));
       preset.append(section);
     }
     if (view.invalidCount) preset.append(node('p', 'pcm-replace-note', view.invalidCount + ' 个条目的 ID 缺失或重复，不能单独选择；如参与全部替换，将拒绝不明确的修改。'));
@@ -227,37 +242,39 @@ export function createTextReplacePanel({title = '', initialQuery = '', initialSc
   }
   function entryRow(item, selected) {
     const {entry, id, key, selectable} = item;
-    const after = previewState?.afterById.get(id), isOpen = expanded.has(key);
+    const isOpen = expanded.has(key), label = entry?.name || '未命名条目';
     const row = node('article', 'pcm-replace-entry');
     row.dataset.replaceEntry = id;
     row.classList.toggle('is-selected', selected && selectable);
-    row.classList.toggle('is-preview', !!after);
+    row.classList.toggle('is-open', isOpen);
     const toolbar = node('div', 'pcm-replace-entry-head');
+    // 勾选框只负责选择；点击条目其余位置展开／收起正文，两者互不干扰。
     const choice = button('', 'data-replace-select', () => {
       if (selectable) changeSelection(selection => { if (selection.has(id)) selection.delete(id); else selection.add(id); }, 'data-replace-select', id);
     });
     choice.classList.add('pcm-replace-entry-select');
     choice.dataset.replaceSelect = id;
     choice.setAttribute('aria-pressed', String(selected && selectable));
+    choice.setAttribute('aria-label', (selected && selectable ? '取消选择：' : '选择：') + label);
+    choice.title = selectable ? (selected ? '取消选择' : '选择此条目') : '条目 ID 缺失或重复，不能单独选择';
     choice.disabled = busy || !selectable;
     const selectionMark = node('span', 'pcm-replace-selection-mark', selected && selectable ? '✓' : '');
     selectionMark.setAttribute('aria-hidden', 'true');
-    const name = node('span', 'pcm-replace-entry-name');
-    if (after) { name.textContent = after.name || '未命名条目'; name.dataset.replaceAfterName = id; }
-    else highlight(name, entry?.name || '未命名条目', query.value, nameOption.control.checked, caseOption.control.checked);
-    choice.append(selectionMark, name);
-    if (after) choice.append(node('span', 'pcm-replace-preview-tag', '预览'));
-    const expand = button(isOpen ? '收起' : '展开', 'data-replace-expand', () => {
+    choice.append(selectionMark);
+    const expand = button('', 'data-replace-expand', () => {
       if (busy) return;
       if (expanded.has(key)) expanded.delete(key); else expanded.add(key);
       renderResults({attribute: 'data-replace-expand', value: id});
     });
-    expand.classList.add('pcm-replace-entry-expand');
+    expand.classList.add('pcm-replace-entry-toggle');
     expand.dataset.replaceExpand = id;
     expand.setAttribute('aria-expanded', String(isOpen));
-    expand.setAttribute('aria-label', (isOpen ? '收起正文：' : '展开正文：') + (entry?.name || '未命名条目'));
     expand.setAttribute('aria-controls', 'pcm-replace-entry-body-' + sequence + '-' + key);
+    expand.title = isOpen ? '收起正文' : '展开正文';
     expand.disabled = busy;
+    const name = node('span', 'pcm-replace-entry-name');
+    highlight(name, label, query.value, nameOption.control.checked, caseOption.control.checked);
+    expand.append(name);
     toolbar.append(choice, expand);
     row.append(toolbar);
     if (isOpen) {
@@ -265,13 +282,78 @@ export function createTextReplacePanel({title = '', initialQuery = '', initialSc
       detail.id = 'pcm-replace-entry-body-' + sequence + '-' + key;
       detail.dataset.replaceBody = id;
       const pre = node('pre', 'pcm-replace-text');
-      if (after) { pre.dataset.replaceAfter = id; pre.textContent = typeof after.content === 'string' ? after.content : ''; }
-      else { pre.dataset.replaceOriginal = id; highlight(pre, entry?.content, query.value, contentOption.control.checked, caseOption.control.checked); }
-      detail.append(node('span', 'pcm-replace-note', after ? '替换后正文' : '条目正文'), pre);
+      pre.dataset.replaceOriginal = id;
+      highlight(pre, entry?.content, query.value, contentOption.control.checked, caseOption.control.checked);
+      detail.append(pre);
       if (!pre.textContent) detail.append(node('span', 'pcm-replace-note', '（空正文）'));
       row.append(detail);
     }
     return row;
+  }
+  function closePreviewDialog() {
+    const dialog = previewDialog;
+    previewDialog = null;
+    if (!dialog) return;
+    if (dialog.open && typeof dialog.close === 'function') dialog.close();
+    dialog.remove();
+  }
+  function openPreviewDialog() {
+    closePreviewDialog();
+    if (!previewState?.plan.matches.length) return;
+    const comparison = buildReplacementComparison(previewState.plan, previewState.afterById, view?.entries.map(item => item.id) || []);
+    const dialog = node('dialog', 'pcm-replace-preview-dialog');
+    dialog.dataset.replacePreviewDialog = '';
+    dialog.setAttribute('aria-label', '替换预览');
+    const head = node('header', 'pcm-replace-preview-head');
+    const titleBox = node('div', 'pcm-replace-preview-title');
+    titleBox.append(node('h3', '', '替换预览'), node('span', 'pcm-replace-preview-summary', previewState.plan.entryCount + ' 个条目 · ' + previewState.plan.matches.length + ' 处修改'));
+    const closeButton = button('×', 'data-replace-preview-close', () => closePreviewDialog());
+    closeButton.classList.add('pcm-replace-preview-x');
+    closeButton.title = '关闭预览';
+    closeButton.setAttribute('aria-label', '关闭预览');
+    head.append(titleBox, closeButton);
+    const list = node('div', 'pcm-replace-preview-list');
+    for (const entry of comparison) {
+      const article = node('article', 'pcm-replace-preview-entry');
+      article.dataset.replacePreviewEntry = entry.id;
+      const entryHead = node('div', 'pcm-replace-preview-entry-head');
+      entryHead.append(node('h4', '', entry.originalName ?? entry.name ?? '未命名条目'), node('span', 'pcm-replace-preview-summary', entry.count + ' 处'));
+      article.append(entryHead);
+      for (const field of entry.fields) {
+        if (entry.fields.length > 1 || field.field === 'name') article.append(node('span', 'pcm-replace-preview-field', field.field === 'name' ? '条目名称' : '条目正文'));
+        const columns = node('div', 'pcm-replace-preview-columns');
+        for (const [label, segments, className, attribute] of [['替换前', field.before, 'pcm-search-hit', 'replaceBefore'], ['替换后', field.after, 'pcm-replace-inserted', 'replaceAfter']]) {
+          const column = node('div', 'pcm-replace-preview-column');
+          const pre = node('pre', 'pcm-replace-text');
+          pre.dataset[attribute] = entry.id;
+          appendSegments(pre, segments, className);
+          column.append(node('span', 'pcm-replace-preview-label', label), pre);
+          if (!pre.textContent) column.append(node('span', 'pcm-replace-note', '（空）'));
+          columns.append(column);
+        }
+        article.append(columns);
+      }
+      list.append(article);
+    }
+    const foot = node('footer', 'pcm-replace-actions');
+    const back = button('返回修改', 'data-replace-preview-back', () => closePreviewDialog());
+    const confirm = button('确认替换', 'data-replace-preview-apply', () => { closePreviewDialog(); void apply(); });
+    confirm.classList.add('pcm-primary');
+    foot.append(back, confirm);
+    dialog.append(head, list, foot);
+    dialog.addEventListener('keydown', event => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      closePreviewDialog();
+    });
+    dialog.addEventListener('cancel', event => { event.preventDefault(); closePreviewDialog(); });
+    dialog.addEventListener('click', event => { if (event.target === dialog) closePreviewDialog(); });
+    element.append(dialog);
+    previewDialog = dialog;
+    if (typeof dialog.showModal === 'function') { try { dialog.showModal(); } catch { dialog.setAttribute('open', ''); } }
+    else dialog.setAttribute('open', '');
+    confirm.focus();
   }
   function refresh() {
     if (disposed) return false;
@@ -283,6 +365,7 @@ export function createTextReplacePanel({title = '', initialQuery = '', initialSc
       context = latest;
       contextVersion = latest.version ? {...latest.version} : null;
       previewState = null;
+      closePreviewDialog();
       rebuildView();
       const valid = new Set(view.entries.filter(item => item.selectable).map(item => item.id));
       selectedIds = new Set([...selectedIds].filter(id => valid.has(id)));
@@ -314,9 +397,9 @@ export function createTextReplacePanel({title = '', initialQuery = '', initialSc
       if (!targets.length) throw new Error('请先选择要修改的条目，或切换到所有条目。');
       const next = createEntryReplacementPreview(targets, options);
       previewState = {...next, context: {...context, version: contextVersion && {...contextVersion}, replaceScope: scope, replaceIds: targets.map(entry => entry.identifier)}};
-      for (const item of view.candidates) if (next.afterById.has(item.id)) expanded.add(item.key);
       renderResults();
-      report(next.plan.matches.length ? '预览 ' + next.plan.entryCount + ' 个条目、' + next.plan.matches.length + ' 处修改；核对后点击“确认替换”。' : '没有需要替换的匹配；替换前后相同的内容会自动跳过。');
+      report(next.plan.matches.length ? '已在预览窗口显示 ' + next.plan.entryCount + ' 个条目、' + next.plan.matches.length + ' 处修改；核对后点击“确认替换”。' : '没有需要替换的匹配；替换前后相同的内容会自动跳过。');
+      if (next.plan.matches.length) openPreviewDialog();
     } catch (error) {
       previewState = null;
       renderResults();
@@ -363,5 +446,5 @@ export function createTextReplacePanel({title = '', initialQuery = '', initialSc
     selectedIds = new Set([...selectedIds].filter(id => valid.has(id)));
     renderResults();
   } catch (error) { report(error.message || String(error), true); }
-  return {element, refresh, dispose() { disposed = true; previewState = null; element.remove(); }};
+  return {element, refresh, dispose() { disposed = true; previewState = null; closePreviewDialog(); element.remove(); }};
 }

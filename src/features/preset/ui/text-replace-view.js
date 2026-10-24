@@ -41,3 +41,53 @@ export function createEntryReplacementPreview(entries, options) {
   Object.freeze(plan);
   return {plan, afterById: new Map(result.entries.filter(entry => changed.has(entry.identifier)).map(entry => [entry.identifier, entry]))};
 }
+
+function segmentsFrom(text, ranges) {
+  const segments = [];
+  let cursor = 0;
+  for (const [start, end] of ranges) {
+    if (start > cursor) segments.push({text: text.slice(cursor, start), hit: false});
+    if (end > start) segments.push({text: text.slice(start, end), hit: true});
+    cursor = Math.max(cursor, end);
+  }
+  if (cursor < text.length || !segments.length) segments.push({text: text.slice(cursor), hit: false});
+  return segments;
+}
+
+/** Before/after segments for the preview window; offsets come from the validated plan only. */
+export function buildReplacementComparison(plan, afterById, order = []) {
+  const position = new Map(order.map((id, index) => [id, index]));
+  const byField = new Map();
+  for (const match of plan?.matches || []) {
+    const key = match.id + '\u0000' + match.field;
+    if (!byField.has(key)) byField.set(key, {id: match.id, field: match.field, matches: []});
+    byField.get(key).matches.push(match);
+  }
+  const baselines = new Map((plan?.baselines || []).map(item => [item.id + '\u0000' + item.field, item.text]));
+  const entries = new Map();
+  for (const [key, group] of byField) {
+    const before = baselines.get(key);
+    if (typeof before !== 'string') continue;
+    const sorted = [...group.matches].sort((a, b) => a.start - b.start);
+    const afterRanges = [];
+    let shift = 0;
+    for (const match of sorted) {
+      const start = match.start + shift;
+      afterRanges.push([start, start + match.replacement.length]);
+      shift += match.replacement.length - (match.end - match.start);
+    }
+    const afterEntry = afterById?.get(group.id);
+    const after = typeof afterEntry?.[group.field] === 'string' ? afterEntry[group.field] : '';
+    if (!entries.has(group.id)) entries.set(group.id, {id: group.id, name: '', count: 0, fields: []});
+    const entry = entries.get(group.id);
+    entry.count += sorted.length;
+    entry.fields.push({field: group.field, before: segmentsFrom(before, sorted.map(m => [m.start, m.end])), after: segmentsFrom(after, afterRanges)});
+  }
+  for (const entry of entries.values()) {
+    const nameBaseline = baselines.get(entry.id + '\u0000name');
+    entry.name = afterById?.get(entry.id)?.name ?? nameBaseline ?? '';
+    entry.originalName = nameBaseline;
+    entry.fields.sort((a, b) => (a.field === 'name' ? 0 : 1) - (b.field === 'name' ? 0 : 1));
+  }
+  return [...entries.values()].sort((a, b) => (position.get(a.id) ?? Infinity) - (position.get(b.id) ?? Infinity));
+}
