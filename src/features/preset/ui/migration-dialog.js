@@ -1,63 +1,91 @@
-// 双预设迁移候选窗口：只读快照规划、完整顺序预览、显式定位和分组选择，经回调一次应用到草稿。
+// 一键迁移窗口：折叠分组勾选、只读正文与编辑器样式预览，自动规划后一次应用到新版草稿。
 import { analyzeMigration, planMigration } from '../migration.js';
 import { findPromptOrderEntry } from '../core.js';
 
 let dialogSequence = 0;
-const kindNames = { unique: '旧版独有', similar: '疑似已有对应', 'same-content': '已有相同正文', ambiguous: '需核对' };
 const nameOf = item => String(item?.name || '未命名条目');
 const idOf = item => typeof item === 'string' ? item : item?.identifier;
+const orderRows = preset => new Map((findPromptOrderEntry({ ...preset, prompt_order: preset?.prompt_order || [] })?.order || []).map(row => [idOf(row), row]));
+const enabledOf = (prompt, rows) => {
+  const row = rows.get(prompt.identifier);
+  return row && typeof row === 'object' && typeof row.enabled === 'boolean' ? row.enabled : prompt.enabled !== false;
+};
 
-export function openMigrationDialog({ parent, source, target, sourceName, targetName, ignoreWhitespace = false, isCurrent, onApply, onClose }) {
+export function openMigrationDialog({ parent, source, target, targetPreview = target, sourceName, targetName, ignoreWhitespace = false, isCurrent, onApply, onClose }) {
   if (!parent?.isConnected || parent.querySelector('.pcm-migration-modal')) return { close() {} };
-  const doc = parent.ownerDocument, previousFocus = doc.activeElement;
+  const doc = parent.ownerDocument, previousFocus = doc.activeElement, sequence = ++dialogSequence;
+  let disclosureSequence = 0;
   const node = (tag, className = '', text) => {
     const element = doc.createElement(tag);
     element.className = className;
     if (text !== undefined) element.textContent = text;
     return element;
   };
-  const button = (text, key, action) => {
-    const element = node('button', 'menu_button', text);
+  const button = (text, key, action, className = 'menu_button') => {
+    const element = node('button', className, text);
     element.type = 'button'; element.setAttribute(`data-migration-${key}`, '');
     element.addEventListener('click', action); return element;
   };
-  const option = (value, text) => { const element = node('option', '', text); element.value = value; return element; };
-  const field = (text, control) => { const label = node('label', 'pcm-migration-field'); label.append(node('span', '', text), control); return label; };
-  const check = (text, checked = false) => {
-    const label = node('label', 'pcm-migration-check'), control = node('input');
-    control.type = 'checkbox'; control.checked = checked; label.append(control, node('span', '', text)); return { label, control };
+  const checkbox = (label, key, id) => {
+    const control = node('input', 'pcm-migration-checkbox'); control.type = 'checkbox';
+    control.setAttribute('aria-label', label); control.setAttribute(`data-migration-${key}`, id); return control;
   };
-  let disposed = false, stale = false, busy = false, plan = null, analysis;
-  let freshnessTimer;
-  const selected = new Set(), placements = Object.create(null), placementErrors = new Map(), rows = new Map(), groupControls = [];
+  function disclosure(control, body, caret) {
+    body.id = `pcm-migration-body-${sequence}-${++disclosureSequence}`;
+    control.setAttribute('aria-controls', body.id);
+    const sync = () => {
+      control.setAttribute('aria-expanded', String(!body.hidden));
+      if (caret) caret.textContent = body.hidden ? '▶' : '▼';
+    };
+    sync(); control.addEventListener('click', () => { body.hidden = !body.hidden; sync(); });
+  }
+  function promptDisclosure(control, container, prompt, key) {
+    const body = node('pre', 'pcm-migration-content'); body.hidden = true;
+    body.setAttribute(`data-migration-${key}`, prompt.identifier); body.setAttribute('aria-label', `${nameOf(prompt)}正文（只读）`);
+    let mounted = false;
+    control.addEventListener('click', () => {
+      if (!mounted) { mounted = true; body.textContent = typeof prompt.content === 'string' && prompt.content ? prompt.content : '（空正文）'; }
+    });
+    disclosure(control, body); container.append(body);
+  }
+  function readonlySwitch(enabled, name, key, id, group = false) {
+    const control = node('span', group ? 'pcm-group-gate pcm-migration-readonly-switch' : `pcm-switch pcm-migration-readonly-switch ${enabled ? 'pcm-op-enabled' : 'pcm-op-disabled'}`);
+    control.setAttribute('role', 'switch'); control.setAttribute('aria-checked', String(enabled)); control.setAttribute('aria-readonly', 'true');
+    control.setAttribute('aria-label', `${name}开关（只读）`); control.setAttribute(`data-migration-${key}`, id);
+    control.title = `${enabled ? '已开启' : '已关闭'}（只读）`;
+    const track = node('span', group ? 'pcm-group-power-track' : 'pcm-switch-track');
+    track.append(node('span', group ? 'pcm-group-power-knob' : 'pcm-switch-knob')); control.append(track);
+    return control;
+  }
+  let disposed = false, stale = false, busy = false, plan = null, analysis, freshnessTimer;
+  const selected = new Set(), rows = new Map(), groupControls = [];
   const sourcePrompts = new Map((source?.prompts || []).map(prompt => [prompt.identifier, prompt]));
-  const targetPrompts = new Map((target?.prompts || []).map(prompt => [prompt.identifier, prompt]));
-  const targetGroups = (target?.extensions?.baibaiToolkit?.presetPromptGroups?.groups || []).filter(group => group?.id);
-  const order = findPromptOrderEntry({ ...target, prompt_order: target?.prompt_order || [] });
-  const targetIds = [...new Set([...(order?.order || []).map(idOf), ...(target?.prompts || []).map(prompt => prompt.identifier)])].filter(id => targetPrompts.has(id));
-  const injectedTargetIds = new Set((order?.order || []).map(idOf));
   const modal = node('dialog', 'pcm-modal pcm-migration-modal');
-  const title = node('h2', 'pcm-migration-title', '迁移新增条目');
-  title.id = `pcm-migration-title-${++dialogSequence}`; modal.setAttribute('aria-labelledby', title.id);
+  const title = node('h2', 'pcm-migration-title', '一键迁移');
+  title.id = `pcm-migration-title-${sequence}`; modal.setAttribute('aria-labelledby', title.id);
   const box = node('div', 'pcm-modal-box pcm-migration-box');
   const closeButton = button('关闭', 'close', close);
   const heading = node('div', 'pcm-migration-heading'); heading.append(title, closeButton);
   const direction = node('p', 'pcm-migration-direction', `${sourceName || '旧版预设'} → ${targetName || '新版预设'}`);
-  const explanation = node('p', 'pcm-migration-note', '“旧版独有”也可能是作者已移除的条目，请核对后选择。迁移只更新新版草稿，之后仍需保存预设。');
   const toolbar = node('div', 'pcm-migration-toolbar');
   const count = node('span', 'pcm-migration-count'); count.setAttribute('role', 'status');
-  toolbar.append(button('全选候选', 'select-all', () => selectAll(true)), button('清空', 'clear', () => selectAll(false)), count);
+  toolbar.append(button('全选', 'select-all', () => selectAll(true)), button('清空', 'clear', () => selectAll(false)), count);
   const issues = node('div', 'pcm-migration-issues'); issues.setAttribute('role', 'status'); issues.setAttribute('aria-live', 'polite');
   const errorBox = node('div', 'pcm-migration-error'); errorBox.setAttribute('role', 'alert'); errorBox.hidden = true;
   const list = node('div', 'pcm-migration-list');
   const preview = node('section', 'pcm-migration-preview'); preview.hidden = true; preview.setAttribute('aria-label', '迁移后完整顺序');
   const actions = node('div', 'pcm-migration-actions');
   const previewButton = button('预览', 'preview', showPreview);
+  const backButton = button('返回选择', 'preview-back', () => { selectionView(); previewButton.focus({ preventScroll: true }); }); backButton.hidden = true;
   const applyButton = button('一键迁移', 'apply', apply); applyButton.classList.add('pcm-primary');
-  actions.append(previewButton, applyButton);
-  box.append(heading, direction, explanation, toolbar, errorBox, issues, list, preview, actions); modal.append(box); parent.append(modal);
+  actions.append(backButton, previewButton, applyButton);
+  box.append(heading, direction, toolbar, errorBox, issues, list, preview, actions); modal.append(box); parent.append(modal);
 
   function reportError(message) { errorBox.textContent = message; errorBox.hidden = !message; }
+  function selectionView() {
+    list.hidden = false; toolbar.hidden = false; preview.hidden = true;
+    previewButton.hidden = false; backButton.hidden = true;
+  }
   function current() {
     if (disposed) return false;
     if (!stale) {
@@ -65,8 +93,8 @@ export function openMigrationDialog({ parent, source, target, sourceName, target
       catch { stale = true; }
     }
     if (stale) {
-      reportError('两侧预设、表单草稿或比较选项已变化，请关闭后重新打开迁移窗口。');
-      applyButton.disabled = true; previewButton.disabled = true; preview.hidden = true;
+      selectionView(); reportError('两侧预设、表单草稿或比较选项已变化，请关闭后重新打开迁移窗口。');
+      applyButton.disabled = true; previewButton.disabled = true;
     }
     return !stale;
   }
@@ -79,61 +107,78 @@ export function openMigrationDialog({ parent, source, target, sourceName, target
     onClose?.();
   }
   function parentClosed(event) { if (event.target === parent) close(); }
-  function selectAll(value) {
-    for (const candidate of analysis?.candidates || []) {
-      if (value) selected.add(candidate.id); else selected.delete(candidate.id);
-      rows.get(candidate.id).checkbox.checked = value;
+  function setSelected(ids, value) {
+    for (const id of ids) {
+      if (value) selected.add(id); else selected.delete(id);
+      rows.get(id).checkbox.checked = value;
     }
     recalculate();
   }
+  function selectAll(value) { setSelected((analysis?.candidates || []).map(candidate => candidate.id), value); }
   function recalculate() {
-    preview.hidden = true; preview.replaceChildren(); reportError('');
+    selectionView(); preview.replaceChildren(); reportError('');
     count.textContent = `已选 ${selected.size} / ${analysis?.candidates?.length || 0} 条`;
     for (const group of groupControls) {
       const n = group.ids.filter(id => selected.has(id)).length;
       group.control.checked = n === group.ids.length; group.control.indeterminate = n > 0 && n < group.ids.length;
     }
     plan = null;
-    try {
-      if (analysis) {
-        plan = planMigration(source, target, [...selected], { analysis, ignoreWhitespace, placements });
-        const localErrors = [...placementErrors].filter(([id]) => selected.has(id)).map(([, message]) => message);
-        if (localErrors.length) plan = { ...plan, errors: [...(plan.errors || []), ...localErrors] };
-      }
-    }
+    try { if (analysis) plan = planMigration(source, target, [...selected], { ignoreWhitespace }); }
     catch (error) { reportError(error?.message || '无法规划迁移，请重新打开。'); }
     issues.replaceChildren();
     const errors = [...new Set([...(analysis?.errors || []), ...(plan?.errors || [])])];
     for (const message of errors) issues.append(node('p', 'pcm-migration-problem', String(message)));
-    for (const message of plan?.warnings || []) issues.append(node('p', 'pcm-migration-warning', String(message)));
-    for (const [id, row] of rows) {
-      const entry = plan?.entries?.find(item => item.id === id);
-      const referenceName = referenceId => nameOf(targetPrompts.get(referenceId) || sourcePrompts.get(referenceId));
-      const location = entry?.injected === false ? '未注入，列于列表尾部'
-        : entry?.afterId != null ? `插入“${referenceName(entry.afterId)}”之后`
-        : entry?.beforeId != null ? `插入“${referenceName(entry.beforeId)}”之前`
-        : '放到列表末尾';
-      row.element.classList.toggle('is-selected', selected.has(id));
-      row.position.textContent = selected.has(id)
-        ? placementErrors.has(id) ? placementErrors.get(id)
-          : entry ? `${location}${entry.groupName ? ` · ${entry.groupName}` : ' · 未分组'}${entry.enabled === false ? ' · 条目关闭' : ''}${entry.reason ? `（${entry.reason}）` : ''}` : '待解决位置或分组冲突；可展开调整'
-        : analysis.candidates.find(candidate=>candidate.id===id)?.defaultReason || '未选择';
-    }
+    issues.hidden = !errors.length;
+    for (const [id, row] of rows) row.element.classList.toggle('is-selected', selected.has(id));
     applyButton.disabled = busy || !selected.size || !plan?.result || errors.length > 0;
     previewButton.disabled = !selected.size || !plan?.result || errors.length > 0;
     current();
   }
   function showPreview() {
     if (!current() || !plan?.result || previewButton.disabled) return;
-    preview.replaceChildren(node('h3', '', '迁移后完整顺序'), node('p', 'pcm-migration-note', '高亮为本次迁入；其余为新版既有条目。聊天深度等注入设置保留，列表位置不代表最终发送位置。'));
-    const ordered = node('ol', 'pcm-migration-preview-order');
+    preview.replaceChildren();
+    const pane = node('div', 'pcm-pane pcm-migration-preview-pane');
+    const ordered = node('div', 'pcm-list pcm-migration-preview-order'); pane.append(ordered); preview.append(pane);
+    const resultPrompts = new Map(plan.result.prompts.map(prompt => [prompt.identifier, prompt]));
+    const displayPrompts = new Map((targetPreview?.prompts || []).map(prompt => [prompt.identifier, prompt]));
+    const resultRows = orderRows(plan.result), displayRows = orderRows(targetPreview);
+    const meta = plan.result.extensions?.baibaiToolkit?.presetPromptGroups;
+    const groups = new Map((meta?.groups || []).map(group => [group.id, group]));
+    const blocks = [];
     for (const entry of plan.previewOrder || []) {
-      const item = node('li', entry.incoming ? 'is-incoming' : '');
-      item.append(node('span', 'pcm-migration-preview-name', nameOf(entry)));
-      const tags = [entry.incoming ? '本次迁入' : '', entry.groupName || '未分组', entry.injected === false ? '未注入' : ''].filter(Boolean);
-      item.append(node('span', 'pcm-migration-preview-meta', tags.join(' · '))); ordered.append(item);
+      const membership = meta?.prompts && Object.hasOwn(meta.prompts, entry.id) ? meta.prompts[entry.id] : null;
+      const group = groups.get(membership?.groupId), groupId = group?.id || '', injected = entry.injected !== false;
+      let block = blocks.at(-1);
+      if (!block || block.groupId !== groupId || block.injected !== injected) { block = { groupId, group, injected, entries: [] }; blocks.push(block); }
+      block.entries.push(entry);
     }
-    preview.append(ordered); preview.hidden = false; preview.scrollIntoView?.({ block: 'nearest' });
+    for (const block of blocks) {
+      const section = node('section', `pcm-group${block.group ? '' : ' pcm-ungrouped'}${block.injected ? '' : ' pcm-uninjected'}${block.group?.enabled === false ? ' pcm-group-power-off' : ''}`);
+      section.dataset.migrationPreviewGroup = block.groupId;
+      const head = node('header', 'pcm-group-head'), body = node('div', 'pcm-group-body');
+      const groupName = block.group?.name || '未分组';
+      const toggle = button('', 'preview-group-toggle', () => {}, 'pcm-group-toggle'); toggle.dataset.migrationPreviewGroupToggle = block.groupId;
+      const caret = node('span', 'pcm-group-caret'); caret.setAttribute('aria-hidden', 'true');
+      toggle.append(caret, node('span', 'pcm-group-title', block.injected ? groupName : `${groupName} · 未注入`), node('small', '', `${block.entries.length} 条`));
+      disclosure(toggle, body, caret); head.append(toggle);
+      if (block.group) { const groupActions = node('span', 'pcm-group-actions'); groupActions.append(readonlySwitch(block.group.enabled !== false, groupName, 'preview-group-enabled', block.groupId, true)); head.append(groupActions); }
+      section.append(head, body); ordered.append(section);
+      for (const entry of block.entries) {
+        const prompt = (!entry.incoming && displayPrompts.get(entry.id)) || resultPrompts.get(entry.id);
+        const enabled = enabledOf(prompt, entry.incoming ? resultRows : displayRows);
+        const row = node('article', `pcm-row pcm-migration-preview-row${enabled ? '' : ' pcm-row-disabled'}${entry.incoming ? ' is-incoming' : ''}`); row.dataset.migrationPreviewPrompt = entry.id;
+        const open = button('', 'preview-expand', () => {}, 'pcm-open'); open.dataset.migrationPreviewExpand = entry.id;
+        open.append(node('span', 'pcm-name', nameOf(prompt)));
+        const switchControl = readonlySwitch(enabled, nameOf(prompt), 'preview-enabled', entry.id);
+        row.append(open, switchControl);
+        if (entry.incoming) row.append(node('span', 'pcm-badge pcm-added', '本次迁入'));
+        else row.append(node('span', 'pcm-migration-preview-spacer'));
+        promptDisclosure(open, row, prompt, 'preview-body'); body.append(row);
+      }
+    }
+    list.hidden = true; toolbar.hidden = true; preview.hidden = false;
+    previewButton.hidden = true; backButton.hidden = false;
+    box.scrollTop = 0; backButton.focus({ preventScroll: true });
   }
   function apply() {
     if (busy || !current() || applyButton.disabled || !plan?.result) return;
@@ -144,106 +189,55 @@ export function openMigrationDialog({ parent, source, target, sourceName, target
     } catch (error) { reportError(error?.message || '迁移失败，未关闭当前窗口。'); }
     finally { busy = false; if (!disposed) { applyButton.disabled = !selected.size || !plan?.result || !!plan?.errors?.length || !!analysis?.errors?.length; current(); } }
   }
-  function detailsFor(candidate, details) {
-    const sourcePrompt = sourcePrompts.get(candidate.id);
-    const compare = node('div', 'pcm-migration-content');
-    const content = (titleText, prompt) => {
-      const block = node('section'); block.append(node('h4', '', titleText), node('pre', '', typeof prompt?.content === 'string' && prompt.content ? prompt.content : '（空正文）')); compare.append(block);
-    };
-    content(`旧版：${nameOf(sourcePrompt)}`, sourcePrompt);
-    for (const match of candidate.matches || []) content(`新版对应：${nameOf(match)}`, targetPrompts.get(match.id));
-    const placement = node('div', 'pcm-migration-placement');
-    const mode = node('select'); mode.dataset.migrationPositionMode = candidate.id;
-    mode.setAttribute('aria-label', `“${candidate.name}”插入位置`);
-    mode.append(option('auto', '自动定位'), option('before', '放到条目前'), option('after', '放到条目后'), option('append', '明确放到列表末尾'));
-    const anchor = node('select'); anchor.dataset.migrationAnchor = candidate.id;
-    anchor.setAttribute('aria-label', `“${candidate.name}”参照条目`); anchor.disabled = true;
-    anchor.append(option('', '请选择目标条目'));
-    for (const [index, id] of targetIds.entries()) if (injectedTargetIds.has(id)) anchor.append(option(id, `${index + 1}. ${nameOf(targetPrompts.get(id))}`));
-    const group = node('select'); group.dataset.migrationGroup = candidate.id;
-    group.setAttribute('aria-label', `“${candidate.name}”目标分组`);
-    group.append(option('auto', '沿用来源分组'), option('ungrouped', '未分组'));
-    for (const [index, entry] of targetGroups.entries()) group.append(option(`group-${index}`, `${entry.name || '未命名分组'}${entry.enabled === false ? '（组已关闭）' : ''}`));
-    const accept = check('接受目标分组开关状态（不改变组内其他条目）'); accept.control.dataset.migrationAcceptGroupState = candidate.id;
-    const groupNote = node('p', 'pcm-migration-note');
-    function change() {
-      const value = Object.create(null);
-      anchor.disabled = !['before', 'after'].includes(mode.value);
-      placementErrors.delete(candidate.id);
-      if (mode.value === 'append') value.beforeId = null;
-      else if (mode.value === 'before' && anchor.value) value.beforeId = anchor.value;
-      else if (mode.value === 'after' && anchor.value) value.afterId = anchor.value;
-      if (!anchor.disabled && !anchor.value) placementErrors.set(candidate.id, `请为“${nameOf(candidate)}”选择目标参照条目。`);
-      if (group.value === 'ungrouped') value.groupId = '';
-      else if (group.value.startsWith('group-')) value.groupId = String(targetGroups[Number(group.value.slice(6))].id);
-      if (accept.control.checked) value.acceptGroupState = true;
-      placements[candidate.id] = value; updateGroupNote(); recalculate();
-    }
-    function updateGroupNote() {
-      const destination = group.value.startsWith('group-') ? targetGroups[Number(group.value.slice(6))] : group.value === 'auto' ? targetGroups.find(item => String(item.id) === String(candidate.sourceGroup?.id)) : null;
-      const sourceEnabled = candidate.sourceGroup?.enabled !== false;
-      groupNote.textContent = `来源分组：${candidate.sourceGroup?.name || '未分组'}${sourceEnabled ? '' : '（组已关闭）'}。${destination ? `目标分组${destination.enabled === false ? '已关闭' : '已开启'}。${(destination.enabled !== false) !== sourceEnabled ? '开关状态不同，须确认接受或改选分组。' : ''}` : '沿用来源时，缺失的组按规划新建；已有目标组保持原状。'}`;
-    }
-    for (const control of [mode, anchor, group, accept.control]) control.addEventListener('change', change);
-    placement.append(field('插入方式', mode), field('目标参照', anchor), field('目标分组', group), groupNote, accept.label);
-    if (candidate.injected === false) {
-      mode.disabled = true; anchor.disabled = true;
-      placement.prepend(node('p', 'pcm-migration-note', '此条目未注入，保留未注入状态并按来源顺序列在尾部。'));
-    }
-    updateGroupNote(); details.append(placement, compare);
-  }
   try { analysis = analyzeMigration(source, target, { ignoreWhitespace }); }
   catch (error) { analysis = { candidates: [], errors: [error?.message || '分析失败，请重新打开。'] }; }
   const groups = new Map();
   for (const candidate of analysis.candidates || []) {
     const key = candidate.sourceGroup?.id || '';
-    if (!groups.has(key)) groups.set(key, { name: candidate.sourceGroup?.name || '未分组', candidates: [] });
+    if (!groups.has(key)) groups.set(key, { id: key, name: candidate.sourceGroup?.name || '未分组', candidates: [] });
     groups.get(key).candidates.push(candidate);
   }
   for (const group of groups.values()) {
-    const section = node('section', 'pcm-migration-group');
-    const groupCheck = check(`${group.name} · ${group.candidates.length} 条`); groupCheck.label.classList.add('pcm-migration-group-title');
-    const ids = group.candidates.map(candidate => candidate.id); groupControls.push({ control: groupCheck.control, ids });
-    groupCheck.control.addEventListener('change', () => {
-      for (const id of ids) { if (groupCheck.control.checked) selected.add(id); else selected.delete(id); rows.get(id).checkbox.checked = groupCheck.control.checked; }
-      recalculate();
-    });
-    section.append(groupCheck.label);
+    const section = node('section', 'pcm-migration-group'); section.dataset.migrationCandidateGroup = group.id;
+    const head = node('header', 'pcm-migration-group-head'), body = node('div', 'pcm-migration-group-body');
+    const groupCheck = checkbox(`选择分组“${group.name}”全部条目`, 'group-select', group.id);
+    const toggle = button('', 'group-toggle', () => {}, 'pcm-migration-group-toggle'); toggle.dataset.migrationGroupToggle = group.id;
+    const caret = node('span', 'pcm-migration-caret'); caret.setAttribute('aria-hidden', 'true');
+    toggle.append(caret, node('span', '', group.name), node('small', '', `${group.candidates.length} 条`)); disclosure(toggle, body, caret);
+    const ids = group.candidates.map(candidate => candidate.id); groupControls.push({ control: groupCheck, ids });
+    groupCheck.addEventListener('change', () => setSelected(ids, groupCheck.checked));
+    head.append(groupCheck, toggle); section.append(head, body);
     for (const candidate of group.candidates) {
-      if (candidate.defaultSelected) selected.add(candidate.id);
       const row = node('article', 'pcm-migration-candidate'); row.dataset.migrationCandidate = candidate.id;
-      const selection = check(nameOf(candidate), !!candidate.defaultSelected); selection.control.dataset.migrationSelect = candidate.id;
-      selection.control.addEventListener('change', () => { if (selection.control.checked) selected.add(candidate.id); else selected.delete(candidate.id); recalculate(); });
-      const badges = node('span', 'pcm-migration-badges', `${kindNames[candidate.kind] || '需核对'}${candidate.injected === false ? ' · 未注入' : ''}`);
-      const position = node('p', 'pcm-migration-position');
-      const details = node('details', 'pcm-migration-details');
-      details.append(node('summary', '', '查看正文与调整位置'));
-      let mounted = false;
-      details.addEventListener('toggle', () => { if (details.open && !mounted) { mounted = true; detailsFor(candidate, details); } });
-      if (candidate.kind !== 'unique') row.append(node('p', 'pcm-migration-note', '勾选即表示仍作为独立条目迁移，请先核对两边正文。'));
-      row.prepend(selection.label, badges); row.append(position, details); section.append(row);
-      rows.set(candidate.id, { element: row, checkbox: selection.control, position });
+      const check = checkbox(`选择“${candidate.name}”`, 'select', candidate.id);
+      check.checked = candidate.defaultSelected; if (check.checked) selected.add(candidate.id);
+      check.addEventListener('change', () => setSelected([candidate.id], check.checked));
+      const header = node('div', 'pcm-migration-candidate-head');
+      const open = button(candidate.name, 'expand', () => {}, 'pcm-migration-name'); open.dataset.migrationExpand = candidate.id;
+      header.append(check, open); row.append(header);
+      promptDisclosure(open, row, sourcePrompts.get(candidate.id), 'body'); body.append(row);
+      rows.set(candidate.id, { element: row, checkbox: check });
     }
     list.append(section);
   }
-  if (!analysis.candidates?.length) list.append(node('p', 'pcm-migration-note', '没有可迁移的来源候选。相同标识的既有条目不会覆盖。'));
+  if (!analysis.candidates?.length) list.append(node('p', 'pcm-migration-note', '没有可迁移的已注入条目。'));
+  // Editor delegation is deliberately isolated: preview rows have no editing or drag data attributes.
+  for (const eventName of ['click', 'change', 'pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'touchstart', 'touchmove', 'touchend', 'touchcancel', 'dragstart', 'dragover', 'drop']) modal.addEventListener(eventName, event => event.stopPropagation());
   modal.addEventListener('keydown', event => {
     if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); close(); }
     else if (event.key === 'Tab') {
-      const focusable = [...modal.querySelectorAll('button,input,select,summary,[tabindex="0"]')].filter(element => !element.disabled && element.getClientRects().length);
+      const focusable = [...modal.querySelectorAll('button,input,[tabindex="0"]')].filter(element => !element.disabled && element.getClientRects().length);
       const first = focusable[0], last = focusable.at(-1);
       if (event.shiftKey && doc.activeElement === first) { event.preventDefault(); last?.focus(); }
       else if (!event.shiftKey && doc.activeElement === last) { event.preventDefault(); first?.focus(); }
     }
   });
   modal.addEventListener('cancel', event => { event.preventDefault(); event.stopPropagation(); close(); });
-  modal.addEventListener('close', close);
-  parent.addEventListener('close', parentClosed);
+  modal.addEventListener('close', close); parent.addEventListener('close', parentClosed);
   recalculate();
   if (typeof modal.showModal === 'function') modal.showModal(); else modal.setAttribute('open', '');
-  closeButton.focus({ preventScroll: true });
-  modal.addEventListener('focusin', current);
-  // Large preset snapshots are checked on interaction and immediately before apply, not every idle tick.
+  closeButton.focus({ preventScroll: true }); modal.addEventListener('focusin', current);
+  // Large preset snapshots are checked on interaction and before apply, not on idle ticks.
   freshnessTimer = setInterval(() => { if (!parent.isConnected) close(); }, 1000);
   return { close };
 }

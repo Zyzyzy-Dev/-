@@ -75,7 +75,7 @@ function evidence(source,target,loose) {
     for(const list of [...fuzzy.values(),...reverse.values()])list.sort((a,b)=>b.score-a.score);
     const candidates=[];
     for(const id of s.ordered){
-        const prompt=s.map.get(id);if(t.map.has(id)||prompt.marker)continue;
+        const prompt=s.map.get(id);if(!s.rows.has(id)||t.map.has(id)||prompt.marker)continue;
         const same=exact.get(id)||[],near=fuzzy.get(id)||[],eligible=near.filter(x=>x.eligible);
         const sameName=[...t.map.values()].filter(p=>String(prompt.name||'').trim()&&normalize(String(p.name||''),loose).trim()===normalize(String(prompt.name||''),loose).trim());
         let kind='unique';const matches=new Map();
@@ -108,26 +108,30 @@ function resolve(data,candidate,placement={}) {
             for(let i=at-1;i>=0;i--){const matched=anchors.get(idOf(s.order[i]));if(matched&&t.rows.has(matched)){left=matched;break;}}
             for(let i=at+1;i<s.order.length;i++){const matched=anchors.get(idOf(s.order[i]));if(matched&&t.rows.has(matched)){right=matched;break;}}
             const li=t.order.findIndex(row=>idOf(row)===left),ri=t.order.findIndex(row=>idOf(row)===right);
-            if(left&&right&&li>=ri)errors.push(`“${name}”的前后参照顺序反转，请指定目标位置`);
+            if(left&&right&&li>=ri)errors.push(`“${name}”的前后参照顺序反转，无法自动定位，请取消勾选该条目`);
             else if(left||right){gap=left?li+1:ri;reason=left?`紧跟“${nameOf(t.map.get(left))}”之后`:`位于“${nameOf(t.map.get(right))}”之前`;if(!left||!right)warnings.push(`“${name}”仅有单侧位置参照`);}
-            else errors.push(`“${name}”没有可靠位置参照，请指定目标位置`);
+            else errors.push(`“${name}”没有可靠位置参照，无法自动定位，请取消勾选该条目`);
         }
     } else if(before||after)warnings.push(`“${name}”未注入，目标位置不创建生效顺序记录`);
     const sourceGroup=s.groupFor(id),explicitGroup=Object.hasOwn(placement,'groupId');
     if(explicitGroup){if(placement.groupId&&placement.groupId!=='__ungrouped'){group=t.groups.get(placement.groupId);if(!group)errors.push(`“${name}”的目标分组已不存在`);}}
     else if(sourceGroup){
-        group=t.groups.get(sourceGroup.id)||sourceGroup;
-        if(!t.groups.has(sourceGroup.id)&&[...t.groups.values()].some(g=>String(g.name||'').trim()===String(sourceGroup.name||'').trim()))errors.push(`“${name}”存在同名但标识不同的分组，请选择目标分组`);
+        group=t.groups.get(sourceGroup.id);
+        if(!group){
+            const matches=[...t.groups.values()].filter(g=>String(g.name||'').trim()===String(sourceGroup.name||'').trim());
+            if(matches.length>1)errors.push(`“${name}”对应多个同名分组，无法自动归组，请取消勾选该条目`);
+            group=matches.length===1?matches[0]:sourceGroup;
+        }
     }
-    if((sourceGroup?.enabled!==false)!==(group?.enabled!==false)&&!placement.acceptGroupState)errors.push(`“${name}”迁入后的分组开关状态不同，请接受目标状态或选择其他分组`);
+    // Existing target groups are authoritative, including absent enabled fields; members retain their own switches.
     if(injected&&gap!==null){
         if(group&&t.groups.has(group.id)){
             const positions=t.ordered.flatMap((id,index)=>t.groupFor(id)?.id===group.id?[index]:[]);
-            if(positions.length&&(gap<positions[0]||gap>positions.at(-1)+1))errors.push(`“${name}”的位置与目标分组分离，请调整到该组内或选择其他分组`);
+            if(positions.length&&(gap<positions[0]||gap>positions.at(-1)+1))errors.push(`“${name}”的位置与目标分组分离，无法自动迁移，请取消勾选该条目`);
         }
         const leftGroups=new Set(t.ordered.slice(0,gap).map(id=>t.groupFor(id)?.id).filter(Boolean));
         const split=t.ordered.slice(gap).map(id=>t.groupFor(id)?.id).find(g=>g&&leftGroups.has(g)&&g!==group?.id);
-        if(split)errors.push(`“${name}”的位置会拆分目标已有分组，请选择分组边界或加入该组`);
+        if(split)errors.push(`“${name}”的位置会拆分目标已有分组，无法自动迁移，请取消勾选该条目`);
     }
     if(prompt.injection_position===1)warnings.push(`“${name}”是聊天深度条目，列表位置不等于最终发送位置`);
     const row=s.rows.get(id),enabled=typeof row==='object'&&row!==null&&Object.hasOwn(row,'enabled')?row.enabled:prompt.enabled!==false;
@@ -136,7 +140,7 @@ function resolve(data,candidate,placement={}) {
 
 function globalErrors(resolutions) {
     const errors=[];let previous=-1;
-    for(const r of resolutions){if(!r.entry.injected||r.gap===null)continue;if(r.gap<previous)errors.push(`“${r.entry.name}”与其他选中区段的来源顺序冲突，请重新指定位置或减少选择`);previous=r.gap;}
+    for(const r of resolutions){if(!r.entry.injected||r.gap===null)continue;if(r.gap<previous)errors.push(`“${r.entry.name}”与其他选中区段的来源顺序冲突，请减少选择`);previous=r.gap;}
     // A newly copied group must remain a single block, without splitting another incoming/target group.
     return errors;
 }
@@ -152,7 +156,7 @@ export function analyzeMigration(source,target,{ignoreWhitespace=false}={}) {
     // Exclude both sides of every inversion, without choosing an arbitrary winning segment.
     const conflicts=new Set(),injected=defaults.filter(r=>r.entry.injected&&r.gap!==null);
     for(let i=0;i<injected.length;i++)for(let j=i+1;j<injected.length;j++)if(injected[i].gap>injected[j].gap){conflicts.add(injected[i].entry.id);conflicts.add(injected[j].entry.id);}
-    for(const candidate of data.candidates)if(conflicts.has(candidate.id)){candidate.defaultSelected=false;candidate.defaultReason='与其他区段的来源顺序冲突，请查看正文与调整位置';}
+    for(const candidate of data.candidates)if(conflicts.has(candidate.id)){candidate.defaultSelected=false;candidate.defaultReason='与其他区段的来源顺序冲突，请核对后减少选择';}
     return {candidates:data.candidates,errors:data.errors};
 }
 
@@ -160,7 +164,7 @@ export function planMigration(source,target,selectedIds,{ignoreWhitespace=false,
     // Recompute evidence rather than trusting a stale or caller-edited analysis object.
     const data=evidence(source,target,ignoreWhitespace),chosen=new Set(selectedIds||[]),available=new Set(data.candidates.map(c=>c.id));
     const errors=[...data.errors],warnings=[],resolutions=[];
-    for(const id of chosen)if(!available.has(id))errors.push('所选条目已存在、属于内置标记或已变化，请重新分析');
+    for(const id of chosen)if(!available.has(id))errors.push('所选条目未注入、已存在、属于内置标记或已变化，请重新分析');
     for(const candidate of data.candidates)if(chosen.has(candidate.id)){
         const r=resolve(data,candidate,own(placements,candidate.id)||{});resolutions.push(r);errors.push(...r.errors);warnings.push(...r.warnings);
     }
@@ -176,7 +180,7 @@ export function planMigration(source,target,selectedIds,{ignoreWhitespace=false,
     // Reject non-contiguous newly created groups: preserving source order cannot silently fragment a group.
     for(const group of new Map(resolutions.filter(r=>r.group&&!data.t.groups.has(r.group.id)).map(r=>[r.group.id,r.group])).values()){
         const positions=full.map((id,i)=>incoming.get(id)?.groupId===group.id?i:-1).filter(i=>i>=0);
-        if(positions.length&&positions.at(-1)-positions[0]+1!==positions.length)errors.push(`新分组“${group.name||'未命名分组'}”跨越其他条目，请调整位置或选择目标分组`);
+        if(positions.length&&positions.at(-1)-positions[0]+1!==positions.length)errors.push(`新分组“${group.name||'未命名分组'}”跨越其他条目，无法自动迁移，请减少该组选择`);
     }
     plan.previewOrder=full.map(id=>{const entry=incoming.get(id);return{id,name:entry?.name||nameOf(data.t.map.get(id)),incoming:!!entry,groupName:entry?.groupName||String(data.t.groupFor(id)?.name||'未分组'),injected:entry?.injected??data.t.rows.has(id)};});
     if(errors.length)return plan;

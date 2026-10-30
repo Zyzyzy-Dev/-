@@ -48,10 +48,18 @@ test('single-sided references work with warnings',()=>{
  const source=preset(['x','A','y']),target=preset(['A']); const plan=planMigration(source,target,['x','y']);
  assert.deepEqual(plan.errors,[]);assert.deepEqual(ids(plan.result),['x','A','y']);assert.ok(plan.warnings.length);
 });
-test('un-injected items remain un-injected and are previewed at tail',()=>{
- const source=preset(['A'],['x','y']),target=preset(['A'],['tail']);const plan=planMigration(source,target,['y','x']);
- assert.deepEqual(plan.errors,[]);assert.deepEqual(ids(plan.result),['A']);
- assert.deepEqual(plan.previewOrder.map(x=>[x.id,x.injected]),[['A',true],['tail',false],['x',false],['y',false]]);
+test('un-injected source items are excluded and cannot be selected for migration',()=>{
+ const source=preset(['A','x'],['y']),target=preset(['A'],['tail']);
+ assert.deepEqual(analyzeMigration(source,target).candidates.map(c=>c.id),['x']);
+ const invalid=planMigration(source,target,['y']);assert.ok(invalid.errors.length);assert.equal(invalid.result,undefined);
+ const plan=planMigration(source,target,['x']);assert.deepEqual(plan.errors,[]);assert.deepEqual(ids(plan.result),['A','x']);
+ assert.deepEqual(plan.previewOrder.map(x=>[x.id,x.injected]),[['A',true],['x',true],['tail',false]]);
+ assert.equal(plan.result.prompts.some(p=>p.identifier==='y'),false);
+});
+test('disabled injected source items remain candidates and preserve their off state',()=>{
+ const source=preset(['A','x']),target=preset(['A']);source.prompt_order[0].order[1].enabled=false;
+ const analysis=analyzeMigration(source,target);assert.deepEqual(analysis.candidates.map(c=>[c.id,c.injected,c.defaultSelected]),[['x',true,true]]);
+ const plan=planMigration(source,target,['x']);assert.deepEqual(plan.errors,[]);assert.equal(plan.result.prompt_order[0].order[1].enabled,false);
 });
 test('ID wins, markers excluded, blank content and same names default unchecked',()=>{
  const source=preset(['A',p('marker',{marker:true}),p('blank',{content:''}),p('risk',{name:'same'})]);const target=preset(['A',p('other',{name:'same',content:'unrelated'})]);
@@ -86,19 +94,30 @@ test('malformed references and duplicate IDs block without repairing inputs',()=
 });
 test('missing prompt_order never mutated or silently injects tail',()=>{
  const source={prompts:[p('x')]},target={prompts:[p('A')]};const plan=planMigration(source,target,['x']);
- assert.deepEqual(plan.errors,[]);assert.equal(Object.hasOwn(source,'prompt_order'),false);assert.equal(Object.hasOwn(target,'prompt_order'),false);assert.equal(plan.previewOrder.find(x=>x.id==='x').injected,false);
+ assert.deepEqual(analyzeMigration(source,target).candidates,[]);assert.ok(plan.errors.length);assert.equal(plan.result,undefined);
+ assert.equal(Object.hasOwn(source,'prompt_order'),false);assert.equal(Object.hasOwn(target,'prompt_order'),false);
 });
 test('apply rejects changed inputs and invalid plans atomically',()=>{
  const source=preset(['A','x']),target=preset(['A']);const plan=planMigration(source,target,['x']);source.prompts[1].content='changed';assert.throws(()=>applyMigration(source,target,plan),/变化|变更|重新/);
  source.prompts[1].content='body x';target.temperature=1;assert.throws(()=>applyMigration(source,target,plan),/变化|变更|重新/);
  assert.throws(()=>applyMigration(source,target,{errors:['bad']}),/迁移|计划|bad/);
 });
-test('reuses target same-ID group only after accepting changed group gate',()=>{
+test('same-ID target group state is authoritative without explicit acceptance',()=>{
  const source=groups(preset(['A','x','B']),[{id:'g',name:'Source',enabled:false}],{x:{groupId:'g',custom:4}});
  const target=groups(preset(['A','B']),[{id:'g',name:'Target',enabled:true,custom:8}],{});
- assert.match(planMigration(source,target,['x']).errors.join(' '),/分组|开关/);
- const plan=planMigration(source,target,['x'],{placements:{x:{acceptGroupState:true}}});assert.deepEqual(plan.errors,[]);
+ const plan=planMigration(source,target,['x']);assert.deepEqual(plan.errors,[]);assert.equal(analyzeMigration(source,target).candidates[0].defaultSelected,true);
  const meta=plan.result.extensions.baibaiToolkit.presetPromptGroups;assert.deepEqual(meta.groups,target.extensions.baibaiToolkit.presetPromptGroups.groups);assert.deepEqual(meta.prompts.x,{groupId:'g',custom:4});assert.equal(plan.result.prompt_order[0].order[1].enabled,true);
+});
+test('closed and implicitly enabled target groups keep their exact metadata and member states',()=>{
+ for(const targetGroup of [{id:'g',name:'Target',enabled:false,custom:8},{id:'g',name:'Target',custom:9}]){
+  const source=groups(preset(['A','x','B']),[{id:'g',name:'Source',enabled:targetGroup.enabled===false}],{x:{groupId:'g'}});
+  const target=groups(preset(['A','B']),[targetGroup],{A:{groupId:'g',extra:7},B:{groupId:'g'}});target.prompt_order[0].order[1].enabled=false;
+  const before=JSON.stringify([source,target]);const plan=planMigration(source,target,['x']);assert.deepEqual(plan.errors,[]);
+  assert.deepEqual(plan.result.extensions.baibaiToolkit.presetPromptGroups.groups,[targetGroup]);
+  assert.deepEqual(plan.result.extensions.baibaiToolkit.presetPromptGroups.prompts.A,{groupId:'g',extra:7});
+  assert.deepEqual(plan.result.prompt_order[0].order.filter(x=>x.identifier!=='x'),target.prompt_order[0].order);
+  assert.equal(JSON.stringify([source,target]),before);
+ }
 });
 test('new group copied with selected metadata only while target groups and metadata survive',()=>{
  const source=groups(preset(['A','x','y','B']),[{id:'g',name:'New',enabled:false,unknown:3}],{x:{groupId:'g',custom:2},y:{groupId:'g'}});
@@ -107,12 +126,37 @@ test('new group copied with selected metadata only while target groups and metad
  const plan=planMigration(source,target,['x']);assert.deepEqual(plan.errors,[]);const meta=plan.result.extensions.baibaiToolkit.presetPromptGroups;
  assert.deepEqual(meta.groups[0],target.extensions.baibaiToolkit.presetPromptGroups.groups[0]);assert.equal(meta.groups[1].unknown,3);assert.equal(meta.prompts.y,undefined);assert.equal(meta.prompts.x.custom,2);assert.deepEqual(meta.prompts.A,{groupId:'old'});assert.deepEqual(plan.result.extensions.unrelated,{keep:true});
 });
-test('new groups cannot split existing groups and same-name different-ID needs choice',()=>{
+test('unique same-name target group is reused automatically even when its ID and state differ',()=>{
  const source=groups(preset(['A','x','B']),[{id:'g',name:'Same'}],{x:{groupId:'g'}});
- const target=groups(preset(['A','B']),[{id:'h',name:'Same'}],{A:{groupId:'h'},B:{groupId:'h'}});
- assert.ok(planMigration(source,target,['x']).errors.length);
- const explicit=planMigration(source,target,['x'],{placements:{x:{groupId:'h'}}});assert.deepEqual(explicit.errors,[]);
+ const target=groups(preset(['A','B']),[{id:'h',name:'Same',enabled:false,custom:8}],{A:{groupId:'h'},B:{groupId:'h'}});
+ const plan=planMigration(source,target,['x']);assert.deepEqual(plan.errors,[]);
+ assert.deepEqual(plan.result.extensions.baibaiToolkit.presetPromptGroups.groups,target.extensions.baibaiToolkit.presetPromptGroups.groups);
+ assert.equal(plan.result.extensions.baibaiToolkit.presetPromptGroups.prompts.x.groupId,'h');assert.equal(plan.entries[0].groupId,'h');
+ assert.equal(analyzeMigration(source,target).candidates[0].defaultSelected,true);
  const ungrouped=planMigration(source,target,['x'],{placements:{x:{groupId:'',beforeId:null}}});assert.deepEqual(ungrouped.errors,[]);
+});
+test('same-ID target group wins over another group with matching source name',()=>{
+ const source=groups(preset(['A','x']),[{id:'g',name:'Same',enabled:false}],{x:{groupId:'g'}});
+ const target=groups(preset(['A']),[{id:'g',name:'Renamed',enabled:true},{id:'h',name:'Same',enabled:false}],{A:{groupId:'g'}});
+ const plan=planMigration(source,target,['x']);assert.deepEqual(plan.errors,[]);assert.equal(plan.entries[0].groupId,'g');
+ assert.deepEqual(plan.result.extensions.baibaiToolkit.presetPromptGroups.groups,target.extensions.baibaiToolkit.presetPromptGroups.groups);
+});
+test('multiple same-name target groups block automatic grouping without choosing arbitrarily',()=>{
+ const source=groups(preset(['A','x']),[{id:'g',name:'Same'}],{x:{groupId:'g'}});
+ const target=groups(preset(['A']),[{id:'h1',name:'Same'},{id:'h2',name:'Same'}],{});
+ const analysis=analyzeMigration(source,target);assert.equal(analysis.candidates[0].defaultSelected,false);
+ const plan=planMigration(source,target,['x']);assert.match(plan.errors.join(' '),/分组/);assert.equal(plan.result,undefined);
+});
+test('automatic diagnostics do not point users to removed placement controls',()=>{
+ for(const [source,target,chosen] of [
+  [preset(['x']),preset(['A']),['x']],
+  [preset(['A','x','B']),preset(['B','A']),['x']],
+  [preset(['A','x','B','C','y','D']),preset(['C','D','A','B']),['x','y']],
+  [groups(preset(['A','x','B','y','C']),[{id:'g',name:'New'}],{x:{groupId:'g'},y:{groupId:'g'}}),preset(['A','B','C']),['x','y']],
+ ]){
+  const plan=planMigration(source,target,chosen);assert.ok(plan.errors.length);assert.doesNotMatch(plan.errors.join(' '),/指定|调整位置|选择目标分组/);
+  assert.doesNotMatch(analyzeMigration(source,target).candidates.map(c=>c.defaultReason).join(' '),/指定|调整位置|选择目标分组/);
+ }
 });
 test('unknown selected IDs, stale placements and invalid groups reject',()=>{
  const source=preset(['A','x']),target=preset(['A']);
