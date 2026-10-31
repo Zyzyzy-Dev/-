@@ -896,10 +896,11 @@ async function saveSnapshotSettings(env, verifySwitches = false, reasoning = nul
   if (!verifyOnly) await env.script.saveSettings();
   // Native saveSettings can return before a debounced save, or swallow a write failure.
   // Wait by reading only: never retry a write that could overwrite another editor's changes.
-  const deadline = Date.now() + 8000;
+  // 请求与重试共用 20 秒预算；正常读取一旦匹配即返回。
+  const deadline = Date.now() + 20000;
   let mismatch = '未确认快照保存成功：回读内容与本次快照不一致。请等待酒馆完成保存后重试；若持续出现，请刷新后核对快照是否存在';
   let unreadable = null;
-  for (const delay of [0, 250, 750, 1500, 1500]) {
+  for (const delay of [0, 250, 750, 1500, 1500, 3000, 5000, 7000]) {
     if (Date.now() + delay >= deadline) break;
     if (delay) await new Promise(resolve => setTimeout(resolve, delay));
     const remaining = deadline - Date.now();

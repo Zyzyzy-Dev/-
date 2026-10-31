@@ -49,7 +49,7 @@ for(const operation of operations){
     const h=fixture({readMode:'unavailable'}),payload={...operation.payload(h),contextKey:await h.key()};
     const result=await h.api(operation.method,payload);operation.check(result,h);
     assert.equal(result.persistence?.verified,false);assert.ok(result.persistence.message);
-    assert.equal(h.writes,1);assert.ok(h.reads>=1&&h.reads<=5);
+    assert.equal(h.writes,1);assert.ok(h.reads>=1&&h.reads<=8);
     assert.deepEqual(h.env.extensions.extension_settings,h.disk.extension_settings);
     const listed=await h.api('snapshot-list',{});operation.check(listed,h);assert.equal(listed.persistence?.verified,false);assert.equal(h.writes,1);
   });
@@ -63,7 +63,7 @@ for(const operation of operations){
 test('宿主吞掉写入失败但完整磁盘内容持续不匹配时拒绝并回滚',async()=>{
   const h=fixture({writeMode:'swallow'}),before=structuredClone(h.env.extensions.extension_settings);
   await assert.rejects(h.api('snapshot-rename',{id:'a',name:'不会落盘'}),/未确认|不一致/);
-  assert.deepEqual(h.env.extensions.extension_settings,before);assert.equal(h.writes,1);assert.ok(h.reads>1&&h.reads<=5);
+  assert.deepEqual(h.env.extensions.extension_settings,before);assert.equal(h.writes,1);assert.ok(h.reads>1&&h.reads<=8);
 });
 test('重新核对只读取，不重复写入；读取恢复一致后清除待核对状态',async()=>{
   const h=fixture({readMode:'unavailable'});await h.api('snapshot-rename',{id:'a',name:'已落盘'});

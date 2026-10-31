@@ -499,7 +499,6 @@ function rememberInlineDraft(prompt,form,side){
   refreshDraftIndicators(side,prompt.identifier);
 }
 // 双栏迁移入口与分组操作；沿用当前草稿，既有条目对象保持以保护WeakMap表单草稿。
-const MIGRATION_ARROW='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6"/></svg>';
 const GROUP_EDIT_ICON='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15z"/></svg>';
 const GROUP_DELETE_ICON='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7"/></svg>';
 let migrationDialog=null;
@@ -545,7 +544,7 @@ function setSummaryText(summary,text,side){
   if(!check){check=btn('检查','check-preset','pcm-check-launch',side);check.setAttribute('aria-label','结构检查');check.title='检查当前侧启用预设的标签、宏与符号';summary.append(check);}
   check.disabled=!state[side];
   let warning=summary.querySelector('[data-action=toggle-draft-markers]');if(!warning){warning=btn('','toggle-draft-markers','pcm-draft-toggle',side);warning.innerHTML=DRAFT_WARNING_SVG;warning.setAttribute('aria-label','显示条目未保存标记');warning.title='显示尚未在条目内保存的编辑；不表示结构错误';summary.insertBefore(warning,check);}
-  if(side==='old'){let migrate=summary.querySelector('[data-action=migrate-added]');if(!migrate){migrate=iconBtn('migrate-added','迁移新增条目到新版',MIGRATION_ARROW,'pcm-migration-launch');summary.insertBefore(migrate,warning);}migrate.hidden=!!singleSide;migrate.disabled=!state.old||!state.new;}
+  if(side==='old'){let migrate=summary.querySelector('[data-action=migrate-added]');if(!migrate){migrate=btn('一键迁移','migrate-added','pcm-migration-launch');migrate.title='迁移新增条目到新版';summary.insertBefore(migrate,warning);}migrate.hidden=!!singleSide;migrate.disabled=!state.old||!state.new;}
   syncDraftControls();
 }
 
