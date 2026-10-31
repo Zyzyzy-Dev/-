@@ -1,4 +1,4 @@
-// 一键迁移窗口：折叠分组勾选、只读正文与编辑器样式预览，自动规划后一次应用到新版草稿。
+// 一键迁移窗口：固定顶栏、分组勾选与只读预览定位，自动规划后一次应用到新版草稿。
 import { analyzeMigration, planMigration } from '../migration.js';
 import { findPromptOrderEntry } from '../core.js';
 
@@ -58,6 +58,7 @@ export function openMigrationDialog({ parent, source, target, targetPreview = ta
     return control;
   }
   let disposed = false, stale = false, busy = false, plan = null, analysis, freshnessTimer;
+  let quickTargets = [], quickIndex = -1;
   const selected = new Set(), rows = new Map(), groupControls = [];
   const sourcePrompts = new Map((source?.prompts || []).map(prompt => [prompt.identifier, prompt]));
   const modal = node('dialog', 'pcm-modal pcm-migration-modal');
@@ -65,8 +66,11 @@ export function openMigrationDialog({ parent, source, target, targetPreview = ta
   title.id = `pcm-migration-title-${sequence}`; modal.setAttribute('aria-labelledby', title.id);
   const box = node('div', 'pcm-modal-box pcm-migration-box');
   const closeButton = button('关闭', 'close', close);
-  const heading = node('div', 'pcm-migration-heading'); heading.append(title, closeButton);
+  const quickButton = button('快捷查看', 'quick', quickView); quickButton.hidden = true;
+  const headingActions = node('div', 'pcm-migration-heading-actions'); headingActions.append(quickButton, closeButton);
+  const heading = node('div', 'pcm-migration-heading'); heading.append(title, headingActions);
   const direction = node('p', 'pcm-migration-direction', `${sourceName || '旧版预设'} → ${targetName || '新版预设'}`);
+  const header = node('header', 'pcm-migration-header'); header.append(heading, direction);
   const toolbar = node('div', 'pcm-migration-toolbar');
   const count = node('span', 'pcm-migration-count'); count.setAttribute('role', 'status');
   toolbar.append(button('全选', 'select-all', () => selectAll(true)), button('清空', 'clear', () => selectAll(false)), count);
@@ -79,12 +83,25 @@ export function openMigrationDialog({ parent, source, target, targetPreview = ta
   const backButton = button('返回选择', 'preview-back', () => { selectionView(); previewButton.focus({ preventScroll: true }); }); backButton.hidden = true;
   const applyButton = button('一键迁移', 'apply', apply); applyButton.classList.add('pcm-primary');
   actions.append(backButton, previewButton, applyButton);
-  box.append(heading, direction, toolbar, errorBox, issues, list, preview, actions); modal.append(box); parent.append(modal);
+  box.append(header, toolbar, errorBox, issues, list, preview, actions); modal.append(box); parent.append(modal);
 
   function reportError(message) { errorBox.textContent = message; errorBox.hidden = !message; }
   function selectionView() {
     list.hidden = false; toolbar.hidden = false; preview.hidden = true;
     previewButton.hidden = false; backButton.hidden = true;
+    quickButton.hidden = true; quickTargets = []; quickIndex = -1;
+  }
+  function quickView() {
+    if (!current() || preview.hidden || !quickTargets.length) return;
+    quickTargets[quickIndex]?.row.classList.remove('is-quick-current');
+    quickIndex = (quickIndex + 1) % quickTargets.length;
+    const { row, body, toggle } = quickTargets[quickIndex];
+    if (body.hidden) toggle.click();
+    row.classList.add('is-quick-current');
+    quickButton.textContent = `快捷查看${quickIndex + 1}/${quickTargets.length}`;
+    quickButton.title = `已定位第 ${quickIndex + 1} 条；再次点击查看第 ${(quickIndex + 1) % quickTargets.length + 1} 条`;
+    // 仅滚动本窗口，避开固定顶栏；保留按钮焦点以便连续键盘/触屏操作。
+    box.scrollTop += row.getBoundingClientRect().top - header.getBoundingClientRect().bottom - 8;
   }
   function current() {
     if (disposed) return false;
@@ -136,7 +153,7 @@ export function openMigrationDialog({ parent, source, target, targetPreview = ta
   }
   function showPreview() {
     if (!current() || !plan?.result || previewButton.disabled) return;
-    preview.replaceChildren();
+    preview.replaceChildren(); quickTargets = []; quickIndex = -1;
     const pane = node('div', 'pcm-pane pcm-migration-preview-pane');
     const ordered = node('div', 'pcm-list pcm-migration-preview-order'); pane.append(ordered); preview.append(pane);
     const resultPrompts = new Map(plan.result.prompts.map(prompt => [prompt.identifier, prompt]));
@@ -174,10 +191,14 @@ export function openMigrationDialog({ parent, source, target, targetPreview = ta
         if (entry.incoming) row.append(node('span', 'pcm-badge pcm-added', '本次迁入'));
         else row.append(node('span', 'pcm-migration-preview-spacer'));
         promptDisclosure(open, row, prompt, 'preview-body'); body.append(row);
+        if (entry.incoming) quickTargets.push({ row, body, toggle });
       }
     }
     list.hidden = true; toolbar.hidden = true; preview.hidden = false;
     previewButton.hidden = true; backButton.hidden = false;
+    quickButton.hidden = !quickTargets.length;
+    quickButton.textContent = `快捷查看1/${quickTargets.length}`;
+    quickButton.title = '点击查看第 1 条迁入条目；再次点击依次查看，末尾回到第 1 条';
     box.scrollTop = 0; backButton.focus({ preventScroll: true });
   }
   function apply() {
