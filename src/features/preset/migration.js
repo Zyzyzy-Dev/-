@@ -1,5 +1,6 @@
 // 两份预设的纯迁移分析、位置规划和原子应用；不读取DOM或外部数据。
 import { clone, findPromptOrderEntry } from './core.js';
+import {comparePromptPairs} from './prompt-pairs.js';
 
 const idOf = item => typeof item === 'string' ? item : item?.identifier;
 const metaOf = preset => preset?.extensions?.baibaiToolkit?.presetPromptGroups;
@@ -89,6 +90,16 @@ function evidence(source,target,loose) {
         if(sameName.length||repeatedName)kind='ambiguous';
         const group=s.groupFor(id);
         candidates.push({id,name:nameOf(prompt),kind,matches:[...matches.values()],sourceGroup:group?{id:group.id,name:String(group.name||'未命名分组'),enabled:group.enabled!==false}:null,injected:s.rows.has(id),defaultSelected:false});
+    }
+    // Candidate copying remains opt-in; only verified, non-fuzzy pairs may anchor placement.
+    // In particular a reused numeric slot must not point to an unrelated target neighbour.
+    anchors.clear();
+    if(!errors.length){
+        const pairs=comparePromptPairs(source,target,{ignoreWhitespace:loose});
+        for(const p of pairs.old.values())if(p.newId&&p.kind!=='similar')anchors.set(p.oldId,p.newId);
+        for(const c of candidates){const p=pairs.old.get(c.id);if(c.kind==='unique'&&(p?.newId||p?.status==='uncertain')){
+            c.kind='ambiguous';if(p.newId)c.matches.push({id:p.newId,name:nameOf(t.map.get(p.newId)),kind:'corresponding'});
+        }}
     }
     return {s,t,anchors,candidates,errors};
 }
