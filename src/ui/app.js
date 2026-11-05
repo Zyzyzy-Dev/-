@@ -400,14 +400,20 @@ function openAddedMigration(){
  migrationDialog=openMigrationDialog({parent:document.getElementById(APP_ID+'-dialog'),source,target,targetPreview,sourceName:state.oldName,targetName:state.newName,ignoreWhitespace,isCurrent,onClose:()=>{migrationDialog=null;},onApply:plan=>{
   if(!isCurrent())throw Error('预设或编辑内容已变化，请关闭窗口后重新分析');
   const next=applyMigration(source,target,plan),existing=new Map(newPreset.prompts.map(p=>[p.identifier,p]));
-  next.prompts=next.prompts.map(p=>existing.get(p.identifier)||p);
+  next.prompts=next.prompts.map(p=>{
+    const original=existing.get(p.identifier);if(!original)return p;
+    if(original.enabled===p.enabled)return original;
+    // Only a manually toggled un-injected row changes prompt.enabled. Preserve its unsaved form.
+    if(inlineDrafts.has(original))inlineDrafts.set(p,inlineDrafts.get(original));
+    return p;
+  });
   if(Array.isArray(newPreset.extensions?.regex_scripts))next.extensions.regex_scripts=newPreset.extensions.regex_scripts;
   const variables=variablePanels.get('new');if(variables){variables.panel.destroy();variablePanels.delete('new');if(variablePanel===variables.panel)variablePanel=null;}
   pushUndo({type:'migration',side:'new',before:newPreset,after:next,savedRevision:getTextReplaceLineage(newPreset).savedRevision,dirtyBefore:state.dirty.new,modifiedBefore:[...state.modified.new],draggedBefore:[...state.dragged.new]});
   textReplaceLineages.set(next,getTextReplaceLineage(newPreset));state.new=next;state.dirty.new=true;
   for(const entry of plan.entries)state.dragged.new.add(entry.id);
   state.activeId=null;state.activeSide=null;hideCompare();rebuildCache();renderAll();
-  pcmToastr.success('已迁移 '+plan.entries.length+' 条到新版草稿，可整批撤回；保存或导出后生效');return true;
+  pcmToastr.success(`新版草稿：迁入 ${plan.entries.length} 条，调整 ${plan.switchCount||0} 个开关，可整批撤回`);return true;
  }});
 }
 function appendPresetGroupActions(actions,section,group,side){

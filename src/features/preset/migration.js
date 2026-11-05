@@ -106,7 +106,7 @@ function evidence(source,target,loose) {
 
 function resolve(data,candidate,placement={}) {
     const {s,t,anchors}=data,{id,name,injected}=candidate,prompt=s.map.get(id),errors=[],warnings=[];
-    let gap=null,reason='未注入，保持列表尾部',group=null;
+    let gap=null,reason='未注入，保持列表尾部',group=null,lower=0,upper=t.order.length,hasLeft=false,boundaryFallback=false;
     const before=Object.hasOwn(placement,'beforeId'),after=Object.hasOwn(placement,'afterId');
     if(before&&after)errors.push(`“${name}”只能选择一个目标位置`);
     if(injected){
@@ -119,6 +119,7 @@ function resolve(data,candidate,placement={}) {
             for(let i=at-1;i>=0;i--){const matched=anchors.get(idOf(s.order[i]));if(matched&&t.rows.has(matched)){left=matched;break;}}
             for(let i=at+1;i<s.order.length;i++){const matched=anchors.get(idOf(s.order[i]));if(matched&&t.rows.has(matched)){right=matched;break;}}
             const li=t.order.findIndex(row=>idOf(row)===left),ri=t.order.findIndex(row=>idOf(row)===right);
+            hasLeft=!!left;lower=left?li+1:0;upper=right?ri:t.order.length;
             if(left&&right&&li>=ri)errors.push(`“${name}”的前后参照顺序反转，无法自动定位，请取消勾选该条目`);
             else if(left||right){gap=left?li+1:ri;reason=left?`紧跟“${nameOf(t.map.get(left))}”之后`:`位于“${nameOf(t.map.get(right))}”之前`;if(!left||!right)warnings.push(`“${name}”仅有单侧位置参照`);}
             else errors.push(`“${name}”没有可靠位置参照，无法自动定位，请取消勾选该条目`);
@@ -140,13 +141,26 @@ function resolve(data,candidate,placement={}) {
             const positions=t.ordered.flatMap((id,index)=>t.groupFor(id)?.id===group.id?[index]:[]);
             if(positions.length&&(gap<positions[0]||gap>positions.at(-1)+1))errors.push(`“${name}”的位置与目标分组分离，无法自动迁移，请取消勾选该条目`);
         }
-        const leftGroups=new Set(t.ordered.slice(0,gap).map(id=>t.groupFor(id)?.id).filter(Boolean));
-        const split=t.ordered.slice(gap).map(id=>t.groupFor(id)?.id).find(g=>g&&leftGroups.has(g)&&g!==group?.id);
+        const splitAt=pos=>{
+            const leftGroups=new Set(t.ordered.slice(0,pos).map(id=>t.groupFor(id)?.id).filter(Boolean));
+            return t.ordered.slice(pos).map(id=>t.groupFor(id)?.id).find(g=>g&&leftGroups.has(g)&&g!==group?.id);
+        };
+        let split=splitAt(gap);
+        if(split&&!before&&!after&&!explicitGroup&&(!group||!t.groups.has(group.id))&&!errors.length){
+            // Stay between both confirmed anchors and inside the injected order. Never split a target group.
+            const members=t.ordered.flatMap((id,i)=>t.groupFor(id)?.id===split?[i]:[]);
+            const edge=hasLeft?members.at(-1)+1:members[0];
+            if(edge>=lower&&edge<=upper&&!splitAt(edge)){
+                reason=`以未分组放在“${t.groups.get(split).name}”${hasLeft?'之后':'之前'}`;
+                warnings.push(`“${name}”${reason}${sourceGroup?.enabled===false?'；来源组已关闭，迁入后仅保留成员自己的开关':''}`);
+                boundaryFallback=true;group=null;gap=edge;split=null;
+            }
+        }
         if(split)errors.push(`“${name}”的位置会拆分目标已有分组，无法自动迁移，请取消勾选该条目`);
     }
     if(prompt.injection_position===1)warnings.push(`“${name}”是聊天深度条目，列表位置不等于最终发送位置`);
     const row=s.rows.get(id),enabled=typeof row==='object'&&row!==null&&Object.hasOwn(row,'enabled')?row.enabled:prompt.enabled!==false;
-    return {entry:{id,name,beforeId:gap===null?null:idOf(t.order[gap])??null,afterId:gap===null?null:idOf(t.order[gap-1])??null,groupId:group?.id||'',groupName:String(group?.name||'未分组'),injected,enabled,reason},gap,group,errors,warnings};
+    return {entry:{id,name,beforeId:gap===null?null:idOf(t.order[gap])??null,afterId:gap===null?null:idOf(t.order[gap-1])??null,groupId:group?.id||'',groupName:String(group?.name||'未分组'),injected,enabled,reason,boundaryFallback},gap,group,errors,warnings};
 }
 
 function globalErrors(resolutions) {
@@ -160,8 +174,8 @@ export function analyzeMigration(source,target,{ignoreWhitespace=false}={}) {
     const data=evidence(source,target,ignoreWhitespace),defaults=[];
     for(const candidate of data.candidates){
         const r=resolve(data,candidate);const prompt=data.s.map.get(candidate.id);
-        candidate.defaultSelected=!data.errors.length&&candidate.kind==='unique'&&typeof prompt.content==='string'&&!!prompt.content.trim()&&!r.errors.length;
-        if(!candidate.defaultSelected)candidate.defaultReason=r.errors.join('；')||(candidate.kind!=='unique'?'存在对应或重名线索，请核对后选择':'正文为空，请核对后选择');
+        candidate.defaultSelected=!data.errors.length&&candidate.kind==='unique'&&typeof prompt.content==='string'&&!!prompt.content.trim()&&!r.errors.length&&!(r.entry.boundaryFallback&&candidate.sourceGroup?.enabled===false);
+        if(!candidate.defaultSelected)candidate.defaultReason=r.errors.join('；')||(candidate.kind!=='unique'?'存在对应或重名线索，请核对后选择':r.entry.boundaryFallback&&candidate.sourceGroup?.enabled===false?'来源组已关闭；迁入未分组后按条目自身开关生效':'正文为空，请核对后选择');
         if(candidate.defaultSelected)defaults.push(r);
     }
     // Exclude both sides of every inversion, without choosing an arbitrary winning segment.
