@@ -6,6 +6,7 @@ import * as snapshots from '../src/features/snapshot/snapshot.js';
 import * as resources from '../src/features/snapshot/snapshot-resources.js';
 import * as reasoning from '../src/features/snapshot/snapshot-reasoning.js';
 import {createIdentifier} from '../src/features/preset/core.js';
+import * as folders from '../src/shared/library-folders.js';
 
 const source=fs.readFileSync(new URL('../src/host/host.js',import.meta.url),'utf8');
 const block=source.slice(source.indexOf('const SNAPSHOT_KEY ='),source.indexOf('async function installSnapshotBindings('))
@@ -26,7 +27,7 @@ function fixture({readMode='match',writeMode='save'}={}){
   }}};
   env.manager={getPresetList:()=>({presets:[preset],preset_names:{A:0},settings:preset}),getSelectedPresetName:()=> 'A'};
   let disk=structuredClone({extension_settings:extensions.extension_settings,oai_settings:preset,world_info_settings:{world_info:{globalSelect:[]}}});
-  const dependencies={...snapshots,...resources,...reasoning,createIdentifier,clone:structuredClone,fixtureEnv:env,nativeGroupController:null,globalThis:{},document:{querySelector:()=>null,getElementById:()=>null},API_BINDINGS_KEY:linksKey,
+  const dependencies={...folders,...snapshots,...resources,...reasoning,createIdentifier,clone:structuredClone,fixtureEnv:env,nativeGroupController:null,globalThis:{},document:{querySelector:()=>null,getElementById:()=>null},API_BINDINGS_KEY:linksKey,
     readPresetByName:()=>preset,readSnapshotReasoning:async()=>{throw Error('fixture has no active reasoning')},
     setTimeout:(fn,ms)=>setTimeout(fn,Math.min(ms,1)),clearTimeout,
     fetch:async(url,options)=>{assert.equal(url,'/api/settings/get');assert.equal(options.method,'POST');reads++;if(readMode==='unavailable')throw Error('回读网络中断');const value=structuredClone(disk);if(readMode==='links-mismatch')value.extension_settings[linksKey]=[{apiId:'stale',snapshotId:'a'}];return {ok:true,json:async()=>({settings:value})};}
@@ -35,7 +36,17 @@ function fixture({readMode='match',writeMode='save'}={}){
   const key=async()=>(await api('snapshot-list',{})).context.key;
   return {api,key,env,store,get disk(){return disk},get writes(){return writes},get reads(){return reads},set readMode(v){readMode=v},set writeMode(v){writeMode=v}};
 }
+test('分组保存独立于内容与绑定，拒绝陈旧或重复归属，删除成员不删除目录',async()=>{
+  const h=fixture(),before=structuredClone(h.store),initial=[{id:'g',name:'自用',items:['a','b']}];
+  await h.api('snapshot-folders',{expected:[],folders:initial});
+  assert.deepEqual(h.store.snapshots,before.snapshots);assert.deepEqual(h.store.characterBindings,before.characterBindings);
+  await assert.rejects(h.api('snapshot-folders',{expected:[],folders:[]}),/其他操作/);
+  await assert.rejects(h.api('snapshot-folders',{expected:initial,folders:[...initial,{id:'g2',name:'二',items:['a']}]}),/重复/);
+  assert.equal(h.writes,1);await h.api('snapshot-delete',{id:'a'});assert.deepEqual(h.store.folders[0].items,['b']);
+  await h.api('snapshot-folders',{expected:structuredClone(h.store.folders),folders:[]});assert.deepEqual(h.store.snapshots.map(i=>i.id),['b']);
+});
 const operations=[
+  {name:'快照分组',method:'snapshot-folders',payload:()=>({expected:[],folders:[{id:'g',name:'常用',items:['a']}] }),check:r=>assert.deepEqual(r.folders,[{id:'g',name:'常用',items:['a']}])},
   {name:'新建',method:'snapshot-save',payload:()=>({name:'新建快照',scope}),check:r=>assert.equal(r.snapshots.filter(s=>s.name==='新建快照').length,1)},
   {name:'详情修改',method:'snapshot-save-draft',payload:h=>({id:'a',name:'详情修改',draft:{...structuredClone(h.store.snapshots[0]),entries:[{identifier:'p',name:'提示词',enabled:false}]}}),check:r=>{assert.equal(r.snapshots[0].name,'详情修改');assert.equal(r.snapshots[0].entries[0].enabled,false);}},
   {name:'改名',method:'snapshot-rename',payload:()=>({id:'a',name:'改名结果'}),check:r=>assert.equal(r.snapshots[0].name,'改名结果')},

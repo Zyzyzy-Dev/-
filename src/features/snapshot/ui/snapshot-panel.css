@@ -114,6 +114,23 @@
 
 /* 搜索与快照卡片同一内容列，桌面限制输入宽度。 */
 .pcm-snapshot-filters{max-width:1000px;margin:12px auto;width:100%;box-sizing:border-box}
+.pcm-library-folder{grid-column:1/-1;display:grid;gap:8px;min-width:0}
+.pcm-api-manager .pcm-library-folder-head{display:flex;align-items:center;gap:8px;text-align:left;width:100%;padding:8px 12px}
+.pcm-library-folder-head::before{content:'▸'}.pcm-library-folder-head[aria-expanded=true]::before{content:'▾'}
+.pcm-library-folder-head strong,.pcm-library-member span,.pcm-library-member small{overflow-wrap:anywhere;min-width:0}
+.pcm-library-folder-head small{white-space:nowrap}
+.pcm-library-folder-body{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start}
+.pcm-library-folder-body[hidden]{display:none!important}.pcm-library-folder-empty{padding:6px 12px;color:var(--snap-muted)}
+.pcm-api-quick .pcm-library-folder-body{grid-template-columns:minmax(0,1fr)}
+.pcm-library-organizer-box{padding:16px;display:grid;gap:10px}.pcm-library-organizer-box :is(h3,p){margin:0}
+.pcm-library-tools{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.pcm-library-tools :is(input,select){flex:1 1 100px}.pcm-library-tools:last-child{justify-content:flex-end}
+.pcm-library-members{display:grid;max-height:36dvh;overflow-y:auto;overscroll-behavior:contain}
+.pcm-library-member{display:grid;align-items:center;gap:8px;grid-template-columns:auto minmax(0,1fr) minmax(0,30%);padding:6px;border-bottom:1px solid var(--snap-border)}
+.pcm-api-manager .pcm-library-member input{width:17px;height:17px;min-height:0;margin:0;accent-color:var(--snap-accent)}
+.pcm-library-member small{text-align:right;color:var(--snap-muted)}
+.pcm-snapshot-filters button[aria-pressed=true]{border-color:var(--snap-accent);background:color-mix(in srgb,var(--snap-accent) 23%,var(--snap-card))}
+@media(max-width:650px){.pcm-library-folder-body{grid-template-columns:minmax(0,1fr)}.pcm-snapshot-manager .pcm-snapshot-toolbar .pcm-snapshot-create{width:auto}}
 .pcm-snapshot-search{flex:0 1 360px;width:360px}
 .pcm-snapshot-preset-regex-option{width:100%;min-width:0;border-top:1px solid var(--snap-border);padding-top:6px}
 .pcm-snapshot-preset-regex-option[hidden]{display:none}

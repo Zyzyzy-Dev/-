@@ -2,6 +2,7 @@
 import { editApiAdditional } from './api-additional.js';
 import { chooseNativeApiProfiles } from './api-native-import.js';
 import { chooseApiSnapshotBinding } from './api-snapshot-bind.js';
+import {folderCardTargets,openFolderOrganizer} from '../../../ui/library-folders.js';
 export function createApiPanel({ host, onBack, onClose, onCycleTheme, themeIcon, prompt, confirm, quick = false, onSnapshots }) {
   const node = (tag, cls, text) => { const el = document.createElement(tag); el.className = cls || ''; if (text !== undefined) el.textContent = text; return el; };
   const element = node('main', 'pcm-snapshots pcm-api-manager');
@@ -46,12 +47,19 @@ export function createApiPanel({ host, onBack, onClose, onCycleTheme, themeIcon,
     if (count) { await refresh(); message('已导入 ' + count + ' 个酒馆方案'); }
   })));
   const tabs = node('div','pcm-header-switch');
+  const folded=new Set(),filters=node('div','pcm-snapshot-filters'),search=node('input','pcm-snapshot-search');
+  search.type='search';search.placeholder='搜索方案名称';search.setAttribute('aria-label',search.placeholder);
+  search.addEventListener('input',()=>{if(data)render();});filters.append(search,button('清空搜索',()=>{search.value='';if(data)render();search.focus();}));
+  toolbar.append(button('整理分组',()=>{if(!data||busy)return;openFolderOrganizer({parent:element,label:'API 方案',items:data.profiles.map(({id,name})=>({id,name})),folders:data.folders,onSave:async payload=>{
+    if(disposed||busy)throw Error('请等待当前操作完成再保存分组');
+    lock(true);try{const next=await host.request('api-manager-folders',payload);if(disposed)return;data.folders=next.folders;render();message(next.verified===false?'保存请求已提交，但暂未核实写入；页面保留分组，请稍后重载酒馆核对。':'API 方案分组已保存',next.verified===false);}finally{if(!disposed)lock(false);}
+  }});}));
   if (onSnapshots) {tabs.append(button('设置快照',onSnapshots));}
   heading.append(tabs);
-  element.append(header, current, toolbar,
+  element.append(header, current, toolbar,filters,
     status, modal, list);
   function message(text, error = false) { if (disposed) return; const target = modal.open ? editor.querySelector('.pcm-api-editor-status') : status; if (target) { target.textContent = text; target.classList.toggle('is-error', error); } }
-  function lock(value) { busy = value; element.setAttribute('aria-busy', String(value)); for (const el of element.querySelectorAll('button,input,select')) el.disabled = value; }
+  function lock(value) { busy = value; element.setAttribute('aria-busy', String(value)); for (const el of element.querySelectorAll('button,input,select')) if(!el.closest('.pcm-library-organizer'))el.disabled = value; }
   async function run(task) { if (busy || disposed) return; lock(true); try { await task(); } catch (error) { message(error.message || '操作失败', true); } finally { if (!disposed) lock(false); } }
   async function refresh() { const next = await host.request('api-manager-list'); if (disposed) return; data = next; render(); }
   function connectionLine(profile) {
@@ -69,7 +77,10 @@ export function createApiPanel({ host, onBack, onClose, onCycleTheme, themeIcon,
     else current.append(node('p', '', '请先在酒馆选择“聊天补全 → 自定义（兼容 OpenAI）”'));
     list.replaceChildren();
     if (!data.profiles.length) list.append(node('p', 'pcm-snapshot-empty', '还没有方案。新建一个，或保存酒馆当前连接。'));
-    for (const profile of data.profiles) {
+    const q=search.value.trim().toLocaleLowerCase(),visible=data.profiles.filter(p=>p.name.toLocaleLowerCase().includes(q));
+    if(data.profiles.length&&!visible.length)list.append(node('p','pcm-snapshot-empty','没有匹配的方案，请调整搜索。'));
+    const cardTarget=folderCardTargets(list,data.folders,visible,folded,!!q,data.activeIds);
+    for (const profile of visible) {
       const card = node('article', 'pcm-snapshot-card pcm-api-profile'), actions = node('div', 'pcm-api-profile-actions');
       card.classList.toggle('is-active', data.activeIds?.includes(profile.id));
       const top = node('div', 'pcm-api-profile-head'); top.append(node('h3', '', profile.name), actions);
@@ -81,7 +92,7 @@ export function createApiPanel({ host, onBack, onClose, onCycleTheme, themeIcon,
         await host.request('api-manager-save',{capture:true,id:profile.id,name:profile.name}); await refresh(); message('已覆盖方案');
       })); overwrite.title='用当前设置覆盖此方案';
       actions.append(button('绑',()=>run(async()=>{await chooseApiSnapshotBinding({host,parent:element,apiId:profile.id});await refresh();})), overwrite, iconButton('编辑方案', 'm14 5 5 5M4 20l4-1L20 7a2 2 0 0 0-3-3L5 16l-1 4Z',()=>edit(profile)),iconButton('删除方案','M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7',()=>run(async()=>{if(!await confirm('删除方案“'+profile.name+'”？'))return;await host.request('api-manager-delete',{id:profile.id});await refresh();})),cut);
-      card.append(top, connectionLine(profile)); list.append(card);
+      card.append(top, connectionLine(profile)); cardTarget(profile.id).append(card);
 
     }
   }
