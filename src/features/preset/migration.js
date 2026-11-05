@@ -106,7 +106,7 @@ function evidence(source,target,loose) {
 
 function resolve(data,candidate,placement={}) {
     const {s,t,anchors}=data,{id,name,injected}=candidate,prompt=s.map.get(id),errors=[],warnings=[];
-    let gap=null,reason='未注入，保持列表尾部',group=null,lower=0,upper=t.order.length,hasLeft=false,boundaryFallback=false;
+    let gap=null,reason='未注入，保持列表尾部',group=null,lower=0,upper=t.order.length,hasLeft=false,bounded=false,boundaryFallback=false;
     const before=Object.hasOwn(placement,'beforeId'),after=Object.hasOwn(placement,'afterId');
     if(before&&after)errors.push(`“${name}”只能选择一个目标位置`);
     if(injected){
@@ -120,6 +120,7 @@ function resolve(data,candidate,placement={}) {
             for(let i=at+1;i<s.order.length;i++){const matched=anchors.get(idOf(s.order[i]));if(matched&&t.rows.has(matched)){right=matched;break;}}
             const li=t.order.findIndex(row=>idOf(row)===left),ri=t.order.findIndex(row=>idOf(row)===right);
             hasLeft=!!left;lower=left?li+1:0;upper=right?ri:t.order.length;
+            bounded=!!left&&!!right&&li<ri;
             if(left&&right&&li>=ri)errors.push(`“${name}”的前后参照顺序反转，无法自动定位，请取消勾选该条目`);
             else if(left||right){gap=left?li+1:ri;reason=left?`紧跟“${nameOf(t.map.get(left))}”之后`:`位于“${nameOf(t.map.get(right))}”之前`;if(!left||!right)warnings.push(`“${name}”仅有单侧位置参照`);}
             else errors.push(`“${name}”没有可靠位置参照，无法自动定位，请取消勾选该条目`);
@@ -160,14 +161,19 @@ function resolve(data,candidate,placement={}) {
     }
     if(prompt.injection_position===1)warnings.push(`“${name}”是聊天深度条目，列表位置不等于最终发送位置`);
     const row=s.rows.get(id),enabled=typeof row==='object'&&row!==null&&Object.hasOwn(row,'enabled')?row.enabled:prompt.enabled!==false;
-    return {entry:{id,name,beforeId:gap===null?null:idOf(t.order[gap])??null,afterId:gap===null?null:idOf(t.order[gap-1])??null,groupId:group?.id||'',groupName:String(group?.name||'未分组'),injected,enabled,reason,boundaryFallback},gap,group,errors,warnings};
+    return {entry:{id,name,beforeId:gap===null?null:idOf(t.order[gap])??null,afterId:gap===null?null:idOf(t.order[gap-1])??null,groupId:group?.id||'',groupName:String(group?.name||'未分组'),injected,enabled,reason,boundaryFallback},gap,group,lower,upper,bounded,errors,warnings};
 }
 
-function globalErrors(resolutions) {
-    const errors=[];let previous=-1;
-    for(const r of resolutions){if(!r.entry.injected||r.gap===null)continue;if(r.gap<previous)errors.push(`“${r.entry.name}”与其他选中区段的来源顺序冲突，请减少选择`);previous=r.gap;}
-    // A newly copied group must remain a single block, without splitting another incoming/target group.
-    return errors;
+function orderConflicts(resolutions) {
+    const valid=resolutions.filter(r=>r.entry.injected&&r.gap!==null&&!r.errors.length),conflicts=new Map();
+    for(let i=0;i<valid.length;i++)for(let j=i+1;j<valid.length;j++){
+        const a=valid[i],b=valid[j];if(a.gap<=b.gap)continue;
+        // Both destination intervals are independently anchored and disjoint: the author moved whole sections.
+        if(a.bounded&&b.bounded&&a.lower>b.upper)continue;
+        if(!conflicts.has(a.entry.id))conflicts.set(a.entry.id,b.entry.name);
+        if(!conflicts.has(b.entry.id))conflicts.set(b.entry.id,a.entry.name);
+    }
+    return conflicts;
 }
 
 export function analyzeMigration(source,target,{ignoreWhitespace=false}={}) {
@@ -178,10 +184,8 @@ export function analyzeMigration(source,target,{ignoreWhitespace=false}={}) {
         if(!candidate.defaultSelected)candidate.defaultReason=r.errors.join('；')||(candidate.kind!=='unique'?'存在对应或重名线索，请核对后选择':r.entry.boundaryFallback&&candidate.sourceGroup?.enabled===false?'来源组已关闭；迁入未分组后按条目自身开关生效':'正文为空，请核对后选择');
         if(candidate.defaultSelected)defaults.push(r);
     }
-    // Exclude both sides of every inversion, without choosing an arbitrary winning segment.
-    const conflicts=new Set(),injected=defaults.filter(r=>r.entry.injected&&r.gap!==null);
-    for(let i=0;i<injected.length;i++)for(let j=i+1;j<injected.length;j++)if(injected[i].gap>injected[j].gap){conflicts.add(injected[i].entry.id);conflicts.add(injected[j].entry.id);}
-    for(const candidate of data.candidates)if(conflicts.has(candidate.id)){candidate.defaultSelected=false;candidate.defaultReason='与其他区段的来源顺序冲突，请核对后减少选择';}
+    const conflicts=orderConflicts(defaults);
+    for(const candidate of data.candidates)if(conflicts.has(candidate.id)){candidate.defaultSelected=false;candidate.defaultReason=`与“${conflicts.get(candidate.id)}”的定位范围有冲突，请分开迁移`;}
     return {candidates:data.candidates,errors:data.errors};
 }
 
@@ -193,7 +197,12 @@ export function planMigration(source,target,selectedIds,{ignoreWhitespace=false,
     for(const candidate of data.candidates)if(chosen.has(candidate.id)){
         const r=resolve(data,candidate,own(placements,candidate.id)||{});resolutions.push(r);errors.push(...r.errors);warnings.push(...r.warnings);
     }
-    errors.push(...globalErrors(resolutions));
+    const conflicts=orderConflicts(resolutions),reported=new Set();
+    for(const r of resolutions)if(conflicts.has(r.entry.id)){
+        const other=conflicts.get(r.entry.id),key=JSON.stringify([r.entry.name,other].sort());
+        if(!reported.has(key))errors.push(`“${r.entry.name}”和“${other}”的定位范围有冲突，无法同时确定顺序，请分开迁移`);
+        reported.add(key);
+    }
     const entries=resolutions.map(r=>r.entry),orderedIds=entries.map(e=>e.id);
     const plan={entries,errors,warnings,previewOrder:[],sourceSignature:signature(source),targetSignature:signature(target),selectedIds:orderedIds};
     const incoming=new Map(entries.map(e=>[e.id,e])),merged=[];

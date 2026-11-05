@@ -79,10 +79,14 @@ export function openMigrationDialog({ parent, source, target, targetPreview = ta
   const positionNote = node('p', 'pcm-migration-position-note'); positionNote.hidden = true; positionNote.setAttribute('role','status');
   const count = node('span', 'pcm-migration-count'); count.setAttribute('role', 'status');
   toolbar.append(button('全选', 'select-all', () => selectAll(true)), button('清空', 'clear', () => selectAll(false)), count);
-  const syncLine=node('label','pcm-migration-sync-line'),syncBox=checkbox('同步旧版预设所有开关设置','sync','');
-  syncLine.append(syncBox,node('span','','同步旧版预设所有开关设置'));
+  let syncEnabled=false;
+  const syncButton=button('同步开关','sync',()=>{
+    if(busy||!current())return;
+    remember();syncEnabled=!syncEnabled;refreshView();if(!preview.hidden){showPreview(true);syncButton.focus({preventScroll:true});}
+  },'pcm-free-select');
+  syncButton.title='按旧版同步可对应的条目和分组开关';
   const syncSummary=node('small','pcm-migration-switch-summary');syncSummary.setAttribute('role','status');
-  const switchBar=node('div','pcm-migration-switch-bar');switchBar.append(syncLine,syncSummary);
+  const switchBar=node('div','pcm-migration-switch-bar');switchBar.append(syncButton,syncSummary);
   const issues = node('div', 'pcm-migration-issues'); issues.setAttribute('role', 'status'); issues.setAttribute('aria-live', 'polite');
   const errorBox = node('div', 'pcm-migration-error'); errorBox.setAttribute('role', 'alert'); errorBox.hidden = true;
   const list = node('div', 'pcm-migration-list');
@@ -90,7 +94,7 @@ export function openMigrationDialog({ parent, source, target, targetPreview = ta
   const actions = node('div', 'pcm-migration-actions');
   const undoButton = button('撤回上一步','undo',()=>{
     if(!current()||busy||!history.length)return;
-    const prev=history.pop();plan=prev.plan;manual=prev.manual;syncBox.checked=prev.sync;refreshView();showPreview(true);
+    const prev=history.pop();plan=prev.plan;manual=prev.manual;syncEnabled=prev.sync;refreshView();showPreview(true);
     if(!undoButton.disabled)undoButton.focus({preventScroll:true});
   });undoButton.hidden=true;
   const previewButton = button('预览', 'preview', showPreview);
@@ -98,20 +102,18 @@ export function openMigrationDialog({ parent, source, target, targetPreview = ta
   const applyButton = button('一键迁移', 'apply', apply); applyButton.classList.add('pcm-primary');
   actions.append(undoButton, backButton, previewButton, applyButton);
   box.append(header, toolbar, switchBar,positionNote, errorBox, issues, list, preview, actions); modal.append(box); parent.append(modal);
-  function remember(sync=syncBox.checked){history.push({plan,manual,sync});}
+  function remember(){history.push({plan,manual,sync:syncEnabled});}
   function refreshView(){
-    if(plan?.result&&syncBox.checked&&!syncInfo)syncInfo=analyzeSwitchSync(source,targetPreview,ignoreWhitespace);
-    view=plan?.result?previewSwitches(plan.result,syncBox.checked?syncInfo:null,manual):null;
+    syncButton.setAttribute('aria-pressed',String(syncEnabled));
+    syncButton.disabled=stale||busy;
+    if(plan?.result&&syncEnabled&&!syncInfo)syncInfo=analyzeSwitchSync(source,targetPreview,ignoreWhitespace);
+    view=plan?.result?previewSwitches(plan.result,syncEnabled?syncInfo:null,manual):null;
     const changes=[...(view?.writes.values()||[])],on=changes.filter(Boolean).length;
-    syncSummary.textContent=syncBox.checked||manual.size?`将开启 ${on} 项，关闭 ${changes.length-on} 项`+(syncBox.checked&&syncInfo?`；${syncInfo.skipped} 条无可靠生效对应、${view?.skippedGroups||0} 组未同步`:''):'条目和分组开关；不含正则、脚本。可单独预览调整。';
+    syncSummary.textContent=syncEnabled||manual.size?`将开启 ${on} 项，关闭 ${changes.length-on} 项`+(syncEnabled&&syncInfo?`；${syncInfo.skipped} 条无可靠生效对应、${view?.skippedGroups||0} 组未同步`:''):'按旧版同步条目和分组开关；不含正则、脚本。';
     undoButton.disabled=!history.length||busy||stale;
     previewButton.disabled=!plan?.result||!!plan.errors.length||stale;
     applyButton.disabled=busy||previewButton.disabled||(!plan.entries.length&&!changes.length);
   }
-  syncBox.addEventListener('change',()=>{
-    if(busy||!current())return;
-    remember(!syncBox.checked);refreshView();if(!preview.hidden)showPreview(true);
-  });
   dragController=installMigrationDrag({modal,box,header,footer:actions,preview,canDrag:()=>!busy&&!preview.hidden&&current(),onDrop:(id,placement)=>{
     try{const next=moveMigrationEntry(plan,id,placement);if(next===plan)return;remember();plan=next;refreshView();showPreview(true);}catch(error){reportError(error.message);}
   }});
@@ -145,7 +147,7 @@ export function openMigrationDialog({ parent, source, target, targetPreview = ta
     }
     if (stale) {
       selectionView(); reportError('两侧预设、表单草稿或比较选项已变化，请关闭后重新打开迁移窗口。');
-      applyButton.disabled = true; previewButton.disabled = true;
+      applyButton.disabled = true; previewButton.disabled = true; syncButton.disabled=true;
     }
     return !stale;
   }
