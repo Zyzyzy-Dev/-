@@ -4,7 +4,7 @@ import { createSnapshotEditor } from './snapshot-editor.js';
 import { createSnapshotReasoningForm } from './snapshot-reasoning-form.js';
 import { snapshotScope, sortSnapshotFavorites } from '../snapshot.js';
 import { createSnapshotScopePicker, snapshotScopeText } from './snapshot-scope.js';
-import {folderCardTargets,openFolderOrganizer} from '../../../ui/library-folders.js';
+import {folderCardTargets,createLibraryGrouping} from '../../../ui/library-folders.js';
 // 搜索仅筛选展示，不修改快照或绑定。
 export function searchSnapshotNames(snapshots,text){const query=String(text||'').trim().toLocaleLowerCase();return snapshots.filter(s=>String(s.name||'').toLocaleLowerCase().includes(query));}
 export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeIcon, prompt, confirm, toast, quick=false, onApi}) {
@@ -35,10 +35,6 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
   const scopePicker=createSnapshotScopePicker(saveScope,()=>{},{currentPresetRegex:true});
   const create=button('＋ 创建快照',()=>openEditor());create.classList.add('pcm-snapshot-create');toolbar.append(create);
   const folded=new Set();let currentOnly=false;
-  toolbar.append(button('整理分组',()=>{if(!data||busy)return;openFolderOrganizer({parent:element,label:'快照',items:data.snapshots.map(({id,name})=>({id,name})),folders:data.folders,onSave:async payload=>{
-    if(disposed||busy||pendingFavorites.size)throw Error('请等待当前操作完成再保存分组');
-    setBusy(true);try{const next=await host.request('snapshot-folders',payload);if(disposed)return;data=next;render();reportResult(next,'快照分组已保存');}finally{if(!disposed){setBusy(false);if(refreshPending){refreshPending=false;void refresh();}}}
-  }});}));
   const filters=node('div','pcm-snapshot-filters'),search=node('input','pcm-snapshot-search');search.type='search';search.placeholder='搜索快照名称';search.setAttribute('aria-label','搜索快照名称');search.addEventListener('input',()=>render());const clearSearch=button('清空搜索',()=>{search.value='';render();search.focus();});filters.append(search,clearSearch);
   const notice = node('p', 'pcm-snapshot-notice', '快照可分别保存预设、全局世界书、正则和推理设置。聊天绑定优先于角色绑定。');
   const currentFilter=button('当前预设',()=>{currentOnly=!currentOnly;currentFilter.setAttribute('aria-pressed',String(currentOnly));render();});
@@ -54,6 +50,12 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
   // 收藏显示与持久化分开；同一快照等待核验，不锁住其它快照和搜索。
   const pendingFavorites = new Map();
   const lifetime = new AbortController();
+  async function saveFolders(method,payload){
+    if(disposed||busy||pendingFavorites.size)throw Error('请等待当前操作完成再保存分组');
+    setBusy(true);try{const next=await host.request(method,payload);if(disposed)return;data=next;render();reportResult(next,'快照分组已更新');}finally{if(!disposed){setBusy(false);if(refreshPending){refreshPending=false;void refresh();}}}
+  }
+  const grouping=createLibraryGrouping({parent:element,toolbar,list,label:'快照',read:()=>data&&({folders:data.folders,items:data.snapshots}),isBusy:()=>busy||disposed||pendingFavorites.size>0,render,
+    onSave:p=>saveFolders('snapshot-folders',p),onRemove:p=>saveFolders('snapshot-folder-delete',p)});
   const unsubscribe = host.on('snapshots-changed', change => {
     if (change?.favoriteId && pendingFavorites.has(change.favoriteId)) return;
     if (busy || editor || pendingFavorites.size) refreshPending = true; else void refresh();
@@ -95,13 +97,14 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
   function setBusy(value) {
     busy = value;
     for (const b of element.querySelectorAll('button')) {
-      if(b.closest('.pcm-library-organizer'))continue;
+      if(b.closest('.pcm-library-dialog'))continue;
       if ([back, close, theme].includes(b)) continue;
       b.disabled = value || b.dataset.unavailable === 'true' || b.dataset.favoritePending === 'true';
     }
     element.setAttribute('aria-busy', String(value));
     for (const input of scopePicker.querySelectorAll('input')) input.disabled=value;
     verify.disabled = value || pendingFavorites.size > 0;
+    grouping.update();
   }
   function bindingName(id) {return data.snapshots.find(s => s.id === id)?.name || (id ? '快照已删除' : '未绑定');}
   function favoriteValue(snapshot) {return pendingFavorites.get(snapshot.id)?.favorite ?? (snapshot.favorite === true);}
@@ -127,6 +130,7 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
       cursors.set(parent,card.nextElementSibling);
     }
     if(focused?.isConnected&&list.contains(focused)&&!focused.disabled&&document.activeElement!==focused)focused.focus({preventScroll:true});
+    grouping.update();
   }
   function render() {
     if (disposed || !data) return;
@@ -163,9 +167,10 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
     }
     const visible=visibleSnapshots();
     if(data.snapshots.length&&!visible.length)list.append(node('p','pcm-snapshot-empty','没有匹配的快照，请调整搜索或当前预设筛选。'));
-    const cardTarget=folderCardTargets(list,data.folders,visible,folded,!!search.value.trim()||currentOnly);
+    const cardTarget=folderCardTargets(list,data.folders,visible,folded,!!search.value.trim()||currentOnly,[],grouping.actions);
     for (const snapshot of visible) {
       const card = node('article', 'pcm-snapshot-card'); card.dataset.snapshotId = snapshot.id;
+      grouping.decorate(card,snapshot);
       const overwrite=button('覆',()=>execute('update',snapshot));overwrite.title='用当前设置覆盖快照';overwrite.setAttribute('aria-label',overwrite.title);
       const favorite=button('',()=>saveFavorite(snapshot.id));favorite.className='pcm-snapshot-icon pcm-snapshot-favorite';favorite.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" fill="none"><path d="m12 3 2.8 5.7 6.3.9-4.6 4.5 1.1 6.3-5.6-3-5.6 3 1.1-6.3L2.9 9.6l6.3-.9Z"/></svg>';
       const favoriteStatus=node('small','pcm-snapshot-favorite-status');favoriteStatus.setAttribute('role','status');
@@ -320,5 +325,5 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
     } catch (error) {if (!disposed) {showStatus(error.message, true); toast.error(error.message);}}
     finally {if (!disposed) {setBusy(false); if (refreshPending) {refreshPending = false; void refresh();}}}
   }
-  return {element, refresh, destroy() {disposed = true; lifetime.abort(); revision++; unsubscribe(); editor?.destroy(); element.remove();}};
+  return {element, refresh, destroy() {disposed = true; grouping.destroy();lifetime.abort(); revision++; unsubscribe(); editor?.destroy(); element.remove();}};
 }

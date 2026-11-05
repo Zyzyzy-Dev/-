@@ -55,6 +55,33 @@ const operations=[
   {name:'删除与关联清理',method:'snapshot-delete',payload:()=>({id:'a'}),check:(r,h)=>{assert.deepEqual(r.snapshots.map(s=>s.id),['b']);assert.deepEqual(h.store.characterBindings,{});assert.deepEqual(h.env.extensions.extension_settings[linksKey],[{apiId:'api-b',snapshotId:'b'}]);}},
   {name:'角色绑定修改',method:'snapshot-bind',payload:()=>({id:'b',target:'character'}),check:(_r,h)=>assert.equal(h.store.characterBindings['hero.png'],'b')},
 ];
+test('快照解除分组不改绑定；删除整个组原子清理成员、角色和 API 绑定',async()=>{
+  for(const deleteItems of [false,true]){
+    const h=fixture(),f=[{id:'g',name:'G',items:['a']}];h.store.folders=f;
+    const before=structuredClone(h.store),links=structuredClone(h.env.extensions.extension_settings[linksKey]);
+    const result=await h.api('snapshot-folder-delete',{id:'g',expected:f,deleteItems,expectedItems:[structuredClone(h.store.snapshots[0])]});
+    assert.equal(h.writes,1);assert.deepEqual(result.folders,[]);assert.deepEqual(h.env.extensions.extension_settings,h.disk.extension_settings);
+    assert.deepEqual(h.store.snapshots,deleteItems?[before.snapshots[1]]:before.snapshots);
+    assert.deepEqual(h.store.characterBindings,deleteItems?{}:before.characterBindings);
+    assert.deepEqual(h.env.extensions.extension_settings[linksKey],deleteItems?[links[1]]:links);
+  }
+});
+test('快照整组删除有陈旧成员时不写；写入拒绝全部回滚，回读失败保留已写结果',async()=>{
+  for(const writeMode of ['save','throw'])for(const readMode of ['match','unavailable']){
+    const h=fixture({writeMode,readMode});h.store.folders=[{id:'g',name:'G',items:['a','b']}];
+    const original=structuredClone(h.env.extensions.extension_settings),payload={id:'g',expected:structuredClone(h.store.folders),deleteItems:true,expectedItems:structuredClone(h.store.snapshots)};
+    await assert.rejects(h.api('snapshot-folder-delete',{...payload,expectedItems:[payload.expectedItems[0]]}),/方案已变化/);assert.equal(h.writes,0);
+    if(writeMode==='throw'){
+      await assert.rejects(h.api('snapshot-folder-delete',payload),/native write rejected/);
+      assert.deepEqual(h.env.extensions.extension_settings,original);assert.equal(h.reads,0);
+    }else{
+      const result=await h.api('snapshot-folder-delete',payload);assert.deepEqual(result.snapshots,[]);
+      assert.deepEqual(h.env.extensions.extension_settings,h.disk.extension_settings);
+      if(readMode==='unavailable')assert.equal(result.persistence.verified,false);
+    }
+    assert.equal(h.writes,1);
+  }
+});
 for(const operation of operations){
   test(`回读异常保留已写入的${operation.name}，列表刷新也显示待核对`,async()=>{
     const h=fixture({readMode:'unavailable'}),payload={...operation.payload(h),contextKey:await h.key()};

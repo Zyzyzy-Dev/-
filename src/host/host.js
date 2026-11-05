@@ -15,7 +15,7 @@ import { applyPresetToMemory, shouldRefreshActivePreset } from '../features/pres
 import { captureSnapshot, normalizeSnapshotName, planSnapshotRestore, resolveSnapshotBinding, snapshotOrder, validateSnapshot, snapshotPresetEditor, snapshotScope, selectSnapshotScope } from '../features/snapshot/snapshot.js';
 import { captureWorldEntries, restoreWorldEntries, captureRegexSwitches, restoreRegexSwitches, capturePresetRegex, normalizePresetRegex, restorePresetRegex, validateSnapshotResources, normalizeSnapshotResources, regexEditor } from '../features/snapshot/snapshot-resources.js';
 import { createIdentifier } from '../features/preset/core.js';
-import {validateLibraryFolders,moveLibraryItems} from '../shared/library-folders.js';
+import {validateLibraryFolders,moveLibraryItems,removeLibraryFolder,libraryFingerprint} from '../shared/library-folders.js';
 import { normalizeWorkbenchBook } from '../features/worldbook/worldbook-workbench.js';
 import { API_STORE_KEY, API_ADDITIONAL_FIELDS, normalizeApiAdditional, normalizeApiProfile, planApiSwitch, readNativeApiProfiles, maskApiSecret } from '../features/api/api-manager.js';
 
@@ -310,21 +310,29 @@ async function handleApiManagerRequest(method, payload) {
       throw error;
     } finally { clearTimeout(timer); }
   }
-  if(method==='api-manager-folders'){
+  if(method==='api-manager-folders'||method==='api-manager-folder-delete'){
     const previous=extensions.extension_settings[API_STORE_KEY];
-    const folders=validateLibraryFolders(store.folders,payload.expected,payload.folders,store.profiles);
-    extensions.extension_settings[API_STORE_KEY]={...store,folders};
-    try{await script.saveSettings();}catch(error){if(previous===undefined)delete extensions.extension_settings[API_STORE_KEY];else extensions.extension_settings[API_STORE_KEY]=previous;throw error;}
+    const previousLinks=extensions.extension_settings[API_BINDINGS_KEY];
+    const removal=method==='api-manager-folder-delete'?removeLibraryFolder(store.folders,payload,store.profiles):null;
+    const folders=removal?.folders||validateLibraryFolders(store.folders,payload.expected,payload.folders,store.profiles);
+    const profiles=removal?.items||store.profiles,next={...store,folders,profiles};
+    const links=removal?(previousLinks||[]).filter(link=>!removal.removed.has(link.apiId)):previousLinks||[];
+    extensions.extension_settings[API_STORE_KEY]=next;
+    if(removal?.removed.size)extensions.extension_settings[API_BINDINGS_KEY]=links;
+    try{await script.saveSettings();}catch(error){
+      if(previous===undefined)delete extensions.extension_settings[API_STORE_KEY];else extensions.extension_settings[API_STORE_KEY]=previous;
+      if(previousLinks===undefined)delete extensions.extension_settings[API_BINDINGS_KEY];else extensions.extension_settings[API_BINDINGS_KEY]=previousLinks;
+      throw error;
+    }
     // Native saveSettings may resolve before disk is updated. Never undo an accepted write on readback failure.
     let verified=false;
     try{
       const saved=await readSnapshotPersistence({script},'/api/settings/get',{}, {label:'API 分组保存核验'});
       const settings=typeof saved.settings==='string'?JSON.parse(saved.settings):saved.settings;
-      const disk=settings?.extension_settings?.[API_STORE_KEY]?.folders;
-      const signature=value=>JSON.stringify(value.map(f=>[f.id,f.name,f.items]));
-      verified=!saved.bootstrap?.partial&&Array.isArray(disk)&&signature(disk)===signature(folders);
+      verified=!saved.bootstrap?.partial&&libraryFingerprint(settings?.extension_settings?.[API_STORE_KEY])===libraryFingerprint(next)
+        &&libraryFingerprint(settings?.extension_settings?.[API_BINDINGS_KEY]||[])===libraryFingerprint(links);
     }catch{}
-    return {folders,verified};
+    return {folders,verified,removedIds:removal?[...removal.removed]:[]};
   }
   if (method === 'api-manager-list') {
     const keys = await readKeys();
@@ -1434,7 +1442,7 @@ async function applyLinkedSnapshot(env, snapshot, payload, automatic = false) {
 
 async function handleSnapshotRequest(method, payload) {
   // User recovery actions invalidate queued automatic work before joining the queue.
-  if (method === 'snapshot-delete' || method === 'snapshot-apply' || (method === 'snapshot-bind' && payload.id === null)) {
+  if (method === 'snapshot-delete' || (method === 'snapshot-folder-delete'&&payload.deleteItems===true) || method === 'snapshot-apply' || (method === 'snapshot-bind' && payload.id === null)) {
     snapshotAutoPending = false;
     snapshotAutoToken++;
     clearTimeout(snapshotAutoTimer);
@@ -1526,6 +1534,20 @@ async function handleSnapshotRequest(method, payload) {
       const previous = store.snapshots;
       store.snapshots = previous.map(item => item === existing ? next : item);
       try {await saveSnapshotSettings(env, false, null, {allowUnverified:true});} catch (error) {store.snapshots = previous; throw error;}
+    } else if(method==='snapshot-folder-delete'){
+      const next=removeLibraryFolder(store.folders,payload,store.snapshots);
+      const before={folders:store.folders,snapshots:store.snapshots,characterBindings:store.characterBindings};
+      const previousLinks=env.extensions.extension_settings[API_BINDINGS_KEY];
+      store.folders=next.folders;store.snapshots=next.items;
+      if(next.removed.size){
+        store.characterBindings=Object.fromEntries(Object.entries(store.characterBindings).filter(([,id])=>!next.removed.has(id)));
+        env.extensions.extension_settings[API_BINDINGS_KEY]=(previousLinks||[]).filter(link=>!next.removed.has(link.snapshotId));
+      }
+      try{await saveSnapshotSettings(env,false,null,{allowUnverified:true});}catch(error){
+        Object.assign(store,before);
+        if(previousLinks===undefined)delete env.extensions.extension_settings[API_BINDINGS_KEY];else env.extensions.extension_settings[API_BINDINGS_KEY]=previousLinks;
+        throw error;
+      }
     } else if(method==='snapshot-folders'){
       const previous=store.folders;store.folders=validateLibraryFolders(previous,payload.expected,payload.folders,store.snapshots);
       try{await saveSnapshotSettings(env,false,null,{allowUnverified:true});}catch(error){if(previous===undefined)delete store.folders;else store.folders=previous;throw error;}

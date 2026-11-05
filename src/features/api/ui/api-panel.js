@@ -2,7 +2,7 @@
 import { editApiAdditional } from './api-additional.js';
 import { chooseNativeApiProfiles } from './api-native-import.js';
 import { chooseApiSnapshotBinding } from './api-snapshot-bind.js';
-import {folderCardTargets,openFolderOrganizer} from '../../../ui/library-folders.js';
+import {folderCardTargets,createLibraryGrouping} from '../../../ui/library-folders.js';
 export function createApiPanel({ host, onBack, onClose, onCycleTheme, themeIcon, prompt, confirm, quick = false, onSnapshots }) {
   const node = (tag, cls, text) => { const el = document.createElement(tag); el.className = cls || ''; if (text !== undefined) el.textContent = text; return el; };
   const element = node('main', 'pcm-snapshots pcm-api-manager');
@@ -50,16 +50,23 @@ export function createApiPanel({ host, onBack, onClose, onCycleTheme, themeIcon,
   const folded=new Set(),filters=node('div','pcm-snapshot-filters'),search=node('input','pcm-snapshot-search');
   search.type='search';search.placeholder='搜索方案名称';search.setAttribute('aria-label',search.placeholder);
   search.addEventListener('input',()=>{if(data)render();});filters.append(search,button('清空搜索',()=>{search.value='';if(data)render();search.focus();}));
-  toolbar.append(button('整理分组',()=>{if(!data||busy)return;openFolderOrganizer({parent:element,label:'API 方案',items:data.profiles.map(({id,name})=>({id,name})),folders:data.folders,onSave:async payload=>{
+  async function saveFolders(method,payload){
     if(disposed||busy)throw Error('请等待当前操作完成再保存分组');
-    lock(true);try{const next=await host.request('api-manager-folders',payload);if(disposed)return;data.folders=next.folders;render();message(next.verified===false?'保存请求已提交，但暂未核实写入；页面保留分组，请稍后重载酒馆核对。':'API 方案分组已保存',next.verified===false);}finally{if(!disposed)lock(false);}
-  }});}));
+    lock(true);try{
+      const next=await host.request(method,payload);if(disposed)return;
+      const removed=new Set(next.removedIds||[]);
+      data={...data,folders:next.folders,profiles:data.profiles.filter(p=>!removed.has(p.id)),links:data.links?.filter(l=>!removed.has(l.apiId)),activeIds:data.activeIds?.filter(id=>!removed.has(id))};
+      render();message(next.verified===false?'保存请求已提交，但暂未核实写入；页面保留本次修改，请稍后重载酒馆核对。':'API 方案分组已更新',next.verified===false);
+    }finally{if(!disposed)lock(false);}
+  }
+  const grouping=createLibraryGrouping({parent:element,toolbar,list,label:'API 方案',read:()=>data&&({folders:data.folders,items:data.profiles}),isBusy:()=>busy||disposed,render,
+    onSave:p=>saveFolders('api-manager-folders',p),onRemove:p=>saveFolders('api-manager-folder-delete',p)});
   if (onSnapshots) {tabs.append(button('设置快照',onSnapshots));}
   heading.append(tabs);
   element.append(header, current, toolbar,filters,
     status, modal, list);
   function message(text, error = false) { if (disposed) return; const target = modal.open ? editor.querySelector('.pcm-api-editor-status') : status; if (target) { target.textContent = text; target.classList.toggle('is-error', error); } }
-  function lock(value) { busy = value; element.setAttribute('aria-busy', String(value)); for (const el of element.querySelectorAll('button,input,select')) if(!el.closest('.pcm-library-organizer'))el.disabled = value; }
+  function lock(value) { busy = value; element.setAttribute('aria-busy', String(value)); for (const el of element.querySelectorAll('button,input,select')) if(!el.closest('.pcm-library-dialog'))el.disabled = value; grouping.update(); }
   async function run(task) { if (busy || disposed) return; lock(true); try { await task(); } catch (error) { message(error.message || '操作失败', true); } finally { if (!disposed) lock(false); } }
   async function refresh() { const next = await host.request('api-manager-list'); if (disposed) return; data = next; render(); }
   function connectionLine(profile) {
@@ -79,9 +86,10 @@ export function createApiPanel({ host, onBack, onClose, onCycleTheme, themeIcon,
     if (!data.profiles.length) list.append(node('p', 'pcm-snapshot-empty', '还没有方案。新建一个，或保存酒馆当前连接。'));
     const q=search.value.trim().toLocaleLowerCase(),visible=data.profiles.filter(p=>p.name.toLocaleLowerCase().includes(q));
     if(data.profiles.length&&!visible.length)list.append(node('p','pcm-snapshot-empty','没有匹配的方案，请调整搜索。'));
-    const cardTarget=folderCardTargets(list,data.folders,visible,folded,!!q,data.activeIds);
+    const cardTarget=folderCardTargets(list,data.folders,visible,folded,!!q,data.activeIds,grouping.actions);
     for (const profile of visible) {
       const card = node('article', 'pcm-snapshot-card pcm-api-profile'), actions = node('div', 'pcm-api-profile-actions');
+      grouping.decorate(card,profile);
       card.classList.toggle('is-active', data.activeIds?.includes(profile.id));
       const top = node('div', 'pcm-api-profile-head'); top.append(node('h3', '', profile.name), actions);
       if(data.activeIds?.includes(profile.id)) top.querySelector('h3').append(node('span','pcm-api-active-badge','已启用'));
@@ -95,6 +103,7 @@ export function createApiPanel({ host, onBack, onClose, onCycleTheme, themeIcon,
       card.append(top, connectionLine(profile)); cardTarget(profile.id).append(card);
 
     }
+    grouping.update();
   }
   function field(label, value = '', type = 'text') {
     const wrap = node('label', 'pcm-api-field'), input = node('input'); input.type = type; input.setAttribute('aria-label', label); input.value = value; input.autocomplete = 'off'; wrap.append(node('span', '', label), input); editor.append(wrap); return input;
@@ -144,5 +153,5 @@ export function createApiPanel({ host, onBack, onClose, onCycleTheme, themeIcon,
     }); };
     modal.showModal(); name.focus();
   }
-  return { element, refresh: () => run(refresh), destroy() { disposed = true; editor.replaceChildren(); element.remove(); } };
+  return { element, refresh: () => run(refresh), destroy() { disposed = true; grouping.destroy();editor.replaceChildren(); element.remove(); } };
 }
