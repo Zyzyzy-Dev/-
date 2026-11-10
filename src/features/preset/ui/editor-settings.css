@@ -1,0 +1,17 @@
+/* 预设编辑设置与创作者工具栏：继承插件主题，窄屏自动换行，正文选区不被鼠标点击清除。 */
+.pcm-editor-settings{width:min(520px,calc(100vw - 24px));max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);border-radius:12px}
+.pcm-editor-settings .pcm-modal-box{box-sizing:border-box;width:100%;max-height:calc(100dvh - 24px);overflow:auto}
+.pcm-editor-settings header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.pcm-editor-settings h2{font-size:19px;margin:0}
+.pcm-editor-settings header button{width:32px;min-width:32px;height:32px;padding:0;font-size:22px}
+.pcm-editor-setting{display:flex;align-items:center;gap:18px;padding:16px 0;border-bottom:1px solid var(--SmartThemeBorderColor);cursor:pointer}
+.pcm-editor-setting>span{flex:1;min-width:0}.pcm-editor-setting strong,.pcm-editor-setting small{display:block}
+.pcm-editor-setting small{margin-top:5px;line-height:1.6;font-size:12px;opacity:.78}
+.pcm-editor-setting input{flex:none;width:20px;height:20px;accent-color:var(--pcm-selection-edge,#738764)}
+.pcm-editor-settings-status{margin:0;font-size:12px;line-height:1.6;min-height:2em}
+.pcm-creator-toolbar{position:fixed;z-index:10010;display:flex;flex-wrap:wrap;gap:3px;box-sizing:border-box;width:max-content;padding:5px;border:1px solid var(--SmartThemeBorderColor);border-radius:10px;background:var(--SmartThemeBlurTintColor);color:var(--SmartThemeBodyColor);box-shadow:0 4px 18px #0004;user-select:none}
+.pcm-creator-toolbar[hidden]{display:none!important}
+.pcm-dialog .pcm-creator-toolbar button{box-sizing:border-box;min-width:30px;min-height:32px;padding:4px 6px;margin:0;border:0;border-radius:6px;background:transparent;color:inherit;font:600 13px ui-monospace,monospace;cursor:pointer}
+.pcm-dialog .pcm-creator-toolbar button:hover,.pcm-dialog .pcm-creator-toolbar button:focus-visible{background:var(--pcm-selection-fill,#8883);outline:1px solid var(--SmartThemeBorderColor)}
+.pcm-creator-selection .pcm-random-float{display:none}
+@media(max-width:360px){.pcm-creator-toolbar{gap:2px}.pcm-dialog .pcm-creator-toolbar button{min-width:28px;min-height:34px;padding:3px 4px;font-size:12px}}
