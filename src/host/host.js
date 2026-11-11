@@ -1977,6 +1977,7 @@ class AppHost {
       safeInsets,
       keyboardOffset: Math.max(this.ttKeyboard, cssKeyboard, surfaceKeyboard, visualKeyboard),
       viewport: {
+        layoutHeight: window.innerHeight,
         width: window.visualViewport?.width || window.innerWidth,
         height: window.visualViewport?.height || window.innerHeight,
       },

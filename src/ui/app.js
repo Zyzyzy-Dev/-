@@ -374,7 +374,7 @@ function openCheck(side,currentId=null){
 // 正文撤销记录按条目对象保存：关闭详情再打开仍可撤回未保存修改，保存条目后清空。
 const contentHistory=new WeakMap();
 function installDetailTools(detail){let slot=detail.querySelector('.pcm-compare-corner');if(!slot){const head=detail.querySelector('.pcm-compare-head');slot=el('div','pcm-undo-slot');head?.insertBefore(slot,head.querySelector('.pcm-collapse'));}
-  return installEntryTools(detail,{creatorEnabled:()=>editorPreferences.creatorMode,onCheckSymbols:openCheck,onError:message=>pcmToastr.warning(message),undoSlot:slot,history:{get:(side,id)=>contentHistory.get(byId(side).get(id)),set:(side,id,value)=>{const p=byId(side).get(id);if(p)contentHistory.set(p,value);}}});}
+  return installEntryTools(detail,{creatorEnabled:()=>editorPreferences.creatorMode,getEnvironment:()=>hostEnvironment,onEnvironment:onHostEnvironment,onCheckSymbols:openCheck,onError:message=>pcmToastr.warning(message),undoSlot:slot,history:{get:(side,id)=>contentHistory.get(byId(side).get(id)),set:(side,id,value)=>{const p=byId(side).get(id);if(p)contentHistory.set(p,value);}}});}
 // 条目警示只表示表单尚未提交；原位刷新以保留正文焦点、选区和随机编辑状态。
 const DRAFT_WARNING_SVG='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 22 21H2Z"/><path d="M12 9v5"/><circle cx="12" cy="17.5" r=".65" fill="currentColor" stroke="none"/></svg>';
 function showsDraftWarning(side,prompt){return !!state.showDraftMarkers[side]&&isPendingPromptDraft(prompt,inlineDrafts.get(prompt));}
