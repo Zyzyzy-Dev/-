@@ -33,3 +33,24 @@ test('stale plans, empty or invalid selections and unknown symbols cannot overwr
   const edit=planCreatorSymbol('原文',0,2,'bold');assert.throws(()=>applySourceEdit('新原文',edit));
   for(const [text,start,end,id] of [['abc',1,1,'bold'],[' \n',0,2,'h1'],['abc',-1,2,'h1'],['abc',0,4,'h1'],['abc',0,2,'bad']])assert.throws(()=>planCreatorSymbol(text,start,end,id));
 });
+
+test('numbered lists count only selected nonblank lines and preserve CRLF and surrounding content',()=>{
+  const text='前文\r\n甲\r\n\r\n  \r\n乙\r\n后文',end=text.length-2;
+  const result=applySourceEdit(text,planCreatorSymbol(text,4,end,'ordered'));
+  assert.equal(result.text,'前文\r\n1. 甲\r\n\r\n  \r\n2. 乙\r\n后文');
+});
+
+test('custom paired tags accept Chinese and namespace names without interpreting selected source',()=>{
+  const text='前{{getvar::人物}}后',start=1,end=text.length-1;
+  for(const tagName of ['规则','prompt:rules','_context','场景_1']){
+    const result=applySourceEdit(text,planCreatorSymbol(text,start,end,'tag',{tagName}));
+    assert.equal(result.text,`前<${tagName}>{{getvar::人物}}</${tagName}>后`);
+  }
+  for(const tagName of ['', 'two words','<rules>','/rules','rules x="y"','a'.repeat(65),'1rule'])assert.throws(()=>planCreatorSymbol(text,start,end,'tag',{tagName}));
+});
+
+test('separator stays on its own line with blank separation instead of turning preceding text into a heading',()=>{
+  for(const [text,start,expected] of [
+    ['甲乙',1,'甲\n\n---\n\n乙'],['甲\n乙',2,'甲\n\n---\n\n乙'],['甲\n\n乙',3,'甲\n\n---\n\n乙'],['乙',0,'---\n\n乙'],['甲\r\n乙',3,'甲\r\n\r\n---\r\n\r\n乙']
+  ])assert.equal(applySourceEdit(text,planCreatorSymbol(text,start,text.length,'separator')).text,expected);
+});
