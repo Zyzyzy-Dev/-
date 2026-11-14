@@ -41,7 +41,10 @@ export function installPaneLayout(dialog, onEnvironment) {
     grip.setAttribute('aria-valuemax', String(Math.floor((sizes.total - 160) / sizes.total * 100)));
     const percent = Math.round(sizes.old / sizes.total * 100);
     grip.setAttribute('aria-valuenow', String(percent));
-    grip.setAttribute('aria-valuetext', `旧版 ${percent}%，新版 ${100 - percent}%`);
+    const library = lists.querySelector('[data-temp-library]'), replaced = library?.dataset.replacesSide;
+    grip.setAttribute('aria-label', library ? '调整预设与临时库高度比例' : '调整新旧预设高度比例');
+    grip.setAttribute('aria-controls', panes.map((pane, i) => replaced === (i ? 'new' : 'old') ? library.id : pane.id).join(' '));
+    grip.setAttribute('aria-valuetext', `${replaced === 'old' ? '临时库' : '旧版'} ${percent}%，${replaced === 'new' ? '临时库' : '新版'} ${100 - percent}%`);
   }
   const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(refresh); };
   function finish(commit = false) {

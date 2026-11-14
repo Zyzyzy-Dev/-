@@ -29,13 +29,14 @@ export function createTempLibraryPanel({ session, onAdd, onClose, confirm, onCha
       shown++;
       const row = node('article', 'pcm-temp-entry'); row.dataset.tempEntry = item.id;
       const details = node('details'), summary = node('summary', 'pcm-temp-drag'); summary.dataset.tempDrag = ''; summary.title = '电脑按住拖拽；手机长按拖拽';
-      summary.append(node('strong', '', item.name));
-      const remove = button('移除', () => { session.items.delete(item.id); session.expanded.delete(item.id); refresh(); onChange(); }); remove.setAttribute('aria-label', `从临时库移除 ${item.name}`);
+      const name = node('strong', 'pcm-temp-name', item.name); name.title = item.name;
+      const remove = button('移除', event => { event.preventDefault(); event.stopPropagation(); session.items.delete(item.id); session.expanded.delete(item.id); refresh(); onChange(); }); remove.setAttribute('aria-label', `从临时库移除 ${item.name}`);
       const source = node('small', 'pcm-temp-source', item.source); source.title = item.source;
+      summary.append(name, source, remove);
       details.append(summary); details.open = session.expanded.has(item.id);
       const showContent = () => { if (details.open && !details.querySelector('pre')) details.append(node('pre', 'pcm-temp-content', item.content || '（空正文）')); };
       showContent(); details.addEventListener('toggle', () => { if (!row.isConnected) return; if (details.open) session.expanded.add(item.id); else session.expanded.delete(item.id); showContent(); });
-      const meta = node('div', 'pcm-temp-meta'); meta.append(source, remove); row.append(details, meta); list.append(row);
+      row.append(details); list.append(row);
     }
     if (!shown) list.append(node('p', 'pcm-temp-empty', session.items.size ? '没有符合搜索条件的条目' : '从世界书勾选条目后加入这里'));
     list.scrollTop = top;
