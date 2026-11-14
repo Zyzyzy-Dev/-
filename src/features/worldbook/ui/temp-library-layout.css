@@ -9,6 +9,12 @@
 .pcm-dialog .pcm-app.pcm-with-library>[data-compare]:not(.pcm-hidden){flex:1 0 260px;min-height:260px!important;max-height:55vh!important;width:auto!important;margin:8px 0 0!important;overflow:auto!important}
 .pcm-dialog .pcm-app.pcm-with-library.pcm-single-detail>.pcm-lists{flex:0 0 52%;min-height:300px!important}
 .pcm-dialog .pcm-app.pcm-with-library .pcm-version-forms{grid-template-columns:minmax(0,1fr)!important}
+.pcm-dialog .pcm-app.pcm-with-library .pcm-compare-corner .pcm-collapse{width:auto!important;min-width:max-content!important;white-space:nowrap!important;writing-mode:horizontal-tb;font-size:12px!important}
+@media(min-width:901px){
+ .pcm-dialog .pcm-app.pcm-with-library>[data-library-detail][data-library-paired=false]:not(.pcm-hidden){width:calc((100% - 10px)/2)!important;box-sizing:border-box;align-self:flex-start;margin:8px 0 0!important}
+ .pcm-dialog .pcm-app.pcm-with-library>[data-library-detail=new][data-library-paired=false]:not(.pcm-hidden){align-self:flex-end}
+ .pcm-dialog .pcm-app.pcm-with-library>[data-library-paired=true] .pcm-version-forms{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important}
+}
 .pcm-dialog .pcm-app.pcm-with-library .pcm-pane-head{flex-wrap:wrap}
 .pcm-dialog .pcm-summary .pcm-library-launch{flex-shrink:0;margin-left:4px;min-height:22px!important;padding:2px 5px!important;font-size:10px!important;line-height:16px!important;white-space:nowrap}
 .pcm-dialog [data-action=toggle-temp-library][aria-pressed=true]{background:var(--pcm-selection)!important;border-color:var(--pcm-selection-edge)!important;color:var(--SmartThemeBodyColor)!important}

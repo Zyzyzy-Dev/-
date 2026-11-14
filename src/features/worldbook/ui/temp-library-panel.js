@@ -2,7 +2,7 @@
 const node = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
 const button = (text, run) => { const b = node('button', 'menu_button', text); b.type = 'button'; b.addEventListener('click', run); return b; };
 
-export function createTempLibraryPanel({ session, onAdd, onClose, confirm, onChange }) {
+export function createTempLibraryPanel({ session, onAdd, onClose, confirm, onChange, isCompareMode = () => false, getSelectedId = () => null, onSelect = () => {} }) {
   const element = node('section', 'pcm-temp-library'); element.dataset.tempLibrary = ''; element.setAttribute('aria-label', '临时库');
   const head = node('header', 'pcm-temp-head'), title = node('strong', '', '临时库'), count = node('span', 'pcm-temp-count');
   head.append(title, count, button('收起', onClose));
@@ -33,15 +33,29 @@ export function createTempLibraryPanel({ session, onAdd, onClose, confirm, onCha
       const remove = button('移除', event => { event.preventDefault(); event.stopPropagation(); session.items.delete(item.id); session.expanded.delete(item.id); refresh(); onChange(); }); remove.setAttribute('aria-label', `从临时库移除 ${item.name}`);
       const source = node('small', 'pcm-temp-source', item.source); source.title = item.source;
       summary.append(name, source, remove);
+      summary.addEventListener('click', event => {
+        if (!isCompareMode()) return;
+        event.preventDefault(); event.stopPropagation(); onSelect(item.id); refreshSelection();
+      });
       details.append(summary); details.open = session.expanded.has(item.id);
       const showContent = () => { if (details.open && !details.querySelector('pre')) details.append(node('pre', 'pcm-temp-content', item.content || '（空正文）')); };
       showContent(); details.addEventListener('toggle', () => { if (!row.isConnected) return; if (details.open) session.expanded.add(item.id); else session.expanded.delete(item.id); showContent(); });
       row.append(details); list.append(row);
     }
     if (!shown) list.append(node('p', 'pcm-temp-empty', session.items.size ? '没有符合搜索条件的条目' : '从世界书勾选条目后加入这里'));
-    list.scrollTop = top;
+    list.scrollTop = top; refreshSelection();
+  }
+  function refreshSelection() {
+    const comparing = isCompareMode(), selectedId = getSelectedId();
+    for (const row of list.querySelectorAll('[data-temp-entry]')) {
+      const selected = comparing && row.dataset.tempEntry === selectedId;
+      row.classList.toggle('pcm-temp-selected', selected);
+      const summary = row.querySelector('[data-temp-drag]');
+      summary.title = comparing ? '点击选择对比；电脑按住拖拽，手机长按拖拽' : '电脑按住拖拽；手机长按拖拽';
+      if (selected) summary.setAttribute('aria-current', 'true'); else summary.removeAttribute('aria-current');
+    }
   }
   search.addEventListener('input', () => { session.query = search.value; refresh(); });
   refresh();
-  return { element, refresh, destroy() { alive = false; element.remove(); } };
+  return { element, refresh, refreshSelection, destroy() { alive = false; element.remove(); } };
 }
