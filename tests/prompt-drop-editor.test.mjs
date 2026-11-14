@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {clone,createIdentifier,findPromptOrderEntry} from '../src/features/preset/core.js';
-import {createSameIdDropCopy} from '../src/features/preset/prompt-drop-copy.js';
+import * as dropHelpers from '../src/features/preset/prompt-drop-copy.js';
 
 const source=readFileSync(new URL('../src/ui/app.js',import.meta.url),'utf8');
 function range(start,end){const a=source.indexOf(start),b=source.indexOf(end,a);assert(a>=0&&b>a);return source.slice(a,b);}
@@ -16,11 +16,80 @@ const makePreset=(content,enabled)=>({
 });
 function harness({overwrite=false,counterpart='same'}={}){
   const state={old:makePreset('source',false),new:makePreset('target',true),cache:{maps:{},ordered:{}},dirty:{old:false,new:false},dragged:{old:new Set(),new:new Set()},history:[]};
-  const preferences={overwriteSameIdOnDrop:overwrite};
-  const deps={state,editorPreferences:preferences,clone,createIdentifier,createSameIdDropCopy,promptOrderEntry:findPromptOrderEntry,listOrderIndex:{},rebuildComparisonCache(){},byId:side=>state.cache.maps[side],counterpartId:()=>counterpart,pushUndo:action=>state.history.push(action),renderList(){},renderAll(){},hideCompare(){},updateUndoButton(){},pcmToastr:{success(){},warning(){}},snapshotGroupChange:side=>state.history.push(api.moveSnapshot(side))};
-  const api=new Function(...Object.keys(deps),code+'\nrebuildCache();return {movePrompt,movePrompts,assignPromptToGroup,placeDroppedPrompts:typeof placeDroppedPrompts==="function"?placeDroppedPrompts:null,moveSnapshot,undoLast};')(...Object.values(deps));
-  return {state,preferences,...api};
+  const preferences={overwriteSameIdOnDrop:overwrite},notices=[];
+  const deps={state,editorPreferences:preferences,clone,createIdentifier,...dropHelpers,promptOrderEntry:findPromptOrderEntry,listOrderIndex:{},rebuildComparisonCache(){},byId:side=>state.cache.maps[side],counterpartId:(side,id)=>typeof counterpart==='function'?counterpart(side,id,state):counterpart,pushUndo:action=>state.history.push(action),renderList(){},renderAll(){},hideCompare(){},updateUndoButton(){},pcmToastr:{success(text){notices.push({level:'success',text});},warning(text){notices.push({level:'warning',text});}},snapshotGroupChange:side=>state.history.push(api.moveSnapshot(side))};
+  const api=new Function(...Object.keys(deps),code+'\nrebuildCache();return {movePrompt,movePrompts,assignPromptToGroup,assignPromptsToGroup,rebuildCache,placeDroppedPrompts:typeof placeDroppedPrompts==="function"?placeDroppedPrompts:null,moveSnapshot,undoLast};')(...Object.values(deps));
+  return {state,preferences,notices,...api};
 }
+
+function renameId(h,side,from,to){
+  const p=h.state[side];p.prompts.find(p=>p.identifier===from).identifier=to;
+  for(const order of p.prompt_order)for(const item of order.order)if(item.identifier===from)item.identifier=to;
+  const meta=p.extensions.baibaiToolkit.presetPromptGroups.prompts;meta[to]=meta[from];delete meta[from];h.rebuildCache();
+}
+
+test('unique exact-name row overwrite keeps target ID and undo restores target draft object',()=>{
+  const h=harness({overwrite:true,counterpart:null});renameId(h,'old','same','source-id');
+  const original=h.state.new.prompts[0],sourcePrompt=h.state.old.prompts[0],before=structuredClone(h.state.new),drafts=new WeakMap([[original,{content:'target draft'}],[sourcePrompt,{content:'source draft'}]]);
+  const mapping=h.placeDroppedPrompts('old','new',['source-id'],'tail','h');
+  assert.equal(mapping.get('source-id'),'same');assert.equal(h.state.new.prompts.length,2);
+  assert.equal(h.state.new.prompts[0].content,'source');assert.equal(h.state.new.prompts[0].enabled,false);
+  assert.equal(h.state.new.extensions.baibaiToolkit.presetPromptGroups.prompts.same.groupId,'h');
+  assert.equal(h.state.old.prompts[0],sourcePrompt);assert.equal(sourcePrompt.identifier,'source-id');assert.equal(drafts.get(sourcePrompt).content,'source draft');
+  h.undoLast();assert.deepEqual(h.state.new,before);assert.equal(h.state.new.prompts[0],original);assert.equal(drafts.get(original).content,'target draft');
+});
+
+test('disabled same-name drag with different ID creates consecutively numbered independent copies',()=>{
+  const h=harness();renameId(h,'old','same','source-id');const original=h.state.new.prompts[0];
+  const first=h.movePrompt('old','new','source-id','tail'),second=h.movePrompt('old','new','source-id','tail');
+  assert.notEqual(first,'source-id');assert.notEqual(first,'same');assert.notEqual(second,first);
+  assert.equal(h.state.new.prompts.find(p=>p.identifier===first).name,'角色要求（1）');
+  assert.equal(h.state.new.prompts.find(p=>p.identifier===second).name,'角色要求（2）');
+  assert.equal(h.state.new.prompts.find(p=>p.identifier==='same'),original);
+});
+
+test('group-title drop overwrites body and switch using the same unique-name target ID',()=>{
+  const h=harness({overwrite:true,counterpart:null});renameId(h,'old','same','source-id');
+  const original=h.state.new.prompts[0];h.assignPromptToGroup('old','new','source-id','h');
+  assert.equal(h.state.new.prompts.length,2);const changed=h.state.new.prompts.find(p=>p.identifier==='same');
+  assert.equal(changed.content,'source');assert.equal(changed.enabled,false);
+  assert.equal(h.state.new.extensions.baibaiToolkit.presetPromptGroups.prompts.same.groupId,'h');
+  h.undoLast();assert.equal(h.state.new.prompts[0],original);assert.equal(h.state.new.extensions.baibaiToolkit.presetPromptGroups.prompts.same.groupId,'g');
+});
+
+test('same-ID group-title drop also replaces the body instead of only its switch',()=>{
+  const h=harness({overwrite:true});h.assignPromptToGroup('old','new','same','h');
+  assert.equal(h.state.new.prompts.find(p=>p.identifier==='same').content,'source');
+});
+
+test('duplicate names preserve original targets and explain the numbered copy',()=>{
+  const h=harness({overwrite:true,counterpart:null});renameId(h,'old','same','source-id');
+  h.state.new.prompts[1].name='角色要求';h.rebuildCache();const original=h.state.new.prompts.slice();
+  const id=h.movePrompt('old','new','source-id',null);
+  assert.equal(h.state.new.prompts.find(p=>p.identifier===id).name,'角色要求（1）');
+  for(const p of original)assert.equal(h.state.new.prompts.find(x=>x.identifier===p.identifier),p);
+  assert.equal(h.notices.filter(n=>n.level==='warning').length,1);assert.match(h.notices.at(-1).text,/副本/);
+});
+
+test('ID and name pointing at different targets must preserve both and make a numbered copy',()=>{
+  const h=harness({overwrite:true,counterpart:'tail'});h.state.new.prompts[0].name='另一个用途';h.state.new.prompts[1].name='角色要求';h.rebuildCache();
+  const original=h.state.new.prompts.slice(),id=h.movePrompt('old','new','same',null);
+  assert(!['same','tail'].includes(id));assert.equal(h.state.new.prompts.find(p=>p.identifier===id).name,'角色要求（1）');
+  for(const p of original)assert.equal(h.state.new.prompts.find(x=>x.identifier===p.identifier),p);
+  assert.equal(h.notices.at(-1).level,'warning');
+});
+
+test('multi-select row and group-title drops use pre-move matching and a single undo',()=>{
+  for(const group of [false,true]){
+    const h=harness({overwrite:true,counterpart:(_side,id,state)=>state.new.prompts.find(p=>p.identifier==='same').content==='target'?id:null});
+    const originals=h.state.new.prompts.slice();
+    if(group)h.assignPromptsToGroup('old','new',['same','tail'],'h');else h.placeDroppedPrompts('old','new',['same','tail'],null,'h');
+    assert.equal(h.state.new.prompts.length,2,'later candidates must not be re-evaluated after the first overwrite');
+    assert.equal(h.state.history.length,1);assert.equal(h.notices.filter(n=>n.level==='warning').length,0);
+    assert.equal(h.state.new.prompts.find(p=>p.identifier==='same').content,'source');
+    h.undoLast();assert.equal(h.state.new.prompts[0],originals[0]);assert.equal(h.state.new.prompts[1],originals[1]);
+  }
+});
 test('same-id drag off inserts a copy at the requested position and keeps original object drafts',()=>{
   const h=harness(),original=h.state.new.prompts[0],sourcePrompt=h.state.old.prompts[0],drafts=new WeakMap([[original,{content:'pending target'}],[sourcePrompt,{content:'pending source'}]]);
   const id=h.movePrompt('old','new','same','tail');

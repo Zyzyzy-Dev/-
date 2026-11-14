@@ -16,6 +16,8 @@ export function transferPresetGroup(source, target, groupId, beforeId = null, {o
   if (!sourceIds.size) throw new Error('分组中没有条目');
   const srcOrder = sourceEntry?.order?.length ? sourceEntry.order : source.prompts.map(p => ({ identifier: p.identifier, enabled: p.enabled !== false }));
   const sourceOrder = [...new Set([...srcOrder.map(idOf), ...source.prompts.map(p => p.identifier)])].filter(id => sourceIds.has(id));
+  const sourceMap = new Map(source.prompts.map(p => [p.identifier,p]));
+  const targetMap = new Map(target.prompts.map(p => [p.identifier,p]));
   const ext = result.extensions.baibaiToolkit ??= {};
   const meta = ext.presetPromptGroups ??= { groups: [], prompts: {} };
   meta.groups ??= []; meta.prompts ??= {};
@@ -32,13 +34,21 @@ export function transferPresetGroup(source, target, groupId, beforeId = null, {o
   const groupOf = item => { const id = String(meta.prompts[idOf(item)]?.groupId); return known.has(id) ? id : null; };
   const left = new Set(rest.slice(0,index).map(groupOf).filter(Boolean));
   if (rest.slice(index).some(item => left.has(groupOf(item)))) throw new Error('整组只能放到分组之间');
-  const reserved = new Set([...target.prompts.map(p=>p.identifier), ...sourceOrder, ...originalOrder.map(idOf), ...Object.keys(meta.prompts)]);
+  const targetReserved = new Set([...targetMap.keys(), ...Object.keys(meta.prompts)]);
+  for(const node of target.prompt_order||[])for(const item of Array.isArray(node?.order)?node.order:[])targetReserved.add(idOf(item));
+  const reserved = new Set([...targetReserved, ...sourceMap.keys(), ...Object.keys(sourceMeta.prompts||{})]);
+  for(const node of source.prompt_order||[])for(const item of Array.isArray(node?.order)?node.order:[])reserved.add(idOf(item));
+  const targetNames=new Set(target.prompts.map(p=>String(p.name??'')).filter(name=>name.trim()));
   const mapping = new Map(sourceOrder.map(id=>[id,id]));
-  if (!sameSide) for (const id of sourceOrder) if (target.prompts.some(p=>p.identifier===id)) { let fresh; do { fresh=createIdentifier(); } while(reserved.has(fresh));reserved.add(fresh);mapping.set(id,fresh); }
+  if (!sameSide) for (const id of sourceOrder) {
+    const name=String(sourceMap.get(id).name??'');
+    if(targetReserved.has(id)||(overwriteSameIdOnDrop===false&&name.trim()&&targetNames.has(name))){
+      let fresh;do{fresh=createIdentifier();}while(!fresh||reserved.has(fresh));
+      reserved.add(fresh);mapping.set(id,fresh);
+    }
+  }
   const incoming = srcOrder.filter(item => sourceIds.has(idOf(item))).map(item=>typeof item==='string'?mapping.get(item):{...clone(item),identifier:mapping.get(idOf(item))});
   entry.order = [...rest.slice(0,index), ...incoming, ...rest.slice(index)];
-  const sourceMap = new Map(source.prompts.map(p => [p.identifier,p]));
-  const targetMap = new Map(target.prompts.map(p => [p.identifier,p]));
   let destinationGroupId=groupId;
   const newGroup=clone(group);
   if(!sameSide){
@@ -49,7 +59,7 @@ export function transferPresetGroup(source, target, groupId, beforeId = null, {o
     const base=String(group.name||groupId).trim();let name=base,n=1;
     while(names.has(name))name=base+'（'+n+++'）';newGroup.name=name;
   }
-  // 整组迁移原本就为碰撞成员创建独立 ID；关闭覆盖时再按同一规则给这些副本编号。
+  // 整组迁移保持独立复制；关闭覆盖时，原目标同 ID 或完整同名的成员都使用编号副本。
   const copyNames={...target,prompts:[...target.prompts,...sourceOrder.filter(id=>!targetMap.has(id)).map(id=>sourceMap.get(id))]};
   for (const id of sourceOrder) {
     const mapped=mapping.get(id),original=sourceMap.get(id);
