@@ -481,7 +481,7 @@ function openCheck(side,currentId=null){
         state.activeId=issue.entryId;state.activeSide=side;
         if(state.freeSelect.enabled&&!tempLibrarySide){state.freeSelect[side+'Id']=issue.entryId;}
         for(const form of document.querySelectorAll('.pcm-inline-form')){const p=byId(form.dataset.side).get(form.dataset.id);if(p)rememberInlineDraft(p,form,form.dataset.side);}
-        if(tempLibrarySide)renderTempLibraryDetail(true);else if(singleSide)renderSingleDetail(true);else if(state.freeSelect.enabled){renderFreeCompare(true);if(!document.querySelector('.pcm-inline-form[data-side="'+side+'"][data-id="'+CSS.escape(issue.entryId)+'"]'))renderCompare(true);}else renderCompare(true);
+        if(tempLibrarySide)renderTempLibraryDetail(true,true);else if(singleSide)renderSingleDetail(true);else if(state.freeSelect.enabled){renderFreeCompare(true);if(!document.querySelector('.pcm-inline-form[data-side="'+side+'"][data-id="'+CSS.escape(issue.entryId)+'"]'))renderCompare(true);}else renderCompare(true);
         const detail=document.querySelector('[data-compare]'),form=[...detail.querySelectorAll('.pcm-inline-form')].find(f=>f.dataset.side===side&&f.dataset.id===issue.entryId),area=form?.querySelector('textarea[name=content]');
         if(area)requestAnimationFrame(()=>{area._pcmRandomEditor?.setEnabled(false);area.focus();area.setSelectionRange(issue.start,issue.end);const lines=area.value.slice(0,issue.start).split('\n').length-1;area.scrollTop=Math.max(0,lines*(parseFloat(getComputedStyle(area).lineHeight)||20)-area.clientHeight/3);area.dispatchEvent(new Event('scroll'));});
         const list=document.querySelector('[data-list="'+side+'"]');for(const group of list?.querySelectorAll('.pcm-group')||[]){if(group._pcmPromptIds?.includes(issue.entryId)&&group.classList.contains('pcm-collapsed'))toggleRenderedGroup(side,group._pcmGroupKey);}
@@ -671,7 +671,7 @@ function openTextReplace(side,currentId){
     onLocate:(id,field,start,end)=>{
       closeTextReplace(side);state.activeId=id;state.activeSide=side;
       if(state.freeSelect.enabled&&!tempLibrarySide){state.freeSelect[side+'Id']=id;}
-      renderCompare(true);
+      if(tempLibrarySide)renderTempLibraryDetail(true,true);else renderCompare(true);
       const form=[...document.querySelectorAll('.pcm-inline-form')].find(f=>f.dataset.side===side&&f.dataset.id===id),input=form?.querySelector('[name="'+field+'"]');
       if(input){input.focus();input.setSelectionRange(start,end);}
     }});
@@ -694,11 +694,13 @@ function setSingleSide(side){closeTempLibrary(false);closeMigrationDialog();
   renderAll();paneLayout?.refresh();
 }
 function makePresetFilter(side){const single=singleSide===side;const select=presetSelects.create({className:'pcm-preset-filter',label:(side==='old'?'旧版':'新版')+'标签筛选',value:state.filter[side],choices:single?[['all','全部'],['enabled','已启用'],['disabled','已禁用'],['modified','已修改']]:[['all','全部'],['changed','内容有差异'],['uncertain','未确定对应'],['removed','新版已删除'],['added','新版新增'],['same','相同'],['dragged','已拖拽'],['modified','已手动修改']],key:'preset-'+side,minWidth:150,onChange:()=>select.dispatchEvent(new Event('change',{bubbles:true}))});select.dataset.filter=side;return select;}
-function renderTempLibraryDetail(reveal=false){
+function renderTempLibraryDetail(reveal=false,allowUnpaired=false){
   syncTempLibrarySelection();
   const side=tempLibrarySide,detail=document.querySelector('[data-compare]'),prompt=side&&byId(side).get(tempLibrarySelection.promptId);
   if(!detail||!prompt){hideCompare();return;}
   const item=state.freeSelect.enabled?tempLibrarySession.items.get(tempLibrarySelection.itemId):null;
+  // 自由选择先留在列表，配齐后才展开；明确的检查／替换定位仍可编辑单个条目。
+  if(state.freeSelect.enabled&&!item&&!allowUnpaired){hideCompare();return;}
   const wasHidden=detail.classList.contains('pcm-hidden'),dialog=detail.closest('.pcm-dialog'),scroll=detail.scrollTop,dialogScroll=dialog.scrollTop;
   detail._pcmDisposeHighlight?.();detail.replaceChildren();detail.classList.remove('pcm-hidden');
   detail.dataset.libraryDetail=side;detail.dataset.libraryPaired=String(!!item);

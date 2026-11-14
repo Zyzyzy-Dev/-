@@ -4,15 +4,14 @@ export function installTempLibraryDrag(root, { prepare, resolve, commit, lock, u
   let drag = null, frame = 0, marker = null, markerClass = '', suppressUntil = 0, edgeList = null, edgeDir = '', edgeSince = 0;
   const clearMarker = () => { marker?.classList.remove(markerClass); marker = null; markerClass = ''; };
   function createPreview() {
-    const preview = doc.createElement('div'), title = doc.createElement('strong'), status = doc.createElement('small');
+    const preview = doc.createElement('div'), title = doc.createElement('strong');
     preview.className = 'pcm-temp-drag-preview'; preview.dataset.tempDragPreview = ''; preview.setAttribute('aria-hidden', 'true');
-    title.textContent = drag.data.item?.name || '世界书条目'; preview.append(title, status); root.append(preview);
-    drag.preview = preview; drag.status = status;
+    title.textContent = drag.data.item?.name || '世界书条目'; preview.append(title); root.append(preview);
+    drag.preview = preview;
   }
   function updatePreview(target) {
     const preview = drag?.preview; if (!preview) return;
     preview.dataset.valid = String(!!target);
-    drag.status.textContent = target ? `松开：${target.label || '插入当前位置'}` : '拖到预设列表选择位置';
     const bounds = preview.getBoundingClientRect(), viewportWidth = doc.documentElement.clientWidth || win.innerWidth, viewportHeight = win.innerHeight;
     const x = drag.kind === 'touch' ? drag.x - bounds.width / 2 : drag.x + 14;
     const y = drag.kind === 'touch' ? drag.y - bounds.height - 22 : drag.y + 18;
