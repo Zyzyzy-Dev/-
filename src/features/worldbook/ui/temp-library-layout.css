@@ -1,0 +1,23 @@
+/* 单预设加临时库：并列/上下双列表，预设详情始终位于列表下方。 */
+.pcm-dialog .pcm-app.pcm-single.pcm-with-library{display:flex!important;flex-direction:column!important;overflow:auto!important;min-height:0!important;height:100%!important}
+.pcm-app.pcm-with-library>.pcm-header{flex:none}
+.pcm-dialog .pcm-app.pcm-with-library>.pcm-lists{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr);gap:10px;flex:1;min-height:300px!important;overflow:hidden!important}
+.pcm-dialog .pcm-app.pcm-with-library .pcm-pane:not(.pcm-single-hidden){width:auto!important;min-width:0!important;height:100%!important;min-height:0!important;display:flex!important;flex-direction:column!important;overflow:hidden!important}
+.pcm-dialog .pcm-app.pcm-with-library .pcm-list{flex:1;min-height:70px!important;max-height:none!important;overflow:auto!important}
+.pcm-dialog .pcm-app.pcm-with-library>.pcm-single-resizer{display:none!important}
+.pcm-dialog .pcm-app.pcm-with-library>[data-compare]:not(.pcm-hidden){flex:1 0 260px;min-height:260px!important;max-height:55vh!important;width:auto!important;margin:8px 0 0!important;overflow:auto!important}
+.pcm-dialog .pcm-app.pcm-with-library.pcm-single-detail>.pcm-lists{flex:0 0 52%;min-height:300px!important}
+.pcm-dialog .pcm-app.pcm-with-library .pcm-pane-head,.pcm-dialog .pcm-app.pcm-with-library .pcm-tools{flex-wrap:wrap}
+.pcm-dialog .pcm-app .pcm-tools:has([data-action=toggle-temp-library]){flex-wrap:wrap!important}
+.pcm-dialog .pcm-app .pcm-tools [data-action=toggle-temp-library]{flex-shrink:0!important}
+.pcm-dialog [data-action=toggle-temp-library][aria-pressed=true]{background:#83a598!important;color:#282828!important}
+.pcm-temp-drop-end{padding:10px;text-align:center;font-size:11px;opacity:.75;border:1px dashed var(--SmartThemeBorderColor);border-radius:7px;margin:6px 0}
+@media(max-width:900px){
+ .pcm-dialog .pcm-app.pcm-single.pcm-with-library{display:block!important;overflow:auto!important}
+ .pcm-dialog .pcm-app.pcm-with-library>.pcm-lists,.pcm-dialog .pcm-app.pcm-with-library.pcm-single-detail>.pcm-lists{display:grid!important;grid-template-columns:minmax(0,1fr)!important;grid-template-rows:minmax(0,1.1fr) minmax(0,1fr)!important;height:calc(100dvh - 110px)!important;min-height:580px!important;gap:8px}
+ .pcm-dialog .pcm-app.pcm-with-library>[data-compare]:not(.pcm-hidden){max-height:none!important;min-height:320px!important}
+ .pcm-dialog .pcm-app.pcm-with-library .pcm-pane-resizer{display:none!important}
+}
+@media(max-width:520px){.pcm-worldbook-positions{flex-wrap:wrap!important}.pcm-worldbook-positions>.pcm-worldbook-collect{flex:1 0 100%!important}}
+/* 首页与其他工具页的显隐优先于临时库布局。 */
+.pcm-dialog .pcm-app.pcm-single.pcm-with-library.pcm-view-hidden{display:none!important}
