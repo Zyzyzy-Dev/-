@@ -15,3 +15,44 @@ export function createTempLibraryPreview(item, { diffSide }) {
   section.append(node('h4', '', '临时库'), name, source, content);
   return section;
 }
+
+// 两列的字段高度不同：按真实正文起点补齐空白，不给材料伪造预设设置。
+// 手机上下排列时移除补齐；字段展开、工具栏换行、主题和窗口变化后重新测量。
+export function alignTempLibraryBodies(forms) {
+  const areas = [...forms.querySelectorAll('.pcm-live-area')];
+  if (areas.length !== 2) return () => {};
+  const labels = areas.map(area => area.closest('.pcm-inline-content'));
+  const original = labels.map(label => label.style.paddingTop);
+  const desktop = matchMedia('(min-width: 901px)');
+  let frame = 0, disposed = false, padding = [0, 0];
+  const apply = (index, value) => {
+    if (Math.abs(padding[index] - value) < 0.1) return;
+    padding[index] = value;
+    labels[index].style.paddingTop = value ? value + 'px' : original[index];
+  };
+  const update = () => {
+    frame = 0;
+    if (disposed || !forms.isConnected) return;
+    if (!desktop.matches || areas.some(area => !area.getClientRects().length || area.closest('[hidden]'))) {
+      labels.forEach((_, index) => apply(index, 0));
+      return;
+    }
+    const tops = areas.map((area, index) => area.getBoundingClientRect().top - padding[index]);
+    const top = Math.max(...tops);
+    tops.forEach((value, index) => apply(index, top - value));
+  };
+  const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(update); };
+  const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(schedule) : null;
+  for (const node of forms.querySelectorAll('.pcm-version-editor,.pcm-inline-form,.pcm-inline-chat,h4,.pcm-temp-comparison-name,.pcm-temp-comparison-source')) observer?.observe(node);
+  forms.addEventListener('change', schedule);
+  forms.addEventListener('pcm-random-mode', schedule);
+  window.addEventListener('resize', schedule);
+  desktop.addEventListener('change', schedule);
+  update();
+  return () => {
+    disposed = true; cancelAnimationFrame(frame); observer?.disconnect();
+    forms.removeEventListener('change', schedule); forms.removeEventListener('pcm-random-mode', schedule);
+    window.removeEventListener('resize', schedule); desktop.removeEventListener('change', schedule);
+    labels.forEach((label, index) => { label.style.paddingTop = original[index]; });
+  };
+}

@@ -12,3 +12,20 @@ test('same names with different ids remain separate and uninjected members remai
 
 test('duplicate group names increment while a free prompt ID is retained',()=>{const p=fixture(),t=fixture();t.extensions.baibaiToolkit.presetPromptGroups.groups.push({id:'taken',name:'G（1）'});p.prompts[0].identifier='fresh';p.prompt_order[0].order[0].identifier='fresh';p.extensions.baibaiToolkit.presetPromptGroups.prompts.fresh={groupId:'g'};const r=transferPresetGroup(p,t,'g',null);assert(r.extensions.baibaiToolkit.presetPromptGroups.groups.some(g=>g.name==='G（2）'));assert(ids(r).includes('fresh'));});
 test('presets without explicit order retain existing visible entries when copied or sorted',()=>{const p=fixture(),t=fixture();delete p.prompt_order;t.prompt_order=[];const r=transferPresetGroup(p,t,'g','c');assert.deepEqual(ids(r).slice(0,2),['a','b']);assert.equal(ids(r).length,7);assert(ids(r).includes('u'));const q=transferPresetGroup(p,p,'g','u');assert.deepEqual(ids(q),['c','d','a','b','u']);});
+
+test('disabled overwrite gives colliding whole-group members numbered names and keeps target content',()=>{
+  const source=fixture(),target=fixture();source.prompts[0].name='重复';source.prompts[1].name='重复';
+  const before=structuredClone(target),result=transferPresetGroup(source,target,'g',null,{overwriteSameIdOnDrop:false});
+  const copies=result.prompts.filter(p=>!target.prompts.some(t=>t.identifier===p.identifier));
+  assert.deepEqual(copies.map(p=>p.name),['重复（1）','重复（2）']);
+  assert.equal(result.prompts.find(p=>p.identifier==='a'),target.prompts[0]);
+  assert.deepEqual(target,before);
+});
+test('disabled overwrite does not rename a group member with an unused ID or same-side sorting',()=>{
+  const source=fixture(),target=fixture();source.prompts[0].identifier='fresh';source.prompts[0].name='保留';source.prompt_order[0].order[0].identifier='fresh';
+  source.extensions.baibaiToolkit.presetPromptGroups.prompts.fresh={groupId:'g'};
+  const result=transferPresetGroup(source,target,'g',null,{overwriteSameIdOnDrop:false});
+  assert.equal(result.prompts.find(p=>p.identifier==='fresh').name,'保留');
+  const sorted=transferPresetGroup(source,source,'g','u',{overwriteSameIdOnDrop:false});
+  assert.equal(sorted.prompts.find(p=>p.identifier==='fresh'),source.prompts[0]);
+});
