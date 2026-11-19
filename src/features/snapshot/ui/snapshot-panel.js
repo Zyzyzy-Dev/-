@@ -1,6 +1,7 @@
 // 设置快照页面：保存、恢复与聊天/角色绑定；区分保存失败与回读未确认，支持只读重新核验。
 import { chooseApiSnapshotBinding } from '../../api/ui/api-snapshot-bind.js';
 import { createSnapshotEditor } from './snapshot-editor.js';
+import { createSnapshotSharing } from './snapshot-share-dialog.js';
 import { createSnapshotReasoningForm } from './snapshot-reasoning-form.js';
 import { snapshotScope, sortSnapshotFavorites } from '../snapshot.js';
 import { createSnapshotScopePicker, snapshotScopeText } from './snapshot-scope.js';
@@ -56,6 +57,24 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
   }
   const grouping=createLibraryGrouping({parent:element,toolbar,list,label:'快照',read:()=>data&&({folders:data.folders,items:data.snapshots}),isBusy:()=>busy||disposed||pendingFavorites.size>0,render,
     onSave:p=>saveFolders('snapshot-folders',p),onRemove:p=>saveFolders('snapshot-folder-delete',p)});
+  const sharing = createSnapshotSharing({
+    parent:element, toolbar, host, read:() => data?.snapshots || [],
+    canOpen:() => !!data && !busy && !disposed && !editor && !pendingFavorites.size,
+    onOpen:() => setBusy(true),
+    onClose() {
+      if (disposed) return;
+      setBusy(false);
+      if (refreshPending) { refreshPending = false; void refresh(); }
+    },
+    onImported(result, count) {
+      data = result; render();
+      reportResult(result, '已导入 ' + count + ' 份快照');
+    },
+    onDownload(state) {
+      showStatus(state === 'saved' ? '分享文件已保存' : state === 'cancelled' ? '已取消导出' : '已发起分享文件下载');
+    },
+  });
+  sharing.update();
   const unsubscribe = host.on('snapshots-changed', change => {
     if (change?.favoriteId && pendingFavorites.has(change.favoriteId)) return;
     if (busy || editor || pendingFavorites.size) refreshPending = true; else void refresh();
@@ -97,7 +116,7 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
   function setBusy(value) {
     busy = value;
     for (const b of element.querySelectorAll('button')) {
-      if(b.closest('.pcm-library-dialog'))continue;
+      if(b.closest('.pcm-library-dialog,.pcm-snapshot-share-dialog'))continue;
       if ([back, close, theme].includes(b)) continue;
       b.disabled = value || b.dataset.unavailable === 'true' || b.dataset.favoritePending === 'true';
     }
@@ -105,6 +124,7 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
     for (const input of scopePicker.querySelectorAll('input')) input.disabled=value;
     verify.disabled = value || pendingFavorites.size > 0;
     grouping.update();
+    sharing.update();
   }
   function bindingName(id) {return data.snapshots.find(s => s.id === id)?.name || (id ? '快照已删除' : '未绑定');}
   function favoriteValue(snapshot) {return pendingFavorites.get(snapshot.id)?.favorite ?? (snapshot.favorite === true);}
@@ -131,6 +151,7 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
     }
     if(focused?.isConnected&&list.contains(focused)&&!focused.disabled&&document.activeElement!==focused)focused.focus({preventScroll:true});
     grouping.update();
+    sharing.update();
   }
   function render() {
     if (disposed || !data) return;
@@ -187,7 +208,7 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
       const character = button('绑定此角色', () => execute('bind', {...snapshot, target: 'character'}));
       chat.dataset.unavailable = String(!c.canBindChat); character.dataset.unavailable = String(!c.canBindCharacter);
       top.append(apply);
-      actions.append(button('绑定api',async()=>{try{await chooseApiSnapshotBinding({host,parent:element,snapshotId:snapshot.id});}catch(error){showStatus(error.message,true);}}), chat, character);
+      actions.append(button('绑定api',async()=>{try{await chooseApiSnapshotBinding({host,parent:element,snapshotId:snapshot.id});}catch(error){showStatus(error.message,true);}}), chat, character, sharing.single(snapshot));
       card.append(top, favoriteStatus, range, summary, mounts);
       if(included.reasoning)card.append(node('p','pcm-snapshot-summary','推理设置：'+(snapshot.reasoning?.name||'自定义格式')+(snapshot.reasoning?.version===1?'（旧版解析绑定）':'')));
       card.append(actions);cardTarget(snapshot.id).append(card);
@@ -325,5 +346,5 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
     } catch (error) {if (!disposed) {showStatus(error.message, true); toast.error(error.message);}}
     finally {if (!disposed) {setBusy(false); if (refreshPending) {refreshPending = false; void refresh();}}}
   }
-  return {element, refresh, destroy() {disposed = true; grouping.destroy();lifetime.abort(); revision++; unsubscribe(); editor?.destroy(); element.remove();}};
+  return {element, refresh, destroy() {disposed = true; sharing.destroy(); grouping.destroy();lifetime.abort(); revision++; unsubscribe(); editor?.destroy(); element.remove();}};
 }
