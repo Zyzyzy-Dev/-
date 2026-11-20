@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import * as codec from '../src/features/snapshot/snapshot-share.js';
 import * as checks from '../src/host/snapshot-share-checks.js';
+import * as presetReferences from '../src/host/snapshot-preset-rename.js';
 import * as snapshots from '../src/features/snapshot/snapshot.js';
 import * as resources from '../src/features/snapshot/snapshot-resources.js';
 
@@ -52,7 +53,7 @@ function fixture() {
     manager:{getPresetList:()=>catalog,getSelectedPresetName:()=>state.selected},
     world:{world_names:['书'],selected_world_info:[],world_info:{},worldInfoCache:new Map(),loadWorldInfo:async()=>{state.bookReads++;await state.onBook?.();return book;}},
   };
-  const deps={...codec,...checks,...snapshots,...resources,API_BINDINGS_KEY:links,clone:structuredClone,nativeGroupController:null,
+  const deps={...codec,...checks,...snapshots,...resources,...presetReferences,API_BINDINGS_KEY:links,clone:structuredClone,nativeGroupController:null,
     snapshotEnvironment:()=>env,readSnapshotReasoning:async()=>({current:{}}),waitSnapshotPreset:async()=>{},settleBaiBai:async()=>{},
     snapshotWorldSelection:()=>{},selectSnapshotPreset:(_env,name)=>{
       if (name!==state.selected) {state.selections++;state.selected=name;env.openai.oai_settings=catalog.presets[catalog.preset_names.indexOf(name)];}
@@ -70,6 +71,32 @@ function fixture() {
   return {call,state,env,store,book,target,catalog};
 }
 const bundle=(...items)=>codec.buildSnapshotShare(items);
+
+test('手动重新指定可修复缺失预设，保留旧开关、正则指纹、身份和绑定',async()=>{
+  const f=fixture(), original=f.store.snapshots[0];
+  original.favorite=true;
+  original.orderCharacterId=42;
+  f.catalog.preset_names[1]='改名后';
+  const ctx=(await f.call('snapshot-list',{})).context.key;
+  assert.deepEqual(await f.call('snapshot-preset-options',{}),['当前','改名后']);
+  const args={id:original.id,oldName:'另一份',newName:'改名后',contextKey:ctx};
+  await assert.rejects(f.call('snapshot-retarget-preset',{...args,newName:'缺失'}),/目标预设/);
+  await assert.rejects(f.call('snapshot-retarget-preset',{...args,oldName:'已过期'}),/刷新/);
+  f.target.prompts[0].name='另一条';
+  await assert.rejects(f.call('snapshot-retarget-preset',args),/冲突/);
+  f.target.prompts[0].name='开场';
+  f.state.mode='fail';
+  await assert.rejects(f.call('snapshot-retarget-preset',args),/写入失败/);
+  assert.equal(f.store.snapshots[0],original);
+  f.state.mode='ok';
+  await f.call('snapshot-retarget-preset',args);
+  const next=f.store.snapshots[0];
+  assert.deepEqual(next,{...original,updatedAt:next.updatedAt,presetName:'改名后',
+    presetRegex:{...original.presetRegex,owner:{apiId:'openai',presetName:'改名后'}}});
+  assert.equal(f.state.selections,0);assert.deepEqual(f.store.characterBindings,{'local.png':'source'});
+  assert.equal(f.target.prompt_order[0].order[0].enabled,false);
+  await assert.rejects(f.call('snapshot-save-draft',{id:next.id,originalPresetName:'另一份',contextKey:ctx}),/重新打开详情/);
+});
 
 test('接收方可以核对每一个缺少的条目，包括第四项以后的名称', async () => {
   const f=fixture(), data=shared();

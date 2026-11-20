@@ -2,6 +2,7 @@
 import { chooseApiSnapshotBinding } from '../../api/ui/api-snapshot-bind.js';
 import { createSnapshotEditor } from './snapshot-editor.js';
 import { createSnapshotSharing } from './snapshot-share-dialog.js';
+import {chooseSnapshotPreset} from './snapshot-preset-dialog.js';
 import { createSnapshotReasoningForm } from './snapshot-reasoning-form.js';
 import { snapshotScope, sortSnapshotFavorites } from '../snapshot.js';
 import { createSnapshotScopePicker, snapshotScopeText } from './snapshot-scope.js';
@@ -116,7 +117,7 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
   function setBusy(value) {
     busy = value;
     for (const b of element.querySelectorAll('button')) {
-      if(b.closest('.pcm-library-dialog,.pcm-snapshot-share-dialog'))continue;
+      if(b.closest('.pcm-library-dialog,.pcm-snapshot-share-dialog,.pcm-snapshot-preset-dialog'))continue;
       if ([back, close, theme].includes(b)) continue;
       b.disabled = value || b.dataset.unavailable === 'true' || b.dataset.favoritePending === 'true';
     }
@@ -200,6 +201,10 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
       const books = snapshot.resources?.worlds?.global || snapshot.worldNames || [];
       const included=snapshotScope(snapshot);
       const summary = node('p', 'pcm-snapshot-summary', included.preset ? '当前预设：'+(snapshot.presetName || '无效预设') : '预设：保持当前');
+      if (included.preset) {
+        const choose = button('重新指定预设',()=>execute('retarget',snapshot));
+        choose.className='pcm-snapshot-retarget'; summary.append(choose);
+      }
       const mounts = node('p', 'pcm-snapshot-books', !included.worlds ? '全局世界书：保持当前' : books.length ? '全局世界书：'+books.join('、') : '全局世界书：不挂载');
       const range=node('p','pcm-snapshot-saved-scope','保存范围：'+snapshotScopeText(included));
       const actions = node('div', 'pcm-snapshot-actions');
@@ -319,6 +324,13 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
         if (name === null || disposed) return;
         result = await host.request(action === 'save' ? 'snapshot-save' : 'snapshot-rename', {id: action === 'rename' ? snapshot.id : undefined, name, contextKey,scope:action==='save'?{...saveScope}:undefined});
         message = action === 'save' ? '快照已保存' : '名称已更新';
+      } else if (action === 'retarget') {
+        const names = await host.request('snapshot-preset-options');
+        if (disposed) return;
+        const newName = await chooseSnapshotPreset(element,snapshot,names,lifetime.signal);
+        if (!newName || disposed) return;
+        result = await host.request('snapshot-retarget-preset',{id:snapshot.id,oldName:snapshot.presetName,newName,contextKey});
+        message = '快照已指向「'+newName+'」';
       } else if (action === 'update') {
         const scope=snapshotScope(snapshot),range=snapshotScopeText(scope);
         if (!(await confirm('用酒馆当前设置覆盖「'+snapshot.name+'」？\n覆盖范围：'+range+'。\n保留方案名称和绑定关系；绑定此方案的聊天和角色以后会使用覆盖后的设置。')) || disposed) return;

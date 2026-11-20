@@ -11,6 +11,7 @@ const OPERATIONS = Object.freeze({
   'snapshot-apply':'应用快照', 'snapshot-bind':'绑定快照', 'snapshot-favorite':'收藏快照',
   'snapshot-share-export':'准备快照分享文件', 'snapshot-share-download':'导出快照文件',
   'snapshot-share-preview':'预检快照资源', 'snapshot-share-import':'导入快照副本',
+  'snapshot-preset-options':'读取快照可选预设', 'snapshot-retarget-preset':'重新指定快照预设',
   'api-manager-list':'读取 API 方案', 'api-manager-links':'读取 API 绑定', 'api-manager-models':'拉取 API 模型',
   'api-manager-native-list':'读取原生连接列表', 'api-manager-native-import':'导入原生连接', 'api-manager-preflight':'检查 API 连接',
   'api-manager-save':'保存 API 方案', 'api-manager-delete':'删除 API 方案', 'api-manager-bind':'绑定 API 方案',

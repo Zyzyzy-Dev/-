@@ -163,6 +163,7 @@
 .pcm-share-item summary {cursor:pointer}
 .pcm-share-item summary small {display:block;margin:3px 0 0 15px;color:var(--snap-muted)}
 .pcm-share-item p {margin-top:4px;font-size:13px}
+.pcm-snapshot-card .pcm-snapshot-retarget {margin-inline-start:8px;font-size:12px;padding:2px 6px;min-height:24px}
 .pcm-share-checks {display:grid;gap:6px;margin:8px 0 0;padding:0;list-style:none}
 .pcm-share-checks li {display:flex;align-items:baseline;gap:8px;min-width:0;font-size:13px}
 .pcm-share-checks li strong {flex:none}

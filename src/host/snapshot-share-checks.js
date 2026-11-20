@@ -115,9 +115,9 @@ export function shareBookChecks(book, index) {
   return compareRows(label,book.entries,'uid',index);
 }
 
-export function assertNoShareConflicts(checks) {
+export function assertNoShareConflicts(checks, message='分享快照有资源冲突，请核对本地资源或重新保存快照。') {
   const conflicts = checks.filter(item=>item.status==='conflict');
-  if (conflicts.length) throw new Error('分享快照有资源冲突，请核对本地资源或重新保存快照。'+conflicts[0].label+' · '+conflicts[0].detail+(conflicts.length>1?' 等':''));
+  if (conflicts.length) throw new Error(message+conflicts[0].label+' · '+conflicts[0].detail+(conflicts.length>1?' 等':''));
 }
 
 function presetData(env, name, activeName, activeGroups, orderId) {
