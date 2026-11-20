@@ -176,13 +176,19 @@ test('导入后本地资源更换身份，实际应用在切换预设和写入�
   }
 });
 
-test('确认导入时不切预设，稍后手动应用能恢复匹配的开关',async()=>{
+test('导入不切预设，应用时切到指定预设并保留自加条目及旧版预设的开关',async()=>{
   const f=fixture(), item=shared();
   item.scope={...item.scope,worlds:false,regex:false,presetRegex:false};
+  const previousPreset=structuredClone(f.env.openai.oai_settings);
+  const localEntries=[{identifier:'local-on',enabled:true},{identifier:'local-off',enabled:false}];
+  f.target.prompts.push(...localEntries.map(({identifier})=>({identifier,name:identifier})));
+  f.target.prompt_order[0].order.push(...structuredClone(localEntries));
   const result=await f.call('snapshot-share-import',{bundle:bundle(item)});
   assert.equal(f.state.selected,'当前');assert.equal(f.target.prompt_order[0].order[0].enabled,false);
   const applied=await f.call('snapshot-apply',{id:result.snapshots.at(-1).id,contextKey:result.context.key});
   assert.deepEqual(applied.warnings,[]);assert.equal(f.state.selected,'另一份');
-  assert.equal(f.target.prompt_order[0].order[0].enabled,true);assert.equal(f.target.extensions.baibaiToolkit.presetPromptGroups.groups[0].enabled,true);
+  assert.deepEqual(f.target.prompt_order[0].order,[{identifier:'p',enabled:true},...localEntries]);
+  assert.deepEqual(f.catalog.presets[0],previousPreset);
+  assert.equal(f.target.extensions.baibaiToolkit.presetPromptGroups.groups[0].enabled,true);
   assert.equal(f.state.selections,1);assert.equal(f.state.writes,2);
 });

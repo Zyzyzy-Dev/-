@@ -30,12 +30,6 @@ function exportSummary(snapshot) {
   ]) {
     if (included) section.append(node('p', label + '：' + ((rules || []).map(rule => rule.name || rule.id).join('、') || '无')));
   }
-  const details = node('details', undefined, 'pcm-share-fields');
-  details.append(node('summary', '查看实际分享字段'));
-  details.addEventListener('toggle', () => {
-    if (details.open && details.childElementCount === 1) details.append(node('pre', JSON.stringify(snapshot, null, 2)));
-  });
-  section.append(details);
   return section;
 }
 
@@ -200,7 +194,7 @@ export function createSnapshotSharing({parent, toolbar, host, read, canOpen, onO
     await session.run('正在读取分享内容…', false, async () => {
       const bundle = await host.request('snapshot-share-export', {ids});
       if (!session.alive()) return;
-      session.reset('分享快照');
+      session.reset('导出快照');
       session.body.append(node('p', '文件包含 ' + bundle.snapshots.length + ' 份快照。接收方需另行准备对应的预设、世界书和正则。'),
         node('p', '文件按下列范围分享条目名称与开关、世界书关键词及条目配置、正则名称与开关、推理格式等。预设和世界书正文、正则脚本、绑定关系及 API 连接资料留在本机。'));
       for (const snapshot of bundle.snapshots) session.body.append(exportSummary(snapshot));
@@ -221,8 +215,8 @@ export function createSnapshotSharing({parent, toolbar, host, read, canOpen, onO
       }
     },
     single(snapshot) {
-      const el = button('分享', () => {
-        const session = start('分享快照', el);
+      const el = button('导出', () => {
+        const session = start('导出快照', el);
         if (session) void prepareExport(session, [snapshot.id]);
       });
       el.dataset.shareSnapshot = snapshot.id;
