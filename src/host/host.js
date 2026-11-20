@@ -904,6 +904,7 @@ function selectedSnapshotWorlds(env) {
 async function snapshotList(env) {
   const store = snapshotStore(env), context = snapshotContext(env);
   try {context.reasoning=(await readSnapshotReasoning()).current;} catch(error) {context.reasoningError=error.message;}
+  try {context.presetNames = snapshotPresetNames(env.manager);} catch {context.presetNames = null;}
   const active = resolveSnapshotBinding(store, context.canBindChat ? context.chatBindingId : null, context.characterKey);
   return clone({snapshots: store.snapshots, folders:store.folders||[], context, activeBinding: active ? {id: active.snapshot.id, name: active.snapshot.name, source: active.source} : null, busy: snapshotBusy > 0, persistence: snapshotPersistenceStatus.get(store) || null});
 }
@@ -1218,7 +1219,7 @@ async function selectSnapshotPreset(env, name, scope, waitRegex = false) {
   if (snapshotContext(env).presetName === name) return;
   const {preset_names: names} = env.manager.getPresetList();
   const value = Array.isArray(names) ? names.indexOf(name) : (Object.hasOwn(names || {}, name) ? names[name] : undefined);
-  if (value === undefined || value === -1) throw new Error('找不到预设「'+name+'」，请在快照卡片上重新指定预设');
+  if (value === undefined || value === -1) throw new Error('找不到预设「'+name+'」，请点击快照卡片上预设名称旁的警示标志重新指定预设');
   const complete=waitRegex&&typeof env.openai.getPresetApplicationPromise==='function';
   const events = env.script.eventSource, type = waitRegex&&!complete?env.script.event_types?.PRESET_CHANGED:env.script.event_types?.OAI_PRESET_CHANGED_AFTER;
   if (!events?.on || !type || !env.manager.selectPreset) throw new Error('当前酒馆不支持等待预设切换，请手动选择预设后重试');
@@ -1392,7 +1393,7 @@ async function applySettingsSnapshot(env, snapshot, payload, automatic = false) 
   assertSnapshotIdle(env);
   const targetName = included.preset ? snapshot.presetName : context.presetName;
   const targetPreset = included.preset ? readPresetByName(env.manager, targetName) : current.settings;
-  if (included.preset && !targetPreset) throw new Error('找不到预设「'+snapshot.presetName+'」，请在快照卡片上重新指定预设');
+  if (included.preset && !targetPreset) throw new Error('找不到预设「'+snapshot.presetName+'」，请点击快照卡片上预设名称旁的警示标志重新指定预设');
   if (snapshot.importedShare===true) assertSharedSwitches(env,snapshot,context.presetName,()=>snapshotGroups(env),current.orderCharacterId);
   if (included.worlds && !Array.isArray(env.world.world_names)) throw new Error('全局世界书列表尚未就绪');
   if(included.presetRegex)restorePresetRegex(snapshot.presetRegex,(context.presetName===targetName?current.settings:targetPreset)?.extensions?.regex_scripts||[],{apiId:'openai',presetName:targetName});
@@ -1549,11 +1550,12 @@ async function handleSnapshotRequest(method, payload) {
       assertSnapshotContext(env,payload.contextKey);
       const {oldName,newName} = payload;
       if (!existing || existing.presetName!==oldName || !snapshotScope(existing).preset) throw Error('快照的预设已变化，请刷新后重新选择');
-      const names = snapshotPresetNames(env.manager);
-      const preset = readPresetByName(env.manager,newName);
-      if (!preset || names.filter(name=>name===newName).length!==1) throw Error('目标预设已不存在或名称重复，请重新选择');
       const active = context.presetName===newName && env.script.main_api==='openai';
       if (active) {await waitSnapshotPreset(env,context);await settleBaiBai(env,context);assertSnapshotContext(env,payload.contextKey);}
+      const names = snapshotPresetNames(env.manager);
+      if (names.includes(oldName)) throw Error('原预设「'+oldName+'」已可用，快照可以直接应用。');
+      const preset = readPresetByName(env.manager,newName);
+      if (!preset || names.filter(name=>name===newName).length!==1) throw Error('目标预设已不存在或名称重复，请重新选择');
       const settings = active ? env.openai.oai_settings : preset;
       const groups = active ? snapshotGroups(env) : settings.extensions?.baibaiToolkit?.presetPromptGroups;
       await saveRetargetedSnapshots(store,new Set([existing.id]),oldName,newName,
@@ -1701,6 +1703,10 @@ async function installSnapshotBindings(controller) {
   if (!script.eventSource?.on) return;
   snapshotInstalled = true;
   snapshotNotify = detail => controller.sendEvent('snapshots-changed', detail);
+  for (const key of ['PRESET_DELETED','PRESET_RENAMED']) {
+    const type = script.event_types?.[key];
+    if (type) script.eventSource.on(type, event => {if (event?.apiId==='openai') snapshotNotify();});
+  }
   watchSnapshotPresetRenames({
     script, environment:snapshotEnvironment, storeFor:env=>env.extensions.extension_settings?.[SNAPSHOT_KEY],
     diskNames:async (env,expectedStore)=>{
@@ -1725,7 +1731,10 @@ async function installSnapshotBindings(controller) {
     first(after, () => {
       snapshotPresetLoads = Math.max(0, snapshotPresetLoads - 1);
       if (snapshotPresetLoads === 0) {for (const resolve of snapshotPresetWaiters) resolve(); snapshotPresetWaiters.clear();}
+      snapshotNotify();
     });
+  } else if (script.event_types?.PRESET_CHANGED) {
+    script.eventSource.on(script.event_types.PRESET_CHANGED,event=>{if (event?.apiId==='openai') snapshotNotify();});
   }
   const identity = () => {
     const ctx = globalThis.SillyTavern?.getContext?.() || {};

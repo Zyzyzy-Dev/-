@@ -4,7 +4,9 @@ import {snapshotScope, validateSnapshot} from '../features/snapshot/snapshot.js'
 export function snapshotPresetNames(manager) {
   const {preset_names:names} = manager.getPresetList();
   if (!names || typeof names !== 'object') throw Error('酒馆预设目录尚未就绪');
-  return Array.isArray(names) ? names : Object.keys(names);
+  const list = Array.isArray(names) ? [...names] : Object.keys(names);
+  if (!list.length || list.some(name=>typeof name !== 'string' || !name.trim())) throw Error('酒馆预设目录为空或尚未就绪');
+  return list;
 }
 
 function retargetSnapshot(snapshot, oldName, newName) {
@@ -46,7 +48,7 @@ export function watchSnapshotPresetRenames({script, environment, storeFor, diskN
   if (!before || !after) return;
   let pending;
   let completion = Promise.resolve();
-  const warn = message => notify('warning', message+'；可在快照卡片上重新指定预设。');
+  const warn = message => notify('warning', message+'。请刷新快照列表核对，原预设缺失时可点击名称旁的警示标志重新指定。');
   script.eventSource.on(before, async event => {
     if (event?.apiId !== 'openai') return;
     const {oldName, newName} = event;

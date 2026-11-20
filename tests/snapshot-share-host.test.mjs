@@ -72,6 +72,34 @@ function fixture() {
 }
 const bundle=(...items)=>codec.buildSnapshotShare(items);
 
+test('列表一次读取所有本机预设名，目录未就绪时仍可列出快照',async()=>{
+  const f=fixture();
+  let reads=0;
+  f.env.manager.getPresetList=()=>{reads++;return f.catalog;};
+  for (const [catalog,expected] of [
+    [['当前','另一份'],['当前','另一份']], [{'当前':0,'另一份':1},['当前','另一份']],
+    [['当前','旧版'],['当前','旧版']], [undefined,null], [[],null], [['当前',null],null],
+  ]) {
+    f.catalog.preset_names=catalog;
+    const before=reads;
+    const result=await f.call('snapshot-list',{});
+    assert.deepEqual(result.context.presetNames,expected);
+    assert.equal(result.snapshots[0].presetName,'另一份');
+    assert.equal(reads-before,1);
+  }
+  assert.equal(f.state.reads,0);assert.equal(f.state.writes,0);
+});
+
+test('选择新预设期间旧名重新出现，保留原引用和设置',async()=>{
+  const f=fixture(), original=structuredClone(f.store);
+  f.catalog.preset_names[1]='新版';
+  const contextKey=(await f.call('snapshot-list',{})).context.key;
+  assert.ok(!(await f.call('snapshot-preset-options',{})).includes('另一份'));
+  f.catalog.preset_names.push('另一份');f.catalog.presets.push(preset('另一份'));
+  await assert.rejects(f.call('snapshot-retarget-preset',{id:'source',oldName:'另一份',newName:'新版',contextKey}),/原预设.*已可用/);
+  assert.deepEqual(f.store,original);assert.equal(f.state.writes,0);assert.equal(f.state.selections,0);
+});
+
 test('手动重新指定可修复缺失预设，保留旧开关、正则指纹、身份和绑定',async()=>{
   const f=fixture(), original=f.store.snapshots[0];
   original.favorite=true;

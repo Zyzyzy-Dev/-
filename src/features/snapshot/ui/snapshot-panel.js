@@ -88,7 +88,7 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
   }
   function iconButton(label, icon, action) {
     const b=button('',action);b.className='pcm-snapshot-icon pcm-api-icon';b.title=label;b.setAttribute('aria-label',label);
-    const paths={close:'m6 6 12 12M6 18 18 6',home:'m3 10 9-7 9 7M5 9v12h5v-7h4v7h5V9',refresh:'M20 7v5h-5 M4 17v-5h5 M6.1 7a7 7 0 0 1 11.5-1L20 9 M4 15l2.4 3A7 7 0 0 0 18 17',rename:'m14 5 5 5 M4 20l4-1L20 7a2.1 2.1 0 0 0-3-3L5 16l-1 4Z',delete:'M3 6h18 M9 6V3h6v3 M6 6l1 15h10l1-15 M10 10v7 M14 10v7'};
+    const paths={close:'m6 6 12 12M6 18 18 6',home:'m3 10 9-7 9 7M5 9v12h5v-7h4v7h5V9',refresh:'M20 7v5h-5 M4 17v-5h5 M6.1 7a7 7 0 0 1 11.5-1L20 9 M4 15l2.4 3A7 7 0 0 0 18 17',rename:'m14 5 5 5 M4 20l4-1L20 7a2.1 2.1 0 0 0-3-3L5 16l-1 4Z',delete:'M3 6h18 M9 6V3h6v3 M6 6l1 15h10l1-15 M10 10v7 M14 10v7',warning:'m12 3 10 17H2L12 3Z M12 9v5 M12 17h.01'};
     b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+paths[icon]+'"/></svg>';
     return b;
   }
@@ -188,6 +188,10 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
       list.append(empty);
     }
     const visible=visibleSnapshots();
+    const presetNames = c.presetNames && new Set(c.presetNames);
+    if (c.presetNames===null && visible.some(s=>snapshotScope(s).preset)) {
+      list.append(node('p','pcm-snapshot-notice pcm-snapshot-catalog-notice','暂时无法核对预设目录，请在酒馆加载或导入预设后刷新快照列表。'));
+    }
     if(data.snapshots.length&&!visible.length)list.append(node('p','pcm-snapshot-empty','没有匹配的快照，请调整搜索或当前预设筛选。'));
     const cardTarget=folderCardTargets(list,data.folders,visible,folded,!!search.value.trim()||currentOnly,[],grouping.actions);
     for (const snapshot of visible) {
@@ -201,9 +205,9 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
       const books = snapshot.resources?.worlds?.global || snapshot.worldNames || [];
       const included=snapshotScope(snapshot);
       const summary = node('p', 'pcm-snapshot-summary', included.preset ? '当前预设：'+(snapshot.presetName || '无效预设') : '预设：保持当前');
-      if (included.preset) {
-        const choose = button('重新指定预设',()=>execute('retarget',snapshot));
-        choose.className='pcm-snapshot-retarget'; summary.append(choose);
+      if (included.preset && presetNames && !presetNames.has(snapshot.presetName)) {
+        const warning = iconButton('找不到预设「'+snapshot.presetName+'」，点击重新指定预设','warning',()=>execute('retarget',snapshot));
+        warning.classList.add('pcm-snapshot-retarget'); summary.append(warning);
       }
       const mounts = node('p', 'pcm-snapshot-books', !included.worlds ? '全局世界书：保持当前' : books.length ? '全局世界书：'+books.join('、') : '全局世界书：不挂载');
       const range=node('p','pcm-snapshot-saved-scope','保存范围：'+snapshotScopeText(included));
@@ -327,6 +331,11 @@ export function createSnapshotPanel({host, onBack, onClose, onCycleTheme, themeI
       } else if (action === 'retarget') {
         const names = await host.request('snapshot-preset-options');
         if (disposed) return;
+        if (names.includes(snapshot.presetName)) {
+          data.context.presetNames = names; render();
+          showStatus('原预设「'+snapshot.presetName+'」已可用，快照可以直接应用。');
+          return;
+        }
         const newName = await chooseSnapshotPreset(element,snapshot,names,lifetime.signal);
         if (!newName || disposed) return;
         result = await host.request('snapshot-retarget-preset',{id:snapshot.id,oldName:snapshot.presetName,newName,contextKey});

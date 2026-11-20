@@ -163,7 +163,10 @@
 .pcm-share-item summary {cursor:pointer}
 .pcm-share-item summary small {display:block;margin:3px 0 0 15px;color:var(--snap-muted)}
 .pcm-share-item p {margin-top:4px;font-size:13px}
-.pcm-snapshot-card .pcm-snapshot-retarget {margin-inline-start:8px;font-size:12px;padding:2px 6px;min-height:24px}
+.pcm-snapshot-manager .pcm-snapshot-card .pcm-snapshot-retarget {margin-inline-start:4px;vertical-align:middle;width:30px;height:30px;min-height:30px;padding:5px;border:0;background:transparent;color:color-mix(in srgb,var(--snap-fg) 50%,#cb8015)}
+.pcm-snapshot-manager .pcm-snapshot-card .pcm-snapshot-retarget:hover {background:var(--snap-soft)}
+.pcm-snapshot-retarget svg {width:19px;height:19px}
+.pcm-snapshot-catalog-notice {grid-column:1/-1;margin:0}
 .pcm-share-checks {display:grid;gap:6px;margin:8px 0 0;padding:0;list-style:none}
 .pcm-share-checks li {display:flex;align-items:baseline;gap:8px;min-width:0;font-size:13px}
 .pcm-share-checks li strong {flex:none}
